@@ -1,0 +1,1 @@
+Sujet : 1. Conception d'un agent conversationnel pour l'exploration et la manipulation de bases de données relationnelles
