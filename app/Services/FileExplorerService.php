@@ -7,18 +7,22 @@ use RuntimeException;
 class FileExplorerService
 {
     protected ?array $allowedBasePaths;
+
     protected bool $onlyFolders;
 
-    public function __construct(?array $allowedBasePaths = null, bool $onlyFolders = false)
+    protected array $targetFileExtensions;
+
+    public function __construct(?array $allowedBasePaths = null, bool $onlyFolders = false, array $targetFileExtensions = [])
     {
         $this->allowedBasePaths = $allowedBasePaths ?? [$this->getUserHomeDirectory()];
 
         $this->onlyFolders = $onlyFolders;
+        $this->targetFileExtensions = $targetFileExtensions;
     }
 
     /**
-     * @param  string  $path   Chemin absolu du dossier à explorer
-     * @param  int     $depth  Nombre de niveaux à précharger (2 = enfants + petits-enfants)
+     * @param  string|null  $path  Chemin absolu du dossier à explorer
+     * @param  int  $depth  Nombre de niveaux à précharger (2 = enfants + petits-enfants)
      */
     public function getFolderTree(?string $path = null, int $depth = 2): array
     {
@@ -30,16 +34,15 @@ class FileExplorerService
             'id' => $realPath,
             'name' => basename($realPath),
             'type' => 'folder',
-            'children' => $this->getChildren($realPath, $depth, $this->onlyFolders),
+            'children' => $this->getChildren($realPath, $depth),
         ];
     }
-
 
     protected function resolveAndAuthorize(string $path): string
     {
         $realPath = realpath($path);
 
-        if ($realPath === false || !is_dir($realPath)) {
+        if ($realPath === false || ! is_dir($realPath)) {
             throw new RuntimeException("Le dossier [{$path}] n'existe pas ou n'est pas accessible.");
         }
 
@@ -47,9 +50,9 @@ class FileExplorerService
             $isAllowed = collect($this->allowedBasePaths)
                 ->map(fn ($base) => realpath($base))
                 ->filter()
-                ->contains(fn ($base) => str_starts_with($realPath . DIRECTORY_SEPARATOR, rtrim($base, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR));
+                ->contains(fn ($base) => str_starts_with($realPath.DIRECTORY_SEPARATOR, rtrim($base, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR));
 
-            if (!$isAllowed) {
+            if (! $isAllowed) {
                 throw new RuntimeException("Accès refusé au dossier [{$path}].");
             }
         }
@@ -62,7 +65,7 @@ class FileExplorerService
      */
     protected function getChildren(string $path, int $depth): array
     {
-        if ($depth <= 0 || !is_readable($path)) {
+        if ($depth <= 0 || ! is_readable($path)) {
             return [];
         }
 
@@ -79,9 +82,9 @@ class FileExplorerService
                 continue;
             }
 
-            $childPath = $path . DIRECTORY_SEPARATOR . $entry;
+            $childPath = $path.DIRECTORY_SEPARATOR.$entry;
 
-            if (!is_readable($childPath)) {
+            if (! is_readable($childPath)) {
                 continue;
             }
 
@@ -96,9 +99,15 @@ class FileExplorerService
 
                 $folders[] = $node;
             } else {
-                
-                if($this->onlyFolders) {
+                if ($this->onlyFolders) {
                     continue;
+                }
+
+                if (! empty($this->targetFileExtensions)) {
+                    $extension = pathinfo($entry, PATHINFO_EXTENSION);
+                    if (! in_array(strtolower($extension), array_map('strtolower', $this->targetFileExtensions))) {
+                        continue;
+                    }
                 }
 
                 $files[] = [
@@ -115,14 +124,11 @@ class FileExplorerService
         return [...$folders, ...$files];
     }
 
-
-
-
     public function getUserHomeDirectory(): string
     {
         if (function_exists('posix_getpwuid') && function_exists('posix_getuid')) {
             $info = posix_getpwuid(posix_getuid());
-            if (!empty($info['dir'])) {
+            if (! empty($info['dir'])) {
                 return $info['dir'];
             }
         }
@@ -141,10 +147,9 @@ class FileExplorerService
         $homePath = getenv('HOMEPATH');
 
         if ($homeDrive !== false && $homePath !== false) {
-            return $homeDrive . $homePath;
+            return $homeDrive.$homePath;
         }
 
-        throw new \RuntimeException('Unable to determine the user\'s home directory.');
+        throw new RuntimeException('Unable to determine the user\'s home directory.');
     }
-
 }

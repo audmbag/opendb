@@ -1,4 +1,3 @@
-import FileTreeController from '@/wayfinder/actions/App/Http/Controllers/FileTreeController';
 import {
     asyncDataLoaderFeature,
     hotkeysCoreFeature,
@@ -15,11 +14,8 @@ import {
     FolderOpenIcon,
     PaletteIcon,
 } from 'lucide-react';
-import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-
-const FAKE_NETWORK_DELAY = 300;
-
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import FileTreeController from '@/wayfinder/actions/App/Http/Controllers/FileTreeController';
 
 const INDENT = 20;
 
@@ -72,15 +68,17 @@ const getFileIcon = (
 function buildIndex(nodes: FileNode[], map = new Map<string, FileNode>()) {
     for (const node of nodes) {
         map.set(node.id, node);
+
         if (node.children?.length) {
             buildIndex(node.children, map);
         }
     }
+
     return map;
 }
 
 
-const useFileFetch = (onlyFolders?: boolean) => {
+const useFileFetch = (onlyFolders?: boolean, targetFileExtensions?: string[]) => {
     const [rootFolder, setRootFolder] = useState<FileNode | null>(null);
     const hasFetchedRef = useRef(false);
 
@@ -91,9 +89,10 @@ const useFileFetch = (onlyFolders?: boolean) => {
         if (hasFetchedRef.current) {
             return;
         }
+
         hasFetchedRef.current = true;
 
-        get(FileTreeController.url({query: { onlyFolders }}), {
+        get(FileTreeController.url({query: { onlyFolders, targetFileExtensions: targetFileExtensions?.join(',') }}), {
             onSuccess: (response) => {
                 setRootFolder(response);
             },
@@ -101,12 +100,12 @@ const useFileFetch = (onlyFolders?: boolean) => {
                 console.log(error);
             },
         });
-    }, []);
+    });
 
     const fetchFolder = useCallback(
         (path: string): Promise<FileNode> => {
             return new Promise((resolve, reject) => {
-                getChild(FileTreeController.url({ query: { path, onlyFolders } }), {
+                getChild(FileTreeController.url({ query: { path, onlyFolders, targetFileExtensions:  targetFileExtensions?.join(',') } }), {
                     onSuccess: (response) => resolve(response),
                     onError: (error) => reject(error),
                 });
@@ -122,9 +121,11 @@ function mergeNode(root: FileNode, updated: FileNode): FileNode {
     if (root.id === updated.id) {
         return { ...root, ...updated };
     }
+
     if (!root.children) {
         return root;
     }
+
     return {
         ...root,
         children: root.children.map((child) => mergeNode(child, updated)),
@@ -134,6 +135,7 @@ function mergeNode(root: FileNode, updated: FileNode): FileNode {
 const useFileTree = (
     initialRootFolder: FileNode,
     fetchFolder: (path: string) => Promise<FileNode>,
+    onlyFolders?: boolean,
     indent: number = INDENT,
 ) => {
     const [rootFolder, setRootFolder] = useState<FileNode>(initialRootFolder);
@@ -145,7 +147,7 @@ const useFileTree = (
 
     const selectedFolder = useMemo(
         () => (selectedItemId ? (fileIndex.get(selectedItemId) ?? null) : null),
-        [selectedItemId],
+        [fileIndex, selectedItemId],
     );
 
     const resolveChildren = useCallback(
@@ -190,9 +192,11 @@ const useFileTree = (
         dataLoader: {
             getItem: (itemId) => {
                 const item = fileIndex.get(itemId);
+
                 if (!item) {
                     throw new Error(`Item ${itemId} introuvable`);
                 }
+
                 return item;
             },
             getChildrenWithData: (itemId) => resolveChildren(itemId),
@@ -206,12 +210,20 @@ const useFileTree = (
                 typeof updater === 'function' ? updater(currentItems) : updater;
 
             const nextId = items[items.length - 1] ?? null;
+
             if (nextId) {
                 const data = fileIndex.get(nextId);
-                if (!data || data.type !== 'folder') {
+
+                if (!data) {
+                    return;
+                }
+
+                if(!onlyFolders && data.type === 'folder') {
                     return;
                 }
             }
+
+
             setSelectedItemId(nextId);
         },
         features: [

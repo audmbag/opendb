@@ -1,30 +1,81 @@
-import React, { JSX } from "react";
-import { buttonVariants, Button as UIButton } from "../ui/button";
-import { VariantProps } from "class-variance-authority";
-import { LucideIcon } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import type { VariantProps } from "class-variance-authority";
+import type { LucideIcon } from "lucide-react";
+import React, { useCallback } from "react";
+import type { TooltipProps } from '@/components/tooltip';
+import Tooltip from '@/components/tooltip';
+import { Kbd, KbdGroup } from '@/components/ui/kbd';
+import { cn } from '@/lib/utils';
+import type { buttonVariants} from "../ui/button";
+import { Button as UIButton } from "../ui/button";
+import { Spinner } from "../ui/spinner";
+import AlertDialog, { AlertDialogProps } from '@/components/alert-dialog';
 
 
-export type ButtonProps = React.ComponentProps<"button">  & VariantProps<typeof buttonVariants> & {
-    asChild?: boolean,
-    icon?: LucideIcon | ((props: React.SVGProps<SVGSVGElement>) => React.ReactElement),
-    tooltip?: string | (() => JSX.Element),
-}
+export type ButtonProps = React.ComponentProps<typeof UIButton> &
+    VariantProps<typeof buttonVariants> & {
+        asChild?: boolean;
+        icon?:
+            | LucideIcon
+            | ((props: React.SVGProps<SVGSVGElement>) => React.ReactElement);
+        tooltip?: TooltipProps['value'];
+        tooltipColor?: TooltipProps['variant'];
+        processing?: boolean;
+        kbd?: string[];
+        stateAppearance?: 'success' | 'destructive';
+        confirmation?: AlertDialogProps;
+    };
 
 
+export default function Button ({asChild, icon: Icon, tooltip, tooltipColor, processing, type, kbd = [], stateAppearance, className, confirmation, onClick, ...props}: ButtonProps)  {
 
-export default function Button ({asChild, icon: Icon, tooltip, ...props}: ButtonProps)  {
+    const handleClick = useCallback<React.MouseEventHandler<HTMLButtonElement>>(async (event) => {
+        if (confirmation) {
+            event.preventDefault();
+            const result = await AlertDialog.call({
+                ...confirmation
+            });
+
+            if(result) {
+                onClick?.(event);
+            }
+        } else {
+            onClick?.(event);
+        }
+    }, [onClick, confirmation]);
+
+
     return (
-        <Tooltip>
-            <TooltipTrigger asChild>
-                <UIButton asChild={asChild} {...props}>
-                    {Icon && <Icon />}
-                    <span>{props.children}</span>
-                </UIButton>
-            </TooltipTrigger>
-            {tooltip && <TooltipContent>
-                <p>{typeof tooltip === "function" ? tooltip() : tooltip}</p>
-            </TooltipContent>}
+        <Tooltip
+            value={tooltip}
+            variant={stateAppearance ? stateAppearance : tooltipColor}
+        >
+            <UIButton
+                asChild={asChild}
+                type={type || 'button'}
+                disabled={props.disabled || processing}
+                className={cn({
+                    'bg-green-50 text-green-700 hover:bg-green-50 hover:text-green-700 dark:bg-green-950 dark:text-green-300 dark:hover:bg-green-950 dark:hover:text-green-300' : stateAppearance == 'success',
+                    'bg-red-50 text-red-700 hover:bg-red-50 hover:text-red-700 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-950 dark:hover:text-red-300' : stateAppearance == 'destructive',
+                }, className)}
+                onClick={handleClick}
+                {...props}
+            >
+                {processing ? <Spinner /> : Icon && <Icon />}
+                {props.children}
+                {kbd?.length > 0 && (
+                    <KbdGroup>
+                        {kbd?.map((key) => (
+                            <Kbd
+                                key={key}
+                                data-icon="inline-end"
+                                className="translate-x-0.5"
+                            >
+                                {key}
+                            </Kbd>
+                        ))}
+                    </KbdGroup>
+                )}
+            </UIButton>
         </Tooltip>
     );
 }

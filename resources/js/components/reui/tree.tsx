@@ -1,3 +1,6 @@
+import type { ItemInstance } from '@headless-tree/core';
+import { MinusIcon, PlusIcon, ChevronDownIcon } from "lucide-react"
+import { Slot } from 'radix-ui';
 import {
   ButtonHTMLAttributes,
   createContext,
@@ -6,11 +9,8 @@ import {
   HTMLAttributes,
   useContext,
 } from "react"
-import { ItemInstance } from "@headless-tree/core"
-import { Slot } from "radix-ui"
 
 import { cn } from "@/lib/utils"
-import { MinusIcon, PlusIcon, ChevronDownIcon } from "lucide-react"
 
 type ToggleIconType = "chevron" | "plus-minus"
 

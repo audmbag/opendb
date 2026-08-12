@@ -15,11 +15,9 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
-
         User::factory()->create([
-            'name' => 'audmbag',
-            'email' => 'audmbag@gmail.com',
+            'name' => config('opendb.default_username'),
+            'password' => bcrypt(config('opendb.default_password')),
         ]);
     }
 }

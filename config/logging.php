@@ -51,6 +51,13 @@ return [
     */
 
     'channels' => [
+        'opendb' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/opendb.log'),
+            'level' => 'info',
+            'days' => 14,
+            'replace_placeholders' => true,
+        ],
 
         'stack' => [
             'driver' => 'stack',

@@ -6,6 +6,7 @@ use App\Services\FileExplorerService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Response;
+use Illuminate\Support\Str;
 
 class FileTreeController extends Controller
 {
@@ -13,9 +14,14 @@ class FileTreeController extends Controller
     {
         $path = $request->input("path", null);
 
+        $extensionsArray = Str::of($request->query('targetFileExtensions'))
+            ->explode(',')
+            ->map(fn($ext) => trim($ext))
+            ->toArray();
+
         $onlyFolders = $request->boolean("onlyFolders", false);
 
-        $service = new FileExplorerService(onlyFolders: $onlyFolders);
+        $service = new FileExplorerService(onlyFolders: $onlyFolders, targetFileExtensions: $extensionsArray);
 
         return Response::json($service->getFolderTree($path, 2));
     }

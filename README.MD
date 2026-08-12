@@ -1,1 +1,32 @@
 Sujet : 1. Conception d'un agent conversationnel pour l'exploration et la manipulation de bases de données relationnelles
+
+
+
+!!! : Add default user and password.
+
+Features :
+1. create-project-form
+- [ ] Clone Database
+- [ ] Load databases to select
+- [ ] In memory sqlite connexion
+- [ ] Add start prompt input when creating a new project(Qui sert à demander à l'utilisateur de fournir un prompt détaillé(avec ou pas d'image de chema de la base de données) pour que l'agent puisse créer une BDD et les tables à partir des données de connexion)
+
+2. Prompt input
+- [ ] Add file mention to prompt input by typing @
+
+⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️
+- PHP extensions : pdo_sqlite, pdo_mysql, pdo_pgsql
+- Ne pas oublier de configurer /etc/sudoers.d/agent-driver-install sous Linux, Task Scheduler sous Windows l'autorisation root/Admin
+et ainsi avoir la possibilité d'installer mysql, sqlite3, postgresql ou mariadb sur le système de l'utilisateur.
+- Toujous lors de l'installation, configurer le fichier `~/.config/opendb/.env` pour y stocker des variables d'env
+comme `APP_KEY=base64:xK9mP...` qui servira de clé d'encryptage pour les clés informations sensibles comme (mot de passe
+de la base de données, clé API, etc.)
+- Configure le fichier d'env de l'app en prod :
+```php
+    ->registered(function (Application $app): void {
+        $app->useEnvironmentPath(base_path: dirname(__DIR__));
+    })
+```
+⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️
+
+SET SESSION TRANSACTION READ ONLY

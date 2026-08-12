@@ -1,0 +1,104 @@
+import { router, usePage } from '@inertiajs/react';
+import {
+    CogIcon,
+    EllipsisVertical,
+    LogOutIcon,
+} from 'lucide-react';
+import { useCallback } from 'react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuGroup,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+    SidebarMenu,
+    SidebarMenuButton,
+    SidebarMenuItem,
+    useSidebar,
+} from '@/components/ui/sidebar';
+import { useSettingsDialog } from '@/hooks/use-settings-modal';
+import LoginController from '@/wayfinder/actions/App/Http/Controllers/Auth/LoginController';
+import { Kbd, KbdGroup } from '@/components/ui/kbd';
+
+export function SidebarUser() {
+
+    const { isMobile } = useSidebar();
+
+    const { props: { auth : { user } } } = usePage();
+
+    const { setOpen } = useSettingsDialog();
+
+    const handleLogout = useCallback(() => {
+        router.post(LoginController.logout());
+    }, []);
+
+
+    return (
+        <SidebarMenu>
+            <SidebarMenuItem>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <SidebarMenuButton
+                            size="lg"
+                            className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                        >
+                            <Avatar className="h-8 w-8 rounded-lg grayscale">
+                                <AvatarFallback className="rounded-lg">
+                                    {user.name.slice(0, 2).toUpperCase()}
+                                </AvatarFallback>
+                            </Avatar>
+                            <div className="grid flex-1 text-left text-sm leading-tight">
+                                <span className="truncate font-medium">
+                                    {user.name}
+                                </span>
+                            </div>
+                            <EllipsisVertical className="ml-auto size-4" />
+                        </SidebarMenuButton>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                        className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
+                        side={isMobile ? 'bottom' : 'right'}
+                        align="end"
+                        sideOffset={4}
+                    >
+                        <DropdownMenuLabel className="p-0 font-normal">
+                            <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+                                <Avatar className="h-8 w-8 rounded-lg">
+                                    <AvatarFallback className="rounded-lg">
+                                        {user.name.slice(0, 2).toUpperCase()}
+                                    </AvatarFallback>
+                                </Avatar>
+                                <div className="grid flex-1 text-left text-sm leading-tight">
+                                    <span className="truncate font-medium">
+                                        {user.name}
+                                    </span>
+                                </div>
+                            </div>
+                        </DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuGroup>
+                            <DropdownMenuItem onSelect={() => setOpen(true)}>
+                                <CogIcon />
+                                Paramètres
+                                <KbdGroup className="ml-auto">
+                                    <Kbd>Ctrl</Kbd>
+                                    <Kbd>,</Kbd>
+                                </KbdGroup>
+                            </DropdownMenuItem>
+                        </DropdownMenuGroup>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onSelect={handleLogout}>
+                            <LogOutIcon />
+                            Se déconnecter
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </SidebarMenuItem>
+        </SidebarMenu>
+    );
+}

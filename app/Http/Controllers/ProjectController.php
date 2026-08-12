@@ -2,64 +2,42 @@
 
 namespace App\Http\Controllers;
 
+use App\Database\Drivers\BaseDriver;
+use App\Http\Requests\ProjectRequest;
 use App\Models\Project;
-use Illuminate\Http\Request;
+use App\Services\Repository\ProjectRepository;
+use Illuminate\Http\RedirectResponse;
 
 class ProjectController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    public function store(ProjectRequest $request, ProjectRepository $projectRepository): RedirectResponse
     {
-        //
+        $data = $request->validated();
+
+        $driver = BaseDriver::for($data['driver_config']);
+
+        if (($result = $driver->testConnection()) !== true) {
+            return back()->withErrors(['connectionFailed' => $result]);
+        }
+
+        $project = $projectRepository->create($data);
+
+        return redirect()->action([DiscussionController::class, 'home'], $project);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
+    public function update(Project $project, ProjectRequest $request, ProjectRepository $projectRepository): RedirectResponse
     {
-        //
+        $data = $request->validated();
+
+        $projectRepository->update($project, $data);
+
+        return back();
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
+    public function delete(Project $project, ProjectRepository $projectRepository): RedirectResponse
     {
-        //
-    }
+        $projectRepository->delete($project);
 
-
-    public function show($project)
-    {
-        return inertia('projects/show', [
-            'project' => $project
-        ]);
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Project $project)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Project $project)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Project $project)
-    {
-        //
+        return back();
     }
 }

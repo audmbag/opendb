@@ -18,14 +18,28 @@ class GenerateReactComponentCommand extends Command
     {
         $content = $this->getContent();
 
-        $componentName = Str::kebab($this->argument('name')) . ".tsx";
+        $componentName = Str::kebab($this->argument('name')).'.tsx';
 
-        file_put_contents($path = resource_path("js/components/$componentName"), $content);
+        if (! is_dir(resource_path('js/components'))) {
+            mkdir(resource_path('js/components'), 0755, true);
+        }
 
+        $this->createSubDirectoryIfNotExists($fullPath = resource_path("js/components/$componentName"));
 
-        $this->info("React component created at: $path");
+        file_put_contents($fullPath, $content);
+
+        $this->info("React component created at: $fullPath");
     }
 
+    public function createSubDirectoryIfNotExists(string $fullFilePath): bool
+    {
+        $directory = dirname($fullFilePath);
+        if (! is_dir($directory)) {
+            mkdir($directory, 0755, true);
+        }
+
+        return true;
+    }
 
     public function getContent(): string
     {
@@ -35,7 +49,7 @@ class GenerateReactComponentCommand extends Command
 import {  } from 'react';
 
 type Props = {
-    
+
 };
 
 export default function $componentName({  }: Props) {
