@@ -15,7 +15,7 @@ interface DatabaseMSState {
     ) => void;
 }
 
-const driverStore = create<DatabaseMSState>((set, get) => ({
+const useDriverStore = create<DatabaseMSState>((set, get) => ({
     data: [],
     loadData: async (GET, callback) => {
 
@@ -44,4 +44,4 @@ const driverStore = create<DatabaseMSState>((set, get) => ({
 
 
 
-export { driverStore }
+export { useDriverStore }

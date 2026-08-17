@@ -4,7 +4,7 @@ import React, { lazy, Suspense, useCallback, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import CardFrame from '@/components/card-frame';
 import Button from '@/components/form/button';
-import { useTestConnection } from '@/hooks/use-test-connection';
+import { useDriverConfig } from '@/hooks/use-driver-config';
 import type { Project } from '@/types/models/project';
 import DriverConfigController from '@/wayfinder/actions/App/Http/Controllers/API/DriverConfigController';
 import ProjectController from '@/wayfinder/actions/App/Http/Controllers/ProjectController';
@@ -42,7 +42,7 @@ const ProjectForm = ({
         processing: processingTest,
         errors: testErrors,
         resetAndClearErrors,
-    } = useTestConnection();
+    } = useDriverConfig();
 
     const [connectionTest, setConnectionTest] = useState(
         CONNECTION_TEST_DEFAULT,

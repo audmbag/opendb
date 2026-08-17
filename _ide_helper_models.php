@@ -38,7 +38,7 @@ namespace App\Models{
  * @property string $driver_id
  * @property string $project_id
  * @property string|null $host
- * @property string|null $port
+ * @property int|null $port
  * @property string|null $database
  * @property string|null $username
  * @property string|null $password
@@ -83,6 +83,34 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Project whereUserId($value)
  */
 	class Project extends \Eloquent {}
+}
+
+namespace App\Models{
+/**
+ * @property \Laravel\Ai\Enums\Lab $id
+ * @property string $label
+ * @property string|null $api_key
+ * @property string|null $api_url
+ * @property \Illuminate\Support\Collection|null $models
+ * @property bool $custom_openai_compatible
+ * @property \Carbon\CarbonImmutable|null $created_at
+ * @property \Carbon\CarbonImmutable|null $updated_at
+ * @property-read string $icon
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Provider connected()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Provider disconnected()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Provider newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Provider newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Provider query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Provider whereApiKey($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Provider whereApiUrl($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Provider whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Provider whereCustomOpenaiCompatible($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Provider whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Provider whereLabel($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Provider whereModels($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Provider whereUpdatedAt($value)
+ */
+	class Provider extends \Eloquent {}
 }
 
 namespace App\Models{

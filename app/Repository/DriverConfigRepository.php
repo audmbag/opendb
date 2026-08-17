@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Repository;
+namespace App\Repository;
 
 use App\Models\DriverConfig;
 

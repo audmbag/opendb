@@ -1,4 +1,4 @@
-import { BaseModel } from '@/types/models/base-model';
+import type { BaseModel } from '@/types/models/base-model';
 
 export enum DefaultDrivers {
     MYSQL = 'mysql',

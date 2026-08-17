@@ -1,0 +1,338 @@
+{
+    "schema_version": 1,
+    "id": "8dc74e34-e9de-4bf4-b2eb-c23cad6b306c",
+    "recorded_at": "2026-08-13T12:17:32+00:00",
+    "profile_type": "test",
+    "environment": "local",
+    "metrics": {
+        "duration_ms": 217.49,
+        "peak_memory_mb": 34
+    },
+    "sections": {
+        "overview": {
+            "label": "Overview",
+            "summary": {
+                "duration_ms": 217.49,
+                "peak_memory_mb": 34
+            },
+            "payload": {
+                "runtime": {
+                    "environment": "local",
+                    "php": "8.4.24",
+                    "php_sapi": "cli",
+                    "runtime_type": "CLI",
+                    "laravel": "13.25.0",
+                    "debug": true,
+                    "locale": "en",
+                    "timezone": "UTC"
+                },
+                "cache_state": {
+                    "configuration": false,
+                    "routes": false,
+                    "events": false
+                },
+                "drivers": {
+                    "database": "sqlite",
+                    "cache": "file",
+                    "queue": "database",
+                    "session": "cookie",
+                    "mail": "log",
+                    "broadcasting": "log"
+                },
+                "ecosystem": [
+                    {
+                        "key": "inertia",
+                        "label": "Inertia",
+                        "version": "v3.3.1"
+                    }
+                ],
+                "package": "dev-main"
+            }
+        },
+        "request": {
+            "label": "Runtime",
+            "summary": {
+                "method": "CLI",
+                "status": 0,
+                "exit_code": 0
+            },
+            "payload": {
+                "method": "CLI",
+                "url": null,
+                "path": "test:test",
+                "query": [],
+                "input": [],
+                "headers": [],
+                "runtime_type": "test",
+                "name": "test",
+                "context": {
+                    "argument_names": [
+                        "command"
+                    ],
+                    "option_names": [
+                        "without-tty",
+                        "compact",
+                        "coverage",
+                        "min",
+                        "parallel",
+                        "profile",
+                        "recreate-databases",
+                        "drop-databases",
+                        "without-databases",
+                        "without-cache",
+                        "help",
+                        "silent",
+                        "quiet",
+                        "verbose",
+                        "version",
+                        "ansi",
+                        "no-interaction",
+                        "env"
+                    ]
+                },
+                "route": null,
+                "action": null,
+                "parameters": [],
+                "middleware": [],
+                "status": 0,
+                "exit_code": 0,
+                "content_type": null,
+                "request_size_bytes": 0,
+                "response_size_bytes": 0,
+                "session_present": false,
+                "authenticated": false,
+                "response_headers": []
+            }
+        },
+        "queries": {
+            "label": "Queries",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false,
+                "duration_ms": 0,
+                "transaction_count": 0,
+                "transaction_retained_count": 0,
+                "transaction_dropped_count": 0,
+                "rollback_count": 0
+            },
+            "payload": {
+                "items": [],
+                "transactions": []
+            }
+        },
+        "livewire": {
+            "label": "Livewire",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false,
+                "initial_render_count": 0,
+                "update_count": 0,
+                "component_count": 0
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "http_client": {
+            "label": "HTTP Client",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false,
+                "duration_ms": 0,
+                "failed_count": 0
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "queue": {
+            "label": "Queue",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false,
+                "queued_count": 0,
+                "executed_count": 0,
+                "failed_count": 0,
+                "duration_ms": 0
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "mail": {
+            "label": "Mail",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false,
+                "recipient_count": 0,
+                "attachment_count": 0,
+                "duration_ms": 0
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "notifications": {
+            "label": "Notifications",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false,
+                "sent_count": 0,
+                "failed_count": 0
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "redis": {
+            "label": "Redis",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false,
+                "duration_ms": 0,
+                "failed_count": 0
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "models": {
+            "label": "Models",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "cache": {
+            "label": "Cache",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false,
+                "hits": 0,
+                "misses": 0,
+                "writes": 0
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "views": {
+            "label": "Views",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "events": {
+            "label": "Events",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "authorization": {
+            "label": "Authorization",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "validation": {
+            "label": "Validation",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "lifecycle": {
+            "label": "Lifecycle",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "messages": {
+            "label": "Messages",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "logs": {
+            "label": "Logs",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false,
+                "errors": 0
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "exceptions": {
+            "label": "Exceptions",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false
+            },
+            "payload": {
+                "items": []
+            }
+        }
+    }
+}

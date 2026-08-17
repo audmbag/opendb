@@ -1,0 +1,610 @@
+{
+    "schema_version": 1,
+    "id": "87d05d9c-dbcd-440d-99ba-fc53497d3531",
+    "recorded_at": "2026-08-13T12:17:33+00:00",
+    "profile_type": "http",
+    "environment": "local",
+    "metrics": {
+        "duration_ms": 50.48,
+        "peak_memory_mb": 4
+    },
+    "sections": {
+        "overview": {
+            "label": "Overview",
+            "summary": {
+                "duration_ms": 50.48,
+                "peak_memory_mb": 4
+            },
+            "payload": {
+                "runtime": {
+                    "environment": "local",
+                    "php": "8.4.24",
+                    "php_sapi": "cli-server",
+                    "runtime_type": "cli-server",
+                    "laravel": "13.25.0",
+                    "debug": true,
+                    "locale": "en",
+                    "timezone": "UTC"
+                },
+                "cache_state": {
+                    "configuration": false,
+                    "routes": false,
+                    "events": false
+                },
+                "drivers": {
+                    "database": "sqlite",
+                    "cache": "file",
+                    "queue": "database",
+                    "session": "cookie",
+                    "mail": "log",
+                    "broadcasting": "log"
+                },
+                "ecosystem": [
+                    {
+                        "key": "inertia",
+                        "label": "Inertia",
+                        "version": "v3.3.1"
+                    }
+                ],
+                "package": "dev-main"
+            }
+        },
+        "request": {
+            "label": "Request",
+            "summary": {
+                "method": "GET",
+                "status": 200,
+                "exit_code": null
+            },
+            "payload": {
+                "method": "GET",
+                "url": "http://127.0.0.1:8000",
+                "path": "/",
+                "query": [],
+                "input": [],
+                "headers": {
+                    "host": [
+                        "127.0.0.1:8000"
+                    ],
+                    "connection": [
+                        "keep-alive"
+                    ],
+                    "cache-control": [
+                        "max-age=0"
+                    ],
+                    "sec-ch-ua": [
+                        "\"Chromium\";v=\"146\", \"Not-A.Brand\";v=\"24\", \"Google Chrome\";v=\"146\""
+                    ],
+                    "sec-ch-ua-mobile": [
+                        "?0"
+                    ],
+                    "sec-ch-ua-platform": [
+                        "\"Linux\""
+                    ],
+                    "upgrade-insecure-requests": [
+                        "1"
+                    ],
+                    "user-agent": [
+                        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+                    ],
+                    "accept": [
+                        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+                    ],
+                    "sec-fetch-site": [
+                        "same-origin"
+                    ],
+                    "sec-fetch-mode": [
+                        "navigate"
+                    ],
+                    "sec-fetch-dest": [
+                        "document"
+                    ],
+                    "referer": [
+                        "http://127.0.0.1:8000/"
+                    ],
+                    "accept-encoding": [
+                        "gzip, deflate, br, zstd"
+                    ],
+                    "accept-language": [
+                        "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7"
+                    ],
+                    "cookie": "[redacted]"
+                },
+                "route": null,
+                "action": "App\\Http\\Controllers\\HomeController",
+                "parameters": [],
+                "middleware": [
+                    "Illuminate\\Cookie\\Middleware\\EncryptCookies",
+                    "Illuminate\\Cookie\\Middleware\\AddQueuedCookiesToResponse",
+                    "Illuminate\\Session\\Middleware\\StartSession",
+                    "Illuminate\\View\\Middleware\\ShareErrorsFromSession",
+                    "Illuminate\\Foundation\\Http\\Middleware\\PreventRequestForgery",
+                    "Illuminate\\Auth\\Middleware\\Authenticate",
+                    "Illuminate\\Routing\\Middleware\\SubstituteBindings",
+                    "App\\Http\\Middleware\\HandleAppearance",
+                    "App\\Http\\Middleware\\HandleInertiaRequests",
+                    "Illuminate\\Http\\Middleware\\AddLinkHeadersForPreloadedAssets",
+                    "Laravel\\Boost\\Middleware\\InjectBoost"
+                ],
+                "status": 200,
+                "request_type": "full_page",
+                "content_type": "text/html; charset=utf-8",
+                "request_size_bytes": 0,
+                "response_size_bytes": 30577,
+                "session_present": false,
+                "authenticated": true,
+                "authentication": {
+                    "guard": "web",
+                    "authenticated": true,
+                    "model": "App\\Models\\User",
+                    "identifier": "hmac:ea83f888ee9f49e8",
+                    "identifier_policy": "keyed_hash"
+                },
+                "session": {
+                    "present": false,
+                    "driver": "cookie",
+                    "key_count": 0,
+                    "keys": [],
+                    "keys_dropped": 0,
+                    "flash_keys": [],
+                    "error_bag_present": false,
+                    "error_bags": []
+                },
+                "timing_scope": "global_middleware_entry",
+                "response_headers": {
+                    "cache-control": [
+                        "no-cache, private"
+                    ],
+                    "date": [
+                        "Thu, 13 Aug 2026 12:17:33 GMT"
+                    ],
+                    "content-type": [
+                        "text/html; charset=utf-8"
+                    ],
+                    "link": [
+                        "<http://127.0.0.1:5173/__laravel_vite_plugin__/fonts/639e60252b7396bc.woff2>; rel=\"preload\"; as=\"font\"; type=\"font/woff2\"; crossorigin=\"anonymous\", <http://127.0.0.1:5173/__laravel_vite_plugin__/fonts/635bf5b33dc4ea80.woff2>; rel=\"preload\"; as=\"font\"; type=\"font/woff2\"; crossorigin=\"anonymous\", <http://127.0.0.1:5173/__laravel_vite_plugin__/fonts/deeac6ce72ca94fb.woff2>; rel=\"preload\"; as=\"font\"; type=\"font/woff2\"; crossorigin=\"anonymous\", <http://127.0.0.1:5173/__laravel_vite_plugin__/fonts/09fc4ed4f2ac73d9.woff2>; rel=\"preload\"; as=\"font\"; type=\"font/woff2\"; crossorigin=\"anonymous\", <http://127.0.0.1:5173/__laravel_vite_plugin__/fonts/6f478e9322268747.woff2>; rel=\"preload\"; as=\"font\"; type=\"font/woff2\"; crossorigin=\"anonymous\", <http://127.0.0.1:5173/__laravel_vite_plugin__/fonts/a8cad306dbe60467.woff2>; rel=\"preload\"; as=\"font\"; type=\"font/woff2\"; crossorigin=\"anonymous\""
+                    ],
+                    "vary": [
+                        "X-Inertia"
+                    ],
+                    "x-inertia-devtools-id": [
+                        "01KZXGWTDPQVVVZDAMY2X88YBW"
+                    ],
+                    "x-inertia-devtools-parent-out": [
+                        "01KZXGWTDPQVVVZDAMY2X88YBW"
+                    ],
+                    "set-cookie": "[redacted]"
+                }
+            }
+        },
+        "queries": {
+            "label": "Queries",
+            "summary": {
+                "count": 2,
+                "retained_count": 2,
+                "dropped_count": 0,
+                "truncated": false,
+                "duration_ms": 0.54,
+                "transaction_count": 0,
+                "transaction_retained_count": 0,
+                "transaction_dropped_count": 0,
+                "rollback_count": 0
+            },
+            "payload": {
+                "items": [
+                    {
+                        "sql": "select * from \"users\" where \"id\" = ? limit 1",
+                        "bindings": [
+                            1
+                        ],
+                        "runnable_sql": "select * from \"users\" where \"id\" = 1 limit 1",
+                        "duration_ms": 0.48,
+                        "connection": "sqlite",
+                        "type": "write",
+                        "callsite": null,
+                        "stack": [],
+                        "at_ms": 3.965,
+                        "source_preserved": true,
+                        "binding_policy": "full",
+                        "bindings_complete": true,
+                        "runnable_available": true
+                    },
+                    {
+                        "sql": "select count(*) as \"aggregate\" from \"projects\"",
+                        "bindings": [],
+                        "runnable_sql": "select count(*) as \"aggregate\" from \"projects\"",
+                        "duration_ms": 0.06,
+                        "connection": "sqlite",
+                        "type": "write",
+                        "callsite": {
+                            "file": "app/Services/Repository/ProjectRepository.php",
+                            "line": 52
+                        },
+                        "stack": [
+                            {
+                                "file": "app/Services/Repository/ProjectRepository.php",
+                                "line": 52,
+                                "function": "Illuminate\\Database\\Eloquent\\Model::__callStatic"
+                            },
+                            {
+                                "file": "app/Http/Controllers/HomeController.php",
+                                "line": 14,
+                                "function": "App\\Services\\Repository\\ProjectRepository->getProjectCount"
+                            },
+                            {
+                                "file": "app/Http/Middleware/HandleAppearance.php",
+                                "line": 21,
+                                "function": "Illuminate\\Pipeline\\Pipeline->{closure:{closure:Illuminate\\Pipeline\\Pipeline::carry():194}:195}"
+                            }
+                        ],
+                        "at_ms": 5.385,
+                        "source_preserved": true,
+                        "binding_policy": "full",
+                        "bindings_complete": true,
+                        "runnable_available": true
+                    }
+                ],
+                "transactions": []
+            }
+        },
+        "livewire": {
+            "label": "Livewire",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false,
+                "initial_render_count": 0,
+                "update_count": 0,
+                "component_count": 0
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "http_client": {
+            "label": "HTTP Client",
+            "summary": {
+                "count": 1,
+                "retained_count": 1,
+                "dropped_count": 0,
+                "truncated": false,
+                "duration_ms": 36.66,
+                "failed_count": 0
+            },
+            "payload": {
+                "items": [
+                    {
+                        "method": "POST",
+                        "url": "http://127.0.0.1:5173/__inertia_ssr",
+                        "status": 200,
+                        "duration_ms": 36.66,
+                        "failed": false,
+                        "callsite": null,
+                        "at_ms": 45.069
+                    }
+                ]
+            }
+        },
+        "queue": {
+            "label": "Queue",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false,
+                "queued_count": 0,
+                "executed_count": 0,
+                "failed_count": 0,
+                "duration_ms": 0
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "mail": {
+            "label": "Mail",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false,
+                "recipient_count": 0,
+                "attachment_count": 0,
+                "duration_ms": 0
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "notifications": {
+            "label": "Notifications",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false,
+                "sent_count": 0,
+                "failed_count": 0
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "redis": {
+            "label": "Redis",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false,
+                "duration_ms": 0,
+                "failed_count": 0
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "models": {
+            "label": "Models",
+            "summary": {
+                "count": 5,
+                "retained_count": 5,
+                "dropped_count": 0,
+                "truncated": false
+            },
+            "payload": {
+                "items": [
+                    {
+                        "event": "booting",
+                        "model": "App\\Models\\User",
+                        "connection": null,
+                        "table": "users",
+                        "key": null,
+                        "at_ms": 2.414
+                    },
+                    {
+                        "event": "booted",
+                        "model": "App\\Models\\User",
+                        "connection": null,
+                        "table": "users",
+                        "key": null,
+                        "at_ms": 2.976
+                    },
+                    {
+                        "event": "retrieved",
+                        "model": "App\\Models\\User",
+                        "connection": "sqlite",
+                        "table": "users",
+                        "key": 1,
+                        "at_ms": 4.127
+                    },
+                    {
+                        "event": "booting",
+                        "model": "App\\Models\\Project",
+                        "connection": null,
+                        "table": "projects",
+                        "key": null,
+                        "at_ms": 4.815
+                    },
+                    {
+                        "event": "booted",
+                        "model": "App\\Models\\Project",
+                        "connection": null,
+                        "table": "projects",
+                        "key": null,
+                        "at_ms": 5.123
+                    }
+                ]
+            }
+        },
+        "cache": {
+            "label": "Cache",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false,
+                "hits": 0,
+                "misses": 0,
+                "writes": 0
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "views": {
+            "label": "Views",
+            "summary": {
+                "count": 1,
+                "retained_count": 1,
+                "dropped_count": 0,
+                "truncated": false
+            },
+            "payload": {
+                "items": [
+                    {
+                        "name": "app",
+                        "source": {
+                            "file": "resources/views/app.blade.php",
+                            "line": 1
+                        },
+                        "composers": [],
+                        "data": {
+                            "page": {
+                                "component": "home",
+                                "props": {
+                                    "errors": "[stdClass]",
+                                    "name": "OpenDB",
+                                    "auth": {
+                                        "user": "[maximum depth reached]"
+                                    },
+                                    "sidebarOpen": false,
+                                    "projectCount": 2
+                                },
+                                "url": "/",
+                                "version": "83d01cb3c461f1348e9524010fca6a46",
+                                "sharedProps": [
+                                    "errors",
+                                    "name",
+                                    "auth",
+                                    "sidebarOpen"
+                                ],
+                                "deferredProps": {
+                                    "default": [
+                                        "[maximum depth reached]"
+                                    ]
+                                }
+                            }
+                        },
+                        "timing": "composition_marker",
+                        "at_ms": 6.598
+                    }
+                ]
+            }
+        },
+        "events": {
+            "label": "Events",
+            "summary": {
+                "count": 4,
+                "retained_count": 4,
+                "dropped_count": 0,
+                "truncated": false
+            },
+            "payload": {
+                "items": [
+                    {
+                        "name": "Illuminate\\Database\\Events\\ConnectionEstablished",
+                        "listeners": [],
+                        "broadcast": false,
+                        "payload_types": [
+                            "Illuminate\\Database\\Events\\ConnectionEstablished"
+                        ],
+                        "at_ms": 3.187
+                    },
+                    {
+                        "name": "Illuminate\\Database\\Events\\StatementPrepared",
+                        "listeners": [],
+                        "broadcast": false,
+                        "payload_types": [
+                            "Illuminate\\Database\\Events\\StatementPrepared"
+                        ],
+                        "at_ms": 3.728
+                    },
+                    {
+                        "name": "Illuminate\\Auth\\Events\\Authenticated",
+                        "listeners": [],
+                        "broadcast": false,
+                        "payload_types": [
+                            "Illuminate\\Auth\\Events\\Authenticated"
+                        ],
+                        "at_ms": 4.169
+                    },
+                    {
+                        "name": "Illuminate\\Database\\Events\\StatementPrepared",
+                        "listeners": [],
+                        "broadcast": false,
+                        "payload_types": [
+                            "Illuminate\\Database\\Events\\StatementPrepared"
+                        ],
+                        "at_ms": 5.227
+                    }
+                ]
+            }
+        },
+        "authorization": {
+            "label": "Authorization",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "validation": {
+            "label": "Validation",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "lifecycle": {
+            "label": "Lifecycle",
+            "summary": {
+                "count": 4,
+                "retained_count": 4,
+                "dropped_count": 0,
+                "truncated": false
+            },
+            "payload": {
+                "items": [
+                    {
+                        "name": "Route matching",
+                        "duration_ms": 0.31,
+                        "at_ms": 0.435
+                    },
+                    {
+                        "name": "Route middleware, binding, controller and rendering",
+                        "duration_ms": 5.14,
+                        "at_ms": 5.574
+                    },
+                    {
+                        "name": "Route response preparation",
+                        "duration_ms": 40.31,
+                        "at_ms": 45.883
+                    },
+                    {
+                        "name": "Final response preparation",
+                        "duration_ms": 0.05,
+                        "at_ms": 46.846
+                    }
+                ]
+            }
+        },
+        "messages": {
+            "label": "Messages",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "logs": {
+            "label": "Logs",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false,
+                "errors": 0
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "exceptions": {
+            "label": "Exceptions",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false
+            },
+            "payload": {
+                "items": []
+            }
+        }
+    }
+}

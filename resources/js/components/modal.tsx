@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 
 type Props = {
-    title?: string;
+    title?: string | React.ReactNode;
     description?: string;
     open?: boolean;
     onOpenChange?: (open: boolean) => void;
@@ -82,7 +82,7 @@ export default function Modal({ title, description, open, onOpenChange, children
                         <DialogDescription className="sr-only">
                             {description || 'Modal description'}
                         </DialogDescription>
-                        <Frame className="w-full overflow-hidden">
+                        <Frame className="w-full overflow-hidden p-2 h-full">
                             {showHeader && (
                                 <FrameHeader>
                                     <FrameTitle>{title}</FrameTitle>

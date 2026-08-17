@@ -1,3 +1,5 @@
+import { EyeClosedIcon, EyeIcon, TriangleAlertIcon } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
 import {
     Field,
     FieldDescription,
@@ -5,34 +7,40 @@ import {
     FieldLabel,
 } from '@/components/ui/field';
 
+import { cn } from '@/lib/utils';
 import { ButtonGroup } from '../ui/button-group';
-import Button, { ButtonProps } from './button';
-import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '../ui/input-group';
-import { EyeClosedIcon, EyeIcon, TriangleAlertIcon } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '../ui/input-group';
+import type { ButtonProps } from './button';
+import Button from './button';
 
-type Props = {
+export type InputPropsType = {
     label?: string;
     error?: string;
     description?: string;
     button?: ButtonProps;
-} & React.ComponentPropsWithoutRef<typeof InputGroupInput>;
+};
 
-export default function Input({ label, error, description, button, className, type: inputType, ...props }: Props) {
-
+export default function Input({
+    label,
+    error,
+    description,
+    button,
+    className,
+    type: inputType,
+    ...props
+}: InputPropsType & React.ComponentPropsWithoutRef<typeof InputGroupInput>) {
     const [showPassword, setShowPassword] = useState(false);
 
     const type = useMemo(() => {
-        if (inputType === "password") {
-            return showPassword ? "text" : "password";
+        if (inputType === 'password') {
+            return showPassword ? 'text' : 'password';
         }
 
         return inputType;
     }, [inputType, showPassword]);
 
-
     return (
-        <Field className={className}>
+        <Field className={cn('gap-2', className)}>
             {label && <FieldLabel htmlFor={props.id}>{label}</FieldLabel>}
 
             <ButtonGroup>
@@ -60,7 +68,9 @@ export default function Input({ label, error, description, button, className, ty
             {description && <FieldDescription>{description}</FieldDescription>}
             {error && (
                 <FieldError>
-                    <TriangleAlertIcon className={"size-4 inline-block -mt-1.5"} />
+                    <TriangleAlertIcon
+                        className={'-mt-1.5 inline-block size-4'}
+                    />
                     <span className="pl-1">{error}</span>
                 </FieldError>
             )}

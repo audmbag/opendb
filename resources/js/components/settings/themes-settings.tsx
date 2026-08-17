@@ -1,7 +1,8 @@
 import type { LucideIcon } from 'lucide-react';
 import { LaptopMinimalIcon } from 'lucide-react';
 import { SunIcon } from 'lucide-react';
-import { H3, H6 } from '@/components/typograpfy/typography';
+import CardFrame from '@/components/card-frame';
+import { H6 } from '@/components/typograpfy/typography';
 import {
     Field,
     FieldContent,
@@ -44,12 +45,12 @@ export default function ThemesSettings() {
 
     return (
         <div>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-4">
                 <H6>Thème</H6>
                 <RadioGroup
                     value={appearance}
                     onValueChange={updateAppearance}
-                    className="flex gap-2"
+                    className="flex max-w-lg gap-2"
                     defaultValue={appearance}
                 >
                     {themes.map((theme) => (
@@ -64,7 +65,7 @@ export default function ThemesSettings() {
                                         <img
                                             src={theme.illustration}
                                             alt={theme.label}
-                                            className="rounded-lg"
+                                            className="rounded-sm"
                                         />
                                     </div>
                                     <FieldTitle className="flex items-center gap-2">

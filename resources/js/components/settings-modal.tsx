@@ -7,7 +7,8 @@ import {
     Settings2Icon,
 } from 'lucide-react';
 
-import  { Fragment, LazyExoticComponent} from 'react';
+import type { LazyExoticComponent} from 'react';
+import  { Fragment} from 'react';
 import React, { lazy, useMemo, useState, Suspense } from 'react';
 import Button from '@/components/form/button';
 import Modal from '@/components/modal'
@@ -114,7 +115,7 @@ const RenderBreadCrumbs = ({
 
 const SettingsContent = () => {
 
-    const [currentSettingPage, setCurrentSettingPage] = useState<NaviItemValue>('general');
+    const [currentSettingPage, setCurrentSettingPage] = useState<NaviItemValue>('models');
 
     const currentPage = useMemo(() => {
         for (const section of navItems) {
@@ -129,8 +130,8 @@ const SettingsContent = () => {
     }, [currentSettingPage]);
 
     return (
-        <SidebarProvider className="overflow-hidden">
-            <div className="h-150 w-full overflow-hidden">
+        <SidebarProvider className="overflow-hidden min-h-[initial] h-full">
+            <div className="h-full w-full overflow-hidden">
                 <div className="flex h-full w-full flex-col overflow-hidden p-0 md:flex-row">
                     <header className="flex h-13 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 md:hidden">
                         <div className="flex items-center gap-2 px-4">
@@ -140,12 +141,10 @@ const SettingsContent = () => {
                             />
                         </div>
                     </header>
-                    <div className="flex basis-auto md:basis-50 flex-row gap-1 overflow-auto px-3 py-2 md:flex-col">
+                    <div className="flex basis-auto flex-row gap-1 overflow-auto px-3 py-2 bg-sidebar md:basis-50 md:flex-col dark:[background:repeating-linear-gradient(45deg,var(--background),transparent_100px)]">
                         {navItems.map((section) => (
-                            <Fragment
-                                key={section.label}
-                            >
-                                <h3 className="text-xs font-medium text-muted-foreground pt-4 hidden md:block">
+                            <Fragment key={section.label}>
+                                <h3 className="hidden pt-4 text-xs font-medium text-muted-foreground md:block">
                                     {section.label}
                                 </h3>
                                 {section.items.map((item) => (
@@ -168,7 +167,7 @@ const SettingsContent = () => {
                     </div>
                     <Separator orientation="vertical" />
                     <div className="flex flex-1 flex-col overflow-y-hidden">
-                        <header className="hidden h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 md:flex">
+                        <header className="hidden h-14 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 md:flex">
                             <div className="flex items-center justify-between gap-2 px-4">
                                 <RenderBreadCrumbs
                                     label={currentPage?.name ?? ''}

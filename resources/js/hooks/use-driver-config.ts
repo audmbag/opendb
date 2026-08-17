@@ -26,7 +26,7 @@ const purgeConfig = (driverConfig: DriverConfig): Omit<DriverConfig, "id"> => {
     };
 };
 
-const useTestConnection = () => {
+const useDriverConfig = () => {
 
     const { post, errors, processing, resetAndClearErrors, optimistic } = useHttp<{ driver_config: Omit<DriverConfig, "id"> }, TestResultProps>();
 
@@ -96,4 +96,4 @@ const useCopyConfig = (driverConfig: DriverConfig, duration: number = 1000) => {
 };
 
 
-export { useTestConnection, useCopyConfig };
+export { useDriverConfig, useCopyConfig };

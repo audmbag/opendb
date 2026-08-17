@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\Repository\ProjectRepository;
+use App\Repository\ProjectRepository;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 

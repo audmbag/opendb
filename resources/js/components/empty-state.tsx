@@ -30,7 +30,7 @@ export function EmptyState({ title, description, icon: Icon, actions = [], ...pr
             <EmptyHeader>
                 {Icon && (
                     <EmptyMedia variant="icon">
-                        <IconStackGlow icon={Icon} className="pb-6" />
+                        <IconStackGlow icon={Icon} />
                     </EmptyMedia>
                 )}
                 {title && <EmptyTitle>{title}</EmptyTitle>}

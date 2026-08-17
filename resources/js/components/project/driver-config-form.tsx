@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/field';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Spinner } from '@/components/ui/spinner';
-import { useDriver } from '@/store/use-driver';
+import { useDriverStore } from '@/store/use-driver-store';
 import type { Driver } from '@/types/databases';
 import { DefaultDrivers } from '@/types/databases';
 import type { APIData } from '@/types/global';
@@ -27,7 +27,7 @@ type Props = {
 
 const DriverConfigForm = ({ errors, onDriverChanged, project }: Props) => {
 
-    const { loadData, data: databasesMs } = useDriver();
+    const { loadData, data: databasesMs } = useDriverStore();
 
     const [selectedDatabase, setSelectedDatabase] = useState<string>(
         project?.driver_config?.driver_id?.toString() || '',

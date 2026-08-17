@@ -1,17 +1,23 @@
-import { create } from "zustand"
+import { create } from 'zustand';
+import { createSelectors } from '@/lib/utils';
 import type { Provider } from '@/types/models/provider';
 
-
 interface ProviderState {
-    providers: Provider[];
-    setProviders: (providers: Provider[]) => void;
+    connectedProviders: Provider[];
+    disconnectedProviders: Provider[];
+    setProviders: (providers: Provider[], type: 'connected' | 'disconnected') => void;
 }
 
-const providerStore = create<ProviderState>(() => ({
-    providers: [],
-    setProviders: (providers) => {
-        providerStore.setState({ providers });
+const useProviderStore = createSelectors(create<ProviderState>((set) => ({
+    connectedProviders: [],
+    disconnectedProviders: [],
+    setProviders: (providers, type) => {
+        if (type === 'connected') {
+            set({ connectedProviders: providers });
+        } else {
+            set({ disconnectedProviders: providers });
+        }
     },
-}));
+})));
 
-export { providerStore };
+export { useProviderStore };

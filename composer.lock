@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "fbab089007a5f5470625851b1aff0da0",
+    "content-hash": "30638b70c4768c72807276de11f89c3e",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -2550,6 +2550,68 @@
                 }
             ],
             "time": "2026-03-08T20:05:35+00:00"
+        },
+        {
+            "name": "lmsomeco/laravel-ai-models",
+            "version": "v1.0.2",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/lmandcreative/laravel-ai-models.git",
+                "reference": "29eb06a7cc1f2ec32c289d503afe1053ec92eaaf"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/lmandcreative/laravel-ai-models/zipball/29eb06a7cc1f2ec32c289d503afe1053ec92eaaf",
+                "reference": "29eb06a7cc1f2ec32c289d503afe1053ec92eaaf",
+                "shasum": ""
+            },
+            "require": {
+                "illuminate/console": "^12.0|^13.0",
+                "illuminate/database": "^12.0|^13.0",
+                "illuminate/http": "^12.0|^13.0",
+                "illuminate/support": "^12.0|^13.0",
+                "laravel/ai": "^0.7|^0.8|^0.9|^0.10",
+                "php": "^8.3"
+            },
+            "require-dev": {
+                "larastan/larastan": "^3.0",
+                "laravel/pint": "^1.24",
+                "orchestra/testbench": "^10.0|^11.0",
+                "pestphp/pest": "^3.0"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "aliases": {
+                        "AiModels": "LmSomeco\\AiModels\\Facades\\AiModels"
+                    },
+                    "providers": [
+                        "LmSomeco\\AiModels\\AiModelsServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "LmSomeco\\AiModels\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "List and cache the currently-available models for each provider configured in the Laravel AI SDK.",
+            "keywords": [
+                "ai",
+                "laravel",
+                "laravel-ai",
+                "llm",
+                "models"
+            ],
+            "support": {
+                "issues": "https://github.com/lmandcreative/laravel-ai-models/issues",
+                "source": "https://github.com/lmandcreative/laravel-ai-models"
+            },
+            "time": "2026-08-07T07:39:29+00:00"
         },
         {
             "name": "monolog/monolog",

@@ -1,99 +1,82 @@
 import { useHttp } from '@inertiajs/react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
-import type { DriverConfig} from '@/types/databases';
-import  { DefaultDrivers } from '@/types/databases';
-import DriverConfigController from '@/wayfinder/actions/App/Http/Controllers/API/DriverConfigController';
+import { useProviderStore } from '@/store/use-provider-store';
+import type { Provider } from '@/types/models/provider';
+import ProviderController from '@/wayfinder/actions/App/Http/Controllers/ProviderController';
 
 
-type TestResultProps = { success: boolean; message: string }
+type ProviderData = {
+    connectedProviders: Provider[];
+    disconnectedProviders: Provider[];
+}
 
-const purgeConfig = (driverConfig: DriverConfig): Omit<DriverConfig, "id"> => {
-    if (driverConfig.driver_id === DefaultDrivers.SQLITE) {
-        return {
-            database: driverConfig.database,
-            driver_id: driverConfig.driver_id,
-        };
-    }
+const useProvider = () => {
+
+    const { get, processing } = useHttp<null, ProviderData>();
+    const { delete: deleteRequest } = useHttp<null, { success: boolean, message: string }>(null);
+
+    const [disconnectingId, setDisconnectingId] = useState<string | undefined>();
+
+    const connectedProviders = useProviderStore.use.connectedProviders();
+    const disconnectedProviders = useProviderStore.use.disconnectedProviders();
+    const setProviders = useProviderStore.use.setProviders();
+
+    const loadData = useCallback((reload: boolean = false) => {
+        if (
+            !reload &&
+            (connectedProviders.length > 0 || disconnectedProviders.length > 0)
+        ) {
+            return;
+        }
+
+        get(ProviderController.index.url(), {
+            onSuccess: (response) => {
+                setProviders(response.connectedProviders, 'connected');
+                setProviders(response.disconnectedProviders, 'disconnected');
+            },
+            onError: () => {
+                toast.error('Impossible de charger les providers', {
+                    description:
+                        'Une erreur inattendue est survenue lors du chargement des providers.',
+                    id: 'load-provider-error',
+                });
+            },
+            onNetworkError: () => {
+                toast.error('Impossible de charger les providers', {
+                    description: 'Vérifiez votre connexion internet.',
+                    id: 'load-provider-error',
+                });
+            },
+        });
+    }, []);
+
+    const disconnect = useCallback((provider: Provider) => {
+        setDisconnectingId(provider.id);
+        deleteRequest(ProviderController.disconnect.url(provider.id), {
+            onSuccess: ({ success, message }) => {
+
+                loadData(true)
+
+                toast[success ? 'success' : 'error'](
+                    success ? 'Provider déconnecté' : 'Erreur lors de la déconnexion du provider',
+                    {
+                        description: message,
+                    },
+                );
+                setDisconnectingId(undefined);
+            },
+        });
+    }, [connectedProviders, disconnectedProviders, setProviders]);
 
     return {
-        driver_id: driverConfig.driver_id,
-        host: driverConfig.host,
-        port: driverConfig.port,
-        username: driverConfig.username,
-        password: driverConfig.password,
-        database: driverConfig.database,
-    };
-};
-
-const useDriverConfig = () => {
-
-    const { post, errors, processing, resetAndClearErrors, optimistic } = useHttp<{ driver_config: Omit<DriverConfig, "id"> }, TestResultProps>();
-
-    const testConnection = useCallback(
-        (driverConfig: DriverConfig, successCallback?: (result: TestResultProps) => void) => {
-
-            resetAndClearErrors();
-
-            optimistic(() => ({ driver_config: purgeConfig(driverConfig) }));
-
-            post(DriverConfigController.testConnection.url(), {
-                onSuccess: (result) => {
-                    successCallback?.(result);
-                    toast[result.success ? 'success' : 'error'](result.message);
-                },
-                onError: (errors) => {
-                    if (errors.unexpectedError) {
-                        toast.error(errors.unexpectedError);
-                    }
-                },
-            });
-        },
-        [optimistic, post, resetAndClearErrors],
-    );
-
-
-    return {
+        loadData,
+        disconnect,
+        disconnectingId,
         processing,
-        errors,
-        testConnection,
-        resetAndClearErrors,
+        connectedProviders,
+        disconnectedProviders,
     };
 };
 
-
-const useCopyConfig = (driverConfig: DriverConfig, duration: number = 1000) => {
-    const [copying, setCopying] = useState(false);
-
-    const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-    const handleCopy = useCallback(() => {
-            setCopying(true);
-
-            if (timeoutRef.current) {
-                clearTimeout(timeoutRef.current);
-            }
-
-            if (driverConfig.connection_string) {
-                navigator.clipboard
-                    .writeText(driverConfig.connection_string.toString())
-                    .then(() => {
-                        toast.success(
-                            'Configuration copiée : ' +
-                                driverConfig.connection_string,
-                        );
-                    });
-
-                timeoutRef.current = setTimeout(() => {
-                    setCopying(false);
-                }, duration);
-            }
-        },
-        [driverConfig.connection_string, duration],
-    );
-
-    return { copying, handleCopy };
-};
-
-
-export { useDriverConfig, useCopyConfig };
+export { useProvider };

@@ -4,18 +4,23 @@ import { Frame, FrameDescription, FrameHeader, FramePanel, FrameTitle } from './
 type Props = {
     title?: string;
     description?: string;
+    innerPadding?: boolean;
 } & React.ComponentPropsWithoutRef<typeof Frame>;
 
-export default function CardFrame({ title, description, children }: Props) {
+
+export default function CardFrame({ title, description, innerPadding = true, children, ...props }: Props) {
     return (
-        <Frame>
-            <FrameHeader>
-                <FrameTitle>{title}</FrameTitle>
-                    <FrameDescription>
-                        {description}
-                    </FrameDescription>
-            </FrameHeader>
-            <FramePanel>
+        <Frame {...props}>
+            {
+                title &&
+                <FrameHeader>
+                    <FrameTitle>{title}</FrameTitle>
+                    {description && (
+                        <FrameDescription>{description}</FrameDescription>
+                    )}
+                </FrameHeader>
+            }
+            <FramePanel className={innerPadding ? "p-4" : "p-0"}>
                 {children}
             </FramePanel>
         </Frame>

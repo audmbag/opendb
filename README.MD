@@ -28,5 +28,3 @@ de la base de données, clé API, etc.)
     })
 ```
 ⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️
-
-SET SESSION TRANSACTION READ ONLY

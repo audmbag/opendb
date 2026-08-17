@@ -1,0 +1,718 @@
+{
+    "schema_version": 1,
+    "id": "c40d81a1-f0bb-4a37-a911-581d9b3e057f",
+    "recorded_at": "2026-08-13T12:17:33+00:00",
+    "profile_type": "artisan",
+    "environment": "local",
+    "metrics": {
+        "duration_ms": 1534.64,
+        "peak_memory_mb": 40.5
+    },
+    "sections": {
+        "overview": {
+            "label": "Overview",
+            "summary": {
+                "duration_ms": 1534.64,
+                "peak_memory_mb": 40.5
+            },
+            "payload": {
+                "runtime": {
+                    "environment": "local",
+                    "php": "8.4.24",
+                    "php_sapi": "cli",
+                    "runtime_type": "CLI",
+                    "laravel": "13.25.0",
+                    "debug": true,
+                    "locale": "en",
+                    "timezone": "UTC"
+                },
+                "cache_state": {
+                    "configuration": false,
+                    "routes": false,
+                    "events": false
+                },
+                "drivers": {
+                    "database": "sqlite",
+                    "cache": "file",
+                    "queue": "database",
+                    "session": "cookie",
+                    "mail": "log",
+                    "broadcasting": "log"
+                },
+                "ecosystem": [
+                    {
+                        "key": "inertia",
+                        "label": "Inertia",
+                        "version": "v3.3.1"
+                    }
+                ],
+                "package": "dev-main"
+            }
+        },
+        "request": {
+            "label": "Runtime",
+            "summary": {
+                "method": "CLI",
+                "status": 0,
+                "exit_code": 0
+            },
+            "payload": {
+                "method": "CLI",
+                "url": null,
+                "path": "artisan:boost:update",
+                "query": [],
+                "input": [],
+                "headers": [],
+                "runtime_type": "artisan",
+                "name": "boost:update",
+                "context": {
+                    "argument_names": [
+                        "command"
+                    ],
+                    "option_names": [
+                        "discover",
+                        "no-discover",
+                        "ignore-skills",
+                        "help",
+                        "silent",
+                        "quiet",
+                        "verbose",
+                        "version",
+                        "ansi",
+                        "no-interaction",
+                        "env"
+                    ]
+                },
+                "route": null,
+                "action": null,
+                "parameters": [],
+                "middleware": [],
+                "status": 0,
+                "exit_code": 0,
+                "content_type": null,
+                "request_size_bytes": 0,
+                "response_size_bytes": 0,
+                "session_present": false,
+                "authenticated": false,
+                "response_headers": []
+            }
+        },
+        "queries": {
+            "label": "Queries",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false,
+                "duration_ms": 0,
+                "transaction_count": 0,
+                "transaction_retained_count": 0,
+                "transaction_dropped_count": 0,
+                "rollback_count": 0
+            },
+            "payload": {
+                "items": [],
+                "transactions": []
+            }
+        },
+        "livewire": {
+            "label": "Livewire",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false,
+                "initial_render_count": 0,
+                "update_count": 0,
+                "component_count": 0
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "http_client": {
+            "label": "HTTP Client",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false,
+                "duration_ms": 0,
+                "failed_count": 0
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "queue": {
+            "label": "Queue",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false,
+                "queued_count": 0,
+                "executed_count": 0,
+                "failed_count": 0,
+                "duration_ms": 0
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "mail": {
+            "label": "Mail",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false,
+                "recipient_count": 0,
+                "attachment_count": 0,
+                "duration_ms": 0
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "notifications": {
+            "label": "Notifications",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false,
+                "sent_count": 0,
+                "failed_count": 0
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "redis": {
+            "label": "Redis",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false,
+                "duration_ms": 0,
+                "failed_count": 0
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "models": {
+            "label": "Models",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "cache": {
+            "label": "Cache",
+            "summary": {
+                "count": 2,
+                "retained_count": 2,
+                "dropped_count": 0,
+                "truncated": false,
+                "hits": 1,
+                "misses": 0,
+                "writes": 1
+            },
+            "payload": {
+                "items": [
+                    {
+                        "operation": "hit",
+                        "key_hash": "0af49bdfb04202a8",
+                        "key": "roster:project:v3:80ca297208a7a1e32c3c285d194450cf",
+                        "key_policy": "full",
+                        "store": "file",
+                        "tag_count": 0,
+                        "tag_retained": 0,
+                        "tag_dropped": 0,
+                        "tag_hashes": [],
+                        "tags": [],
+                        "seconds": null,
+                        "at_ms": 581.555
+                    },
+                    {
+                        "operation": "write",
+                        "key_hash": "0af49bdfb04202a8",
+                        "key": "roster:project:v3:80ca297208a7a1e32c3c285d194450cf",
+                        "key_policy": "full",
+                        "store": "file",
+                        "tag_count": 0,
+                        "tag_retained": 0,
+                        "tag_dropped": 0,
+                        "tag_hashes": [],
+                        "tags": [],
+                        "seconds": 3600,
+                        "at_ms": 600.058
+                    }
+                ]
+            }
+        },
+        "views": {
+            "label": "Views",
+            "summary": {
+                "count": 26,
+                "retained_count": 26,
+                "dropped_count": 0,
+                "truncated": false
+            },
+            "payload": {
+                "items": [
+                    {
+                        "name": "__components::ebc984afafdd26d89a5308188f35ccbf",
+                        "source": {
+                            "file": "storage/framework/views/ebc984afafdd26d89a5308188f35ccbf.blade.php",
+                            "line": 1
+                        },
+                        "composers": [],
+                        "data": {
+                            "assist": "[Laravel\\Boost\\Install\\GuidelineAssist]"
+                        },
+                        "timing": "composition_marker",
+                        "at_ms": 569.96
+                    },
+                    {
+                        "name": "__components::68103a2cb7348148fb65816b7c8aaa6b",
+                        "source": {
+                            "file": "storage/framework/views/68103a2cb7348148fb65816b7c8aaa6b.blade.php",
+                            "line": 1
+                        },
+                        "composers": [],
+                        "data": {
+                            "assist": "[Laravel\\Boost\\Install\\GuidelineAssist]"
+                        },
+                        "timing": "composition_marker",
+                        "at_ms": 605.058
+                    },
+                    {
+                        "name": "__components::0970958b377dca34c970ad1c8f5a1bb3",
+                        "source": {
+                            "file": "storage/framework/views/0970958b377dca34c970ad1c8f5a1bb3.blade.php",
+                            "line": 1
+                        },
+                        "composers": [],
+                        "data": {
+                            "assist": "[Laravel\\Boost\\Install\\GuidelineAssist]"
+                        },
+                        "timing": "composition_marker",
+                        "at_ms": 609.39
+                    },
+                    {
+                        "name": "__components::2d21c7721a51fb6d42304f35ce55c99a",
+                        "source": {
+                            "file": "storage/framework/views/2d21c7721a51fb6d42304f35ce55c99a.blade.php",
+                            "line": 1
+                        },
+                        "composers": [],
+                        "data": {
+                            "assist": "[Laravel\\Boost\\Install\\GuidelineAssist]"
+                        },
+                        "timing": "composition_marker",
+                        "at_ms": 614.719
+                    },
+                    {
+                        "name": "__components::c171fffd32ee4668d0f75682681d7fac",
+                        "source": {
+                            "file": "storage/framework/views/c171fffd32ee4668d0f75682681d7fac.blade.php",
+                            "line": 1
+                        },
+                        "composers": [],
+                        "data": {
+                            "assist": "[Laravel\\Boost\\Install\\GuidelineAssist]"
+                        },
+                        "timing": "composition_marker",
+                        "at_ms": 618.23
+                    },
+                    {
+                        "name": "__components::d8538b296a27d310f6b71584696c8836",
+                        "source": {
+                            "file": "storage/framework/views/d8538b296a27d310f6b71584696c8836.blade.php",
+                            "line": 1
+                        },
+                        "composers": [],
+                        "data": {
+                            "assist": "[Laravel\\Boost\\Install\\GuidelineAssist]"
+                        },
+                        "timing": "composition_marker",
+                        "at_ms": 625.471
+                    },
+                    {
+                        "name": "__components::41230c113801cdc07b47032529bcc646",
+                        "source": {
+                            "file": "storage/framework/views/41230c113801cdc07b47032529bcc646.blade.php",
+                            "line": 1
+                        },
+                        "composers": [],
+                        "data": {
+                            "assist": "[Laravel\\Boost\\Install\\GuidelineAssist]"
+                        },
+                        "timing": "composition_marker",
+                        "at_ms": 630.626
+                    },
+                    {
+                        "name": "__components::da1290c043c35f6c227d7fe5bea6388f",
+                        "source": {
+                            "file": "storage/framework/views/da1290c043c35f6c227d7fe5bea6388f.blade.php",
+                            "line": 1
+                        },
+                        "composers": [],
+                        "data": {
+                            "assist": "[Laravel\\Boost\\Install\\GuidelineAssist]"
+                        },
+                        "timing": "composition_marker",
+                        "at_ms": 634.769
+                    },
+                    {
+                        "name": "__components::2b3b75ec9892892981b355f1d066492b",
+                        "source": {
+                            "file": "storage/framework/views/2b3b75ec9892892981b355f1d066492b.blade.php",
+                            "line": 1
+                        },
+                        "composers": [],
+                        "data": {
+                            "assist": "[Laravel\\Boost\\Install\\GuidelineAssist]"
+                        },
+                        "timing": "composition_marker",
+                        "at_ms": 643.183
+                    },
+                    {
+                        "name": "__components::cf2b5272300017a55d791a9e1c44afb7",
+                        "source": {
+                            "file": "storage/framework/views/cf2b5272300017a55d791a9e1c44afb7.blade.php",
+                            "line": 1
+                        },
+                        "composers": [],
+                        "data": {
+                            "assist": "[Laravel\\Boost\\Install\\GuidelineAssist]"
+                        },
+                        "timing": "composition_marker",
+                        "at_ms": 650.509
+                    },
+                    {
+                        "name": "__components::88b9a4f68c7688cc6a0339ed43d1669f",
+                        "source": {
+                            "file": "storage/framework/views/88b9a4f68c7688cc6a0339ed43d1669f.blade.php",
+                            "line": 1
+                        },
+                        "composers": [],
+                        "data": {
+                            "assist": "[Laravel\\Boost\\Install\\GuidelineAssist]"
+                        },
+                        "timing": "composition_marker",
+                        "at_ms": 658.324
+                    },
+                    {
+                        "name": "__components::2f4c5b316b4cb31ef0cd8c1e35ddd7b4",
+                        "source": {
+                            "file": "storage/framework/views/2f4c5b316b4cb31ef0cd8c1e35ddd7b4.blade.php",
+                            "line": 1
+                        },
+                        "composers": [],
+                        "data": {
+                            "assist": "[Laravel\\Boost\\Install\\GuidelineAssist]"
+                        },
+                        "timing": "composition_marker",
+                        "at_ms": 1454.76
+                    },
+                    {
+                        "name": "__components::a8f2638daac871fd3d2a2c73e4de1313",
+                        "source": {
+                            "file": "storage/framework/views/a8f2638daac871fd3d2a2c73e4de1313.blade.php",
+                            "line": 1
+                        },
+                        "composers": [],
+                        "data": {
+                            "assist": "[Laravel\\Boost\\Install\\GuidelineAssist]"
+                        },
+                        "timing": "composition_marker",
+                        "at_ms": 1464.856
+                    },
+                    {
+                        "name": "__components::3b55dc6d57eaa87219dd682dc429ff3e",
+                        "source": {
+                            "file": "storage/framework/views/3b55dc6d57eaa87219dd682dc429ff3e.blade.php",
+                            "line": 1
+                        },
+                        "composers": [],
+                        "data": {
+                            "assist": "[Laravel\\Boost\\Install\\GuidelineAssist]"
+                        },
+                        "timing": "composition_marker",
+                        "at_ms": 1469.537
+                    },
+                    {
+                        "name": "__components::2a86e36d03d8aa615eaceff8688ea8c5",
+                        "source": {
+                            "file": "storage/framework/views/2a86e36d03d8aa615eaceff8688ea8c5.blade.php",
+                            "line": 1
+                        },
+                        "composers": [],
+                        "data": {
+                            "assist": "[Laravel\\Boost\\Install\\GuidelineAssist]"
+                        },
+                        "timing": "composition_marker",
+                        "at_ms": 1474.324
+                    },
+                    {
+                        "name": "__components::153f35438b5b2a7c91374dbd3114fe87",
+                        "source": {
+                            "file": "storage/framework/views/153f35438b5b2a7c91374dbd3114fe87.blade.php",
+                            "line": 1
+                        },
+                        "composers": [],
+                        "data": {
+                            "assist": "[Laravel\\Boost\\Install\\GuidelineAssist]"
+                        },
+                        "timing": "composition_marker",
+                        "at_ms": 1480.062
+                    },
+                    {
+                        "name": "__components::6dc6d0aef864bb403facace5ffc97441",
+                        "source": {
+                            "file": "storage/framework/views/6dc6d0aef864bb403facace5ffc97441.blade.php",
+                            "line": 1
+                        },
+                        "composers": [],
+                        "data": {
+                            "assist": "[Laravel\\Boost\\Install\\GuidelineAssist]"
+                        },
+                        "timing": "composition_marker",
+                        "at_ms": 1507.978
+                    },
+                    {
+                        "name": "__components::2f4c5b316b4cb31ef0cd8c1e35ddd7b4",
+                        "source": {
+                            "file": "storage/framework/views/2f4c5b316b4cb31ef0cd8c1e35ddd7b4.blade.php",
+                            "line": 1
+                        },
+                        "composers": [],
+                        "data": {
+                            "assist": "[Laravel\\Boost\\Install\\GuidelineAssist]"
+                        },
+                        "timing": "composition_marker",
+                        "at_ms": 1509.074
+                    },
+                    {
+                        "name": "__components::a8f2638daac871fd3d2a2c73e4de1313",
+                        "source": {
+                            "file": "storage/framework/views/a8f2638daac871fd3d2a2c73e4de1313.blade.php",
+                            "line": 1
+                        },
+                        "composers": [],
+                        "data": {
+                            "assist": "[Laravel\\Boost\\Install\\GuidelineAssist]"
+                        },
+                        "timing": "composition_marker",
+                        "at_ms": 1521.511
+                    },
+                    {
+                        "name": "__components::2a86e36d03d8aa615eaceff8688ea8c5",
+                        "source": {
+                            "file": "storage/framework/views/2a86e36d03d8aa615eaceff8688ea8c5.blade.php",
+                            "line": 1
+                        },
+                        "composers": [],
+                        "data": {
+                            "assist": "[Laravel\\Boost\\Install\\GuidelineAssist]"
+                        },
+                        "timing": "composition_marker",
+                        "at_ms": 1522.322
+                    },
+                    {
+                        "name": "__components::153f35438b5b2a7c91374dbd3114fe87",
+                        "source": {
+                            "file": "storage/framework/views/153f35438b5b2a7c91374dbd3114fe87.blade.php",
+                            "line": 1
+                        },
+                        "composers": [],
+                        "data": {
+                            "assist": "[Laravel\\Boost\\Install\\GuidelineAssist]"
+                        },
+                        "timing": "composition_marker",
+                        "at_ms": 1523.012
+                    },
+                    {
+                        "name": "__components::6dc6d0aef864bb403facace5ffc97441",
+                        "source": {
+                            "file": "storage/framework/views/6dc6d0aef864bb403facace5ffc97441.blade.php",
+                            "line": 1
+                        },
+                        "composers": [],
+                        "data": {
+                            "assist": "[Laravel\\Boost\\Install\\GuidelineAssist]"
+                        },
+                        "timing": "composition_marker",
+                        "at_ms": 1524.584
+                    },
+                    {
+                        "name": "__components::2f4c5b316b4cb31ef0cd8c1e35ddd7b4",
+                        "source": {
+                            "file": "storage/framework/views/2f4c5b316b4cb31ef0cd8c1e35ddd7b4.blade.php",
+                            "line": 1
+                        },
+                        "composers": [],
+                        "data": {
+                            "assist": "[Laravel\\Boost\\Install\\GuidelineAssist]"
+                        },
+                        "timing": "composition_marker",
+                        "at_ms": 1525.054
+                    },
+                    {
+                        "name": "__components::a8f2638daac871fd3d2a2c73e4de1313",
+                        "source": {
+                            "file": "storage/framework/views/a8f2638daac871fd3d2a2c73e4de1313.blade.php",
+                            "line": 1
+                        },
+                        "composers": [],
+                        "data": {
+                            "assist": "[Laravel\\Boost\\Install\\GuidelineAssist]"
+                        },
+                        "timing": "composition_marker",
+                        "at_ms": 1530.76
+                    },
+                    {
+                        "name": "__components::2a86e36d03d8aa615eaceff8688ea8c5",
+                        "source": {
+                            "file": "storage/framework/views/2a86e36d03d8aa615eaceff8688ea8c5.blade.php",
+                            "line": 1
+                        },
+                        "composers": [],
+                        "data": {
+                            "assist": "[Laravel\\Boost\\Install\\GuidelineAssist]"
+                        },
+                        "timing": "composition_marker",
+                        "at_ms": 1531.633
+                    },
+                    {
+                        "name": "__components::153f35438b5b2a7c91374dbd3114fe87",
+                        "source": {
+                            "file": "storage/framework/views/153f35438b5b2a7c91374dbd3114fe87.blade.php",
+                            "line": 1
+                        },
+                        "composers": [],
+                        "data": {
+                            "assist": "[Laravel\\Boost\\Install\\GuidelineAssist]"
+                        },
+                        "timing": "composition_marker",
+                        "at_ms": 1532.454
+                    }
+                ]
+            }
+        },
+        "events": {
+            "label": "Events",
+            "summary": {
+                "count": 2,
+                "retained_count": 2,
+                "dropped_count": 0,
+                "truncated": false
+            },
+            "payload": {
+                "items": [
+                    {
+                        "name": "Illuminate\\Cache\\Events\\RetrievingKey",
+                        "listeners": [],
+                        "broadcast": false,
+                        "payload_types": [
+                            "Illuminate\\Cache\\Events\\RetrievingKey"
+                        ],
+                        "at_ms": 576.221
+                    },
+                    {
+                        "name": "Illuminate\\Cache\\Events\\WritingKey",
+                        "listeners": [],
+                        "broadcast": false,
+                        "payload_types": [
+                            "Illuminate\\Cache\\Events\\WritingKey"
+                        ],
+                        "at_ms": 597.072
+                    }
+                ]
+            }
+        },
+        "authorization": {
+            "label": "Authorization",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "validation": {
+            "label": "Validation",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "lifecycle": {
+            "label": "Lifecycle",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "messages": {
+            "label": "Messages",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "logs": {
+            "label": "Logs",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false,
+                "errors": 0
+            },
+            "payload": {
+                "items": []
+            }
+        },
+        "exceptions": {
+            "label": "Exceptions",
+            "summary": {
+                "count": 0,
+                "retained_count": 0,
+                "dropped_count": 0,
+                "truncated": false
+            },
+            "payload": {
+                "items": []
+            }
+        }
+    }
+}

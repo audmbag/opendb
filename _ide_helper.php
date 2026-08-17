@@ -5,7 +5,7 @@
 
 /**
  * A helper file for Laravel, to provide autocomplete information to your IDE
- * Generated for Laravel 13.22.0.
+ * Generated for Laravel 13.25.0.
  *
  * This file should not be included in your code, only analyzed by your IDE!
  *
@@ -1758,6 +1758,7 @@ namespace Illuminate\Support\Facades {
          *
          * @param string $abstract
          * @return string
+         * @throws \LogicException
          * @static
          */
         public static function getAlias($abstract)
@@ -5384,7 +5385,7 @@ namespace Illuminate\Support\Facades {
          */
         public static function lock($name, $seconds = 0, $owner = null)
         {
-            /** @var \Illuminate\Cache\DatabaseStore $instance */
+            /** @var \Illuminate\Cache\FileStore $instance */
             return $instance->lock($name, $seconds, $owner);
         }
 
@@ -5398,21 +5399,23 @@ namespace Illuminate\Support\Facades {
          */
         public static function restoreLock($name, $owner)
         {
-            /** @var \Illuminate\Cache\DatabaseStore $instance */
+            /** @var \Illuminate\Cache\FileStore $instance */
             return $instance->restoreLock($name, $owner);
         }
 
         /**
-         * Remove an item from the cache if it is expired.
+         * Atomically refresh the expiration of a cache key if it matches the expected owner.
          *
          * @param string $key
+         * @param mixed $expectedOwner
+         * @param int $seconds
          * @return bool
          * @static
          */
-        public static function forgetIfExpired($key)
+        public static function refreshIfOwned($key, $expectedOwner, $seconds)
         {
-            /** @var \Illuminate\Cache\DatabaseStore $instance */
-            return $instance->forgetIfExpired($key);
+            /** @var \Illuminate\Cache\FileStore $instance */
+            return $instance->refreshIfOwned($key, $expectedOwner, $seconds);
         }
 
         /**
@@ -5423,58 +5426,71 @@ namespace Illuminate\Support\Facades {
          */
         public static function flush()
         {
-            /** @var \Illuminate\Cache\DatabaseStore $instance */
+            /** @var \Illuminate\Cache\FileStore $instance */
             return $instance->flush();
         }
 
         /**
-         * Get the underlying database connection.
+         * Get the full path for the given cache key.
          *
-         * @return \Illuminate\Database\SQLiteConnection
+         * @param string $key
+         * @return string
          * @static
          */
-        public static function getConnection()
+        public static function path($key)
         {
-            /** @var \Illuminate\Cache\DatabaseStore $instance */
-            return $instance->getConnection();
+            /** @var \Illuminate\Cache\FileStore $instance */
+            return $instance->path($key);
         }
 
         /**
-         * Set the underlying database connection.
+         * Get the Filesystem instance.
          *
-         * @param \Illuminate\Database\ConnectionInterface $connection
-         * @return \Illuminate\Cache\DatabaseStore
+         * @return \Illuminate\Filesystem\Filesystem
          * @static
          */
-        public static function setConnection($connection)
+        public static function getFilesystem()
         {
-            /** @var \Illuminate\Cache\DatabaseStore $instance */
-            return $instance->setConnection($connection);
+            /** @var \Illuminate\Cache\FileStore $instance */
+            return $instance->getFilesystem();
         }
 
         /**
-         * Get the connection used to manage locks.
+         * Get the working directory of the cache.
          *
-         * @return \Illuminate\Database\SQLiteConnection
+         * @return string
          * @static
          */
-        public static function getLockConnection()
+        public static function getDirectory()
         {
-            /** @var \Illuminate\Cache\DatabaseStore $instance */
-            return $instance->getLockConnection();
+            /** @var \Illuminate\Cache\FileStore $instance */
+            return $instance->getDirectory();
         }
 
         /**
-         * Specify the connection that should be used to manage locks.
+         * Set the working directory of the cache.
          *
-         * @param \Illuminate\Database\ConnectionInterface $connection
-         * @return \Illuminate\Cache\DatabaseStore
+         * @param string $directory
+         * @return \Illuminate\Cache\FileStore
          * @static
          */
-        public static function setLockConnection($connection)
+        public static function setDirectory($directory)
         {
-            /** @var \Illuminate\Cache\DatabaseStore $instance */
-            return $instance->setLockConnection($connection);
+            /** @var \Illuminate\Cache\FileStore $instance */
+            return $instance->setDirectory($directory);
+        }
+
+        /**
+         * Set the cache directory where locks should be stored.
+         *
+         * @param string|null $lockDirectory
+         * @return \Illuminate\Cache\FileStore
+         * @static
+         */
+        public static function setLockDirectory($lockDirectory)
+        {
+            /** @var \Illuminate\Cache\FileStore $instance */
+            return $instance->setLockDirectory($lockDirectory);
         }
 
         /**
@@ -5485,21 +5501,8 @@ namespace Illuminate\Support\Facades {
          */
         public static function getPrefix()
         {
-            /** @var \Illuminate\Cache\DatabaseStore $instance */
+            /** @var \Illuminate\Cache\FileStore $instance */
             return $instance->getPrefix();
-        }
-
-        /**
-         * Set the cache key prefix.
-         *
-         * @param string $prefix
-         * @return void
-         * @static
-         */
-        public static function setPrefix($prefix)
-        {
-            /** @var \Illuminate\Cache\DatabaseStore $instance */
-            $instance->setPrefix($prefix);
         }
 
         /**
@@ -5510,7 +5513,7 @@ namespace Illuminate\Support\Facades {
          */
         public static function hasSeparateLockStore()
         {
-            /** @var \Illuminate\Cache\DatabaseStore $instance */
+            /** @var \Illuminate\Cache\FileStore $instance */
             return $instance->hasSeparateLockStore();
         }
 
@@ -6674,10 +6677,11 @@ namespace Illuminate\Support\Facades {
         /**
          * Get a queued cookie instance.
          *
+         * @template TQueuedDefault
          * @param string $key
-         * @param mixed $default
+         * @param TQueuedDefault|(\Closure(): TQueuedDefault) $default
          * @param string|null $path
-         * @return \Symfony\Component\HttpFoundation\Cookie|null
+         * @return \Symfony\Component\HttpFoundation\Cookie|TQueuedDefault
          * @static
          */
         public static function queued($key, $default = null, $path = null)
@@ -10600,6 +10604,20 @@ namespace Illuminate\Support\Facades {
         }
 
         /**
+         * Execute a callback while requests are created without global middleware or global options.
+         *
+         * @template TReturn
+         * @param (\Closure(): TReturn) $callback
+         * @return TReturn
+         * @static
+         */
+        public static function withoutGlobalConfiguration($callback)
+        {
+            /** @var \Illuminate\Http\Client\Factory $instance */
+            return $instance->withoutGlobalConfiguration($callback);
+        }
+
+        /**
          * Create a new response instance for use during stubbing.
          *
          * @param \Psr\Http\Message\StreamInterface|array|string|resource|null $body
@@ -10618,7 +10636,7 @@ namespace Illuminate\Support\Facades {
          *
          * @param \Psr\Http\Message\StreamInterface|array|string|resource|null $body
          * @param int $status
-         * @param array<string, mixed> $headers
+         * @param array $headers
          * @return \GuzzleHttp\Psr7\Response
          * @throws \InvalidArgumentException
          * @static
@@ -10633,7 +10651,7 @@ namespace Illuminate\Support\Facades {
          *
          * @param \Psr\Http\Message\StreamInterface|array|string|resource|null $body
          * @param int $status
-         * @param array<string, mixed> $headers
+         * @param array $headers
          * @return \Illuminate\Http\Client\RequestException
          * @static
          */
@@ -10977,6 +10995,18 @@ namespace Illuminate\Support\Facades {
         {
             /** @var \Illuminate\Image\ImageManager $instance */
             return $instance->fromBytes($contents);
+        }
+
+        /**
+         * Create an image instance from a stream.
+         *
+         * @param resource $stream
+         * @static
+         */
+        public static function fromStream($stream)
+        {
+            /** @var \Illuminate\Image\ImageManager $instance */
+            return $instance->fromStream($stream);
         }
 
         /**
@@ -11887,9 +11917,6 @@ namespace Illuminate\Support\Facades {
      * @method static \Illuminate\Mail\SentMessage|null html(string $html, mixed $callback)
      * @method static \Illuminate\Mail\SentMessage|null plain(string $view, array $data, mixed $callback)
      * @method static string render(string|array $view, array $data = [])
-     * @method static mixed onQueue(\BackedEnum|string|null $queue, \Illuminate\Contracts\Mail\Mailable $view)
-     * @method static mixed queueOn(string $queue, \Illuminate\Contracts\Mail\Mailable $view)
-     * @method static mixed laterOn(string $queue, \DateTimeInterface|\DateInterval|int $delay, \Illuminate\Contracts\Mail\Mailable $view)
      * @method static \Symfony\Component\Mailer\Transport\TransportInterface getSymfonyTransport()
      * @method static \Illuminate\Contracts\View\Factory getViewFactory()
      * @method static void setSymfonyTransport(\Symfony\Component\Mailer\Transport\TransportInterface $transport)
@@ -12358,7 +12385,7 @@ namespace Illuminate\Support\Facades {
          * Queue a new message for sending.
          *
          * @param \Illuminate\Contracts\Mail\Mailable|string|array $view
-         * @param string|null $queue
+         * @param \BackedEnum|string|null $queue
          * @return mixed
          * @static
          */
@@ -12366,6 +12393,34 @@ namespace Illuminate\Support\Facades {
         {
             /** @var \Illuminate\Support\Testing\Fakes\MailFake $instance */
             return $instance->queue($view, $queue);
+        }
+
+        /**
+         * Queue a new mail message for sending on the given queue.
+         *
+         * @param \BackedEnum|string|null $queue
+         * @param \Illuminate\Contracts\Mail\Mailable $view
+         * @return mixed
+         * @static
+         */
+        public static function onQueue($queue, $view)
+        {
+            /** @var \Illuminate\Support\Testing\Fakes\MailFake $instance */
+            return $instance->onQueue($queue, $view);
+        }
+
+        /**
+         * Queue a new mail message for sending on the given queue.
+         *
+         * @param \BackedEnum|string|null $queue
+         * @param \Illuminate\Contracts\Mail\Mailable $view
+         * @return mixed
+         * @static
+         */
+        public static function queueOn($queue, $view)
+        {
+            /** @var \Illuminate\Support\Testing\Fakes\MailFake $instance */
+            return $instance->queueOn($queue, $view);
         }
 
         /**
@@ -12381,6 +12436,21 @@ namespace Illuminate\Support\Facades {
         {
             /** @var \Illuminate\Support\Testing\Fakes\MailFake $instance */
             return $instance->later($delay, $view, $queue);
+        }
+
+        /**
+         * Queue a new e-mail message for sending after (n) seconds on the given queue.
+         *
+         * @param string|null $queue
+         * @param \DateTimeInterface|\DateInterval|int $delay
+         * @param \Illuminate\Contracts\Mail\Mailable $view
+         * @return mixed
+         * @static
+         */
+        public static function laterOn($queue, $delay, $view)
+        {
+            /** @var \Illuminate\Support\Testing\Fakes\MailFake $instance */
+            return $instance->laterOn($queue, $delay, $view);
         }
 
             }
@@ -13366,6 +13436,18 @@ namespace Illuminate\Support\Facades {
         }
 
         /**
+         * Pause job processing for all queues on all connections.
+         *
+         * @return void
+         * @static
+         */
+        public static function pauseAll()
+        {
+            /** @var \Illuminate\Queue\QueueManager $instance */
+            $instance->pauseAll();
+        }
+
+        /**
          * Resume a paused queue by its connection and name.
          *
          * @param string $connection
@@ -13377,6 +13459,20 @@ namespace Illuminate\Support\Facades {
         {
             /** @var \Illuminate\Queue\QueueManager $instance */
             $instance->resume($connection, $queue);
+        }
+
+        /**
+         * Resume job processing for all queues on all connections.
+         *
+         * Queues paused individually are not affected.
+         *
+         * @return void
+         * @static
+         */
+        public static function resumeAll()
+        {
+            /** @var \Illuminate\Queue\QueueManager $instance */
+            $instance->resumeAll();
         }
 
         /**
@@ -14187,7 +14283,7 @@ namespace Illuminate\Support\Facades {
         /**
          * Delete all of the jobs from the queue.
          *
-         * @param string|null $queue
+         * @param \UnitEnum|string|null $queue
          * @return int
          * @static
          */
@@ -14200,7 +14296,7 @@ namespace Illuminate\Support\Facades {
         /**
          * Get the queue or return the default.
          *
-         * @param string|null $queue
+         * @param \UnitEnum|string|null $queue
          * @return string
          * @static
          */
@@ -21753,7 +21849,7 @@ namespace Illuminate\Support\Facades {
          *
          * @param string|null $directory
          * @param bool $recursive
-         * @return array
+         * @return array<string>
          * @static
          */
         public static function files($directory = null, $recursive = false)
@@ -21767,7 +21863,7 @@ namespace Illuminate\Support\Facades {
          * Get all of the files from the given directory (recursive).
          *
          * @param string|null $directory
-         * @return array
+         * @return array<string>
          * @static
          */
         public static function allFiles($directory = null)
@@ -21782,7 +21878,7 @@ namespace Illuminate\Support\Facades {
          *
          * @param string|null $directory
          * @param bool $recursive
-         * @return array
+         * @return array<string>
          * @static
          */
         public static function directories($directory = null, $recursive = false)
@@ -21796,7 +21892,7 @@ namespace Illuminate\Support\Facades {
          * Get all the directories within a given directory (recursive).
          *
          * @param string|null $directory
-         * @return array
+         * @return array<string>
          * @static
          */
         public static function allDirectories($directory = null)
@@ -24477,6 +24573,202 @@ namespace Laravel\Mcp\Facades {
             }
     }
 
+namespace LmSomeco\AiModels\Facades {
+    /**
+     * @see ModelRegistry
+     */
+    class AiModels {
+        /**
+         * Every provider entry in config/ai.php that has a resolver for its driver,
+         * built into resolver instances and keyed by the provider name.
+         *
+         * Because resolvers are selected by the entry's "driver" (a Lab value),
+         * dynamically-injected providers (e.g. "db-{id}" connectors registered at
+         * runtime via config(['ai.providers...' => ...])) are supported transparently.
+         *
+         * @return Collection<string, ProviderResolver>
+         * @static
+         */
+        public static function providers()
+        {
+            /** @var \LmSomeco\AiModels\ModelRegistry $instance */
+            return $instance->providers();
+        }
+
+        /**
+         * The names of providers that have the credentials they need to run.
+         *
+         * @return Collection<int, string>
+         * @static
+         */
+        public static function configuredProviders()
+        {
+            /** @var \LmSomeco\AiModels\ModelRegistry $instance */
+            return $instance->configuredProviders();
+        }
+
+        /**
+         * Every model across every configured provider.
+         *
+         * @return Collection<int, AiModel>
+         * @static
+         */
+        public static function all($fresh = false)
+        {
+            /** @var \LmSomeco\AiModels\ModelRegistry $instance */
+            return $instance->all($fresh);
+        }
+
+        /**
+         * The models for a single provider, by its config/ai.php name (or Lab).
+         *
+         * @return Collection<int, AiModel>
+         * @static
+         */
+        public static function provider($provider, $fresh = false)
+        {
+            /** @var \LmSomeco\AiModels\ModelRegistry $instance */
+            return $instance->provider($provider, $fresh);
+        }
+
+        /**
+         * Resolve models for an ad-hoc connector that is not declared in config/ai.php.
+         *
+         * Pass the underlying driver (a Lab) plus its credentials. Caching is opt-in:
+         * provide a $cacheKey (e.g. "connector:{$connector->getConnectorId()}") to cache the result.
+         *
+         * @param array<string, mixed> $config e.g. ['key' => '...', 'url' => '...']
+         * @return Collection<int, AiModel>
+         * @static
+         */
+        public static function driver($driver, $config = [], $cacheKey = null, $fresh = false)
+        {
+            /** @var \LmSomeco\AiModels\ModelRegistry $instance */
+            return $instance->driver($driver, $config, $cacheKey, $fresh);
+        }
+
+        /**
+         * Resolve models for a database-driven connector instance.
+         *
+         * Uses a stable per-connector cache key so repeated calls within the same
+         * request hit the cache. Pass $fresh = true to bypass it.
+         *
+         * @return Collection<int, AiModel>
+         * @static
+         */
+        public static function connector($connector, $fresh = false)
+        {
+            /** @var \LmSomeco\AiModels\ModelRegistry $instance */
+            return $instance->connector($connector, $fresh);
+        }
+
+        /**
+         * Drop cached models for one provider (or cache key), or for every provider
+         * currently declared in config/ai.php.
+         *
+         * @static
+         */
+        public static function refresh($provider = null)
+        {
+            /** @var \LmSomeco\AiModels\ModelRegistry $instance */
+            return $instance->refresh($provider);
+        }
+
+            }
+    }
+
+namespace Illuminate\Support {
+    /**
+     * @template TKey of array-key
+     * @template-covariant TValue
+     * @implements \ArrayAccess<TKey, TValue>
+     * @implements \Illuminate\Support\Enumerable<TKey, TValue>
+     */
+    class Collection {
+        /**
+         * @see \Laravel\Ai\AiServiceProvider::boot()
+         * @param \Closure|array|string $by
+         * @param string $query
+         * @param int|null $limit
+         * @param \Laravel\Ai\Enums\Lab|array|string|null $provider
+         * @param string|null $model
+         * @static
+         */
+        public static function rerank($by, $query, $limit = null, $provider = null, $model = null)
+        {
+            return \Illuminate\Support\Collection::rerank($by, $query, $limit, $provider, $model);
+        }
+
+            }
+    /**
+     */
+    class Str {
+        /**
+         * @see \Laravel\Ai\AiServiceProvider::boot()
+         * @param string $value
+         * @param int $sentences
+         * @param \Laravel\Ai\Enums\Lab|array|string|null $provider
+         * @param string|null $model
+         * @param int|null $timeout
+         * @return string
+         * @static
+         */
+        public static function summarize($value, $sentences = 3, $provider = null, $model = null, $timeout = null)
+        {
+            return \Illuminate\Support\Str::summarize($value, $sentences, $provider, $model, $timeout);
+        }
+
+            }
+    /**
+     */
+    class Stringable {
+        /**
+         * @see \Laravel\Ai\AiServiceProvider::boot()
+         * @param \Laravel\Ai\Enums\Lab|array|string|null $provider
+         * @param int|null $dimensions
+         * @param string|null $model
+         * @param int|bool|null $cache
+         * @param int|null $timeout
+         * @param \Closure|array $providerOptions
+         * @static
+         */
+        public static function toEmbeddings($provider = null, $dimensions = null, $model = null, $cache = null, $timeout = null, $providerOptions = [])
+        {
+            return \Illuminate\Support\Stringable::toEmbeddings($provider, $dimensions, $model, $cache, $timeout, $providerOptions);
+        }
+
+        /**
+         * @see \Laravel\Ai\AiServiceProvider::boot()
+         * @param \Laravel\Ai\Enums\Lab|array|string|null $provider
+         * @param string|null $voice
+         * @param string|null $instructions
+         * @param string|null $model
+         * @param int|null $timeout
+         * @return \Laravel\Ai\Responses\AudioResponse
+         * @static
+         */
+        public static function toAudio($provider = null, $voice = null, $instructions = null, $model = null, $timeout = null)
+        {
+            return \Illuminate\Support\Stringable::toAudio($provider, $voice, $instructions, $model, $timeout);
+        }
+
+        /**
+         * @see \Laravel\Ai\AiServiceProvider::boot()
+         * @param int $sentences
+         * @param \Laravel\Ai\Enums\Lab|array|string|null $provider
+         * @param string|null $model
+         * @param int|null $timeout
+         * @return string
+         * @static
+         */
+        public static function summarize($sentences = 3, $provider = null, $model = null, $timeout = null)
+        {
+            return \Illuminate\Support\Stringable::summarize($sentences, $provider, $model, $timeout);
+        }
+
+            }
+    }
+
 namespace Illuminate\Http {
     /**
      */
@@ -25299,6 +25591,18 @@ namespace  {
         {
             /** @var \Illuminate\Database\Eloquent\Builder $instance */
             return $instance->pluck($column, $key);
+        }
+
+        /**
+         * Get an array of primary keys from the query result.
+         *
+         * @return array<int, array-key>
+         * @static
+         */
+        public static function modelKeys()
+        {
+            /** @var \Illuminate\Database\Eloquent\Builder $instance */
+            return $instance->modelKeys();
         }
 
         /**
@@ -29796,6 +30100,7 @@ namespace  {
     class View extends \Illuminate\Support\Facades\View {}
     class Vite extends \Illuminate\Support\Facades\Vite {}
     class Mcp extends \Laravel\Mcp\Facades\Mcp {}
+    class AiModels extends \LmSomeco\AiModels\Facades\AiModels {}
 }
 
 

@@ -10,6 +10,7 @@ declare module '@inertiajs/core' {
         sharedPageProps: {
             auth: { user: User };
             sidebarOpen?: boolean;
+            appName: string;
         };
     }
 }

@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Database\Drivers\BaseDriver;
 use App\Http\Requests\ProjectRequest;
 use App\Models\Project;
-use App\Services\Repository\ProjectRepository;
+use App\Repository\ProjectRepository;
 use Illuminate\Http\RedirectResponse;
 
 class ProjectController extends Controller

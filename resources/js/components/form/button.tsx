@@ -22,7 +22,7 @@ export type ButtonProps = React.ComponentProps<typeof UIButton> &
         processing?: boolean;
         kbd?: string[];
         stateAppearance?: 'success' | 'destructive';
-        confirmation?: AlertDialogProps;
+        confirmation?: Omit<AlertDialogProps, 'variant'>;
     };
 
 
@@ -32,7 +32,8 @@ export default function Button ({asChild, icon: Icon, tooltip, tooltipColor, pro
         if (confirmation) {
             event.preventDefault();
             const result = await AlertDialog.call({
-                ...confirmation
+                ...confirmation,
+                variant: "destructive"
             });
 
             if(result) {

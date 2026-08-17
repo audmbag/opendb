@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace App\Ai\ModelResolver;
 
+use DateTimeImmutable;
+use Exception;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\Collection;
 use Laravel\Ai\Enums\Lab;
 use LmSomeco\AiModels\Contracts\ProviderResolver;
 use LmSomeco\AiModels\Data\AiModel;
 
-class GeminiResolver implements ProviderResolver
+class OllamaResolver implements ProviderResolver
 {
     /**
      * @param  array<string, mixed>  $config
@@ -28,46 +30,32 @@ class GeminiResolver implements ProviderResolver
 
     public function configured(): bool
     {
-        return filled($this->apiKey());
+        return filled($this->baseUrl());
     }
 
     public function models(): Collection
     {
-        $models = collect();
-        $query = ['pageSize' => 1000];
+        $request = $this->http
+            ->baseUrl($this->baseUrl())
+            ->acceptJson()
+            ->timeout((int) ($this->config['timeout'] ?? 15));
 
-        do {
-            $response = $this->http
-                ->baseUrl($this->baseUrl())
-                ->withHeaders(['x-goog-api-key' => (string) $this->apiKey()])
-                ->acceptJson()
-                ->timeout((int) ($this->config['timeout'] ?? 15))
-                ->get('/models', $query)
-                ->throw();
+        if (filled($this->config['key'] ?? null)) {
+            $request->withToken((string) $this->config['key']);
+        }
 
-            foreach ($response->json('models', []) as $model) {
-                if ($mapped = $this->mapModel($model)) {
-                    $models->push($mapped);
-                }
-            }
+        $response = $request->get('/api/tags')->throw();
 
-            $query['pageToken'] = $response->json('nextPageToken');
-        } while (filled($query['pageToken'] ?? null));
-
-        return $models->sortBy('id')->values();
-    }
-
-    protected function apiKey(): ?string
-    {
-        return $this->config['key'] ?? null;
+        return collect($response->json('models', []))
+            ->map(fn (array $model): ?AiModel => $this->mapModel($model))
+            ->filter()
+            ->sortBy('id')
+            ->values();
     }
 
     protected function baseUrl(): string
     {
-        return rtrim(
-            (string) ($this->config['url'] ?? 'https://generativelanguage.googleapis.com/v1beta'),
-            '/'
-        );
+        return rtrim((string) ($this->config['url'] ?? 'http://localhost:11434'), '/');
     }
 
     /**
@@ -75,21 +63,31 @@ class GeminiResolver implements ProviderResolver
      */
     protected function mapModel(array $model): ?AiModel
     {
-        if (empty($model['name'])) {
+        $id = $model['model'] ?? $model['name'] ?? null;
+
+        if (empty($id)) {
             return null;
         }
 
-        $id = str_starts_with((string) $model['name'], 'models/')
-            ? substr((string) $model['name'], strlen('models/'))
-            : (string) $model['name'];
-
         return new AiModel(
             provider: $this->provider(),
-            id: $id,
-            name: $model['displayName'] ?? $id,
-            contextWindow: isset($model['inputTokenLimit']) ? (int) $model['inputTokenLimit'] : null,
-            maxOutputTokens: isset($model['outputTokenLimit']) ? (int) $model['outputTokenLimit'] : null,
+            id: (string) $id,
+            name: (string) ($model['name'] ?? $id),
+            createdAt: $this->parseModifiedAt($model['modified_at'] ?? null),
             raw: $model,
         );
+    }
+
+    protected function parseModifiedAt(?string $modifiedAt): ?DateTimeImmutable
+    {
+        if (blank($modifiedAt)) {
+            return null;
+        }
+
+        try {
+            return new DateTimeImmutable($modifiedAt);
+        } catch (Exception) {
+            return null;
+        }
     }
 }

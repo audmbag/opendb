@@ -19,5 +19,9 @@ class DatabaseSeeder extends Seeder
             'name' => config('opendb.default_username'),
             'password' => bcrypt(config('opendb.default_password')),
         ]);
+
+        $this->call([
+            ProviderSeeder::class,
+        ]);
     }
 }
