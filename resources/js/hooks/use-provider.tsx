@@ -14,7 +14,8 @@ type ProviderData = {
 const useProvider = () => {
 
     const { get, processing } = useHttp<null, ProviderData>();
-    const { delete: deleteRequest } = useHttp<null, { success: boolean, message: string }>(null);
+    const { delete: deleteRequest } = useHttp<null, { success: boolean, message: string }>();
+    const { post: toggleModelRequest, processing: toggleModelProcessing } = useHttp<null, { status: boolean }>();
 
     const [disconnectingId, setDisconnectingId] = useState<string | undefined>();
 
@@ -69,6 +70,44 @@ const useProvider = () => {
         });
     }, [connectedProviders, disconnectedProviders, setProviders]);
 
+    const toggleProvider = useCallback((providerId: string, modelId: string, mutationCallback?: (status: boolean, error: boolean) => void) => {
+        toggleModelRequest(
+            ProviderController.toggleModel.url({
+                provider: providerId,
+                modelId,
+            }),
+            {
+                onSuccess: ({ status }) => {
+                    setProviders(
+                        connectedProviders.map((provider) => {
+                            if (provider.id === providerId) {
+                                return {
+                                    ...provider,
+                                    models: provider.models.map((model) => {
+                                        if (model.id === modelId) {
+                                            return { ...model, active: status };
+                                        }
+
+                                        return model;
+                                    }),
+                                };
+                            }
+
+                            return provider;
+                        }),
+                        'connected',
+                    );
+
+                    mutationCallback?.(status, false)
+                },
+                onError: () => {
+                    toast.error("Une erreur s'est produite");
+                    mutationCallback?.(false, true)
+                }
+            },
+        );
+    }, [connectedProviders, setProviders]);
+
     return {
         loadData,
         disconnect,
@@ -76,6 +115,8 @@ const useProvider = () => {
         processing,
         connectedProviders,
         disconnectedProviders,
+        toggleProvider,
+        toggleModelProcessing,
     };
 };
 

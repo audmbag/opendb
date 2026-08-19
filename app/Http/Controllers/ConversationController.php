@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\DiscussionStarterRequest;
 use App\Models\Project;
 use Inertia\Response;
+use Laravel\Ai\Models\Conversation;
 
 class DiscussionController extends Controller
 {
@@ -26,7 +27,6 @@ class DiscussionController extends Controller
     public function start(DiscussionStarterRequest $request)
     {
         $data = $request->validated();
-
 
     }
 }
