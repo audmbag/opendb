@@ -6,11 +6,11 @@ import { Fragment, useCallback, useEffect } from 'react';
 import ConnectProviderModal from '@/components/connect-provider-modal';
 import { EmptyState } from '@/components/empty-state';
 import ProviderItem from '@/components/settings/provider-item';
+import { ProviderModelsModal } from '@/components/settings/provider-models-modal';
 import { useProvider } from '@/hooks/use-provider';
 import type { Provider } from '@/types/models/provider';
 import CardFrame from '../card-frame';
 import { Separator } from '../ui/separator';
-import { ProviderModelsModal } from '@/components/settings/provider-models-modal';
 
 
 const ProviderWrapper = ({

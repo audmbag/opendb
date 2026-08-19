@@ -1,19 +1,12 @@
-import type {
-    LucideIcon} from 'lucide-react';
-import {
-    BrainIcon,
-    KeyboardIcon,
-    PaletteIcon,
-    Settings2Icon,
-} from 'lucide-react';
-
-import type { LazyExoticComponent} from 'react';
 import  { Fragment} from 'react';
-import React, { lazy, useMemo, useState, Suspense } from 'react';
+import React, { useMemo, useState, Suspense } from 'react';
 import Button from '@/components/form/button';
 import Modal from '@/components/modal'
 import { Separator } from '@/components/ui/separator';
-import { useSettingsDialog } from '@/hooks/use-settings-modal';
+import type { SettingNaviItemValue} from '@/hooks/use-settings-modal';
+import { SettingsNavItems,
+    useSettingsDialog,
+} from '@/hooks/use-settings-modal';
 import {
     Breadcrumb,
     BreadcrumbItem,
@@ -24,63 +17,17 @@ import {
 } from './ui/breadcrumb';
 import { SidebarMenuButton, SidebarProvider } from './ui/sidebar';
 
-const navItems = [
-    {
-        label: 'Bureau',
-        items: [
-            {
-                value: 'general',
-                name: 'Général',
-                icon: Settings2Icon,
-                component: lazy(() => import('./settings/general-settings')),
-            },
-            {
-                value: 'themes',
-                name: 'Thèmes',
-                icon: PaletteIcon,
-                component: lazy(() => import('./settings/themes-settings')),
-            },
-            {
-                value: 'shortcuts',
-                name: 'Raccourcis',
-                icon: KeyboardIcon,
-                component: lazy(() => import('./settings/shortcuts-settings')),
-            },
-        ],
-    },
-    {
-        label: 'Serveur',
-        items: [
-            {
-                value: 'models',
-                name: 'Modèles',
-                icon: BrainIcon,
-                component: lazy(() => import('./settings/models-settings')),
-            },
-        ],
-    },
-] as const satisfies {
-    label: string;
-    items: {
-        value: string;
-        name: string;
-        icon: LucideIcon;
-        component: LazyExoticComponent<() => React.ReactNode>;
-    }[];
-}[];
-
-type NaviItemValue = typeof navItems[number]['items'][number]['value'];
 
 export default function SettingsDialog() {
 
-    const { open, setOpen } = useSettingsDialog();
+    const { isOpen, close } = useSettingsDialog();
 
     return (
         <Modal
             title="Settings"
             description="Manage your settings"
-            open={open}
-            onOpenChange={setOpen}
+            open={isOpen}
+            onOpenChange={open => !open && close()}
             className={'h-150 sm:max-w-250'}
         >
             <SettingsContent />
@@ -115,11 +62,15 @@ const RenderBreadCrumbs = ({
 
 const SettingsContent = () => {
 
-    const [currentSettingPage, setCurrentSettingPage] = useState<NaviItemValue>('models');
+    const { targetTab } = useSettingsDialog();
+
+    const [currentSettingPage, setCurrentSettingPage] = useState<SettingNaviItemValue>(targetTab || 'general');
 
     const currentPage = useMemo(() => {
-        for (const section of navItems) {
-            const item = section.items.find((i) => i.value === currentSettingPage);
+        for (const section of SettingsNavItems) {
+            const item = section.items.find(
+                (i) => i.value === currentSettingPage,
+            );
 
             if (item) {
                 return item;
@@ -130,7 +81,7 @@ const SettingsContent = () => {
     }, [currentSettingPage]);
 
     return (
-        <SidebarProvider className="overflow-hidden min-h-[initial] h-full">
+        <SidebarProvider className="h-full min-h-[initial] overflow-hidden">
             <div className="h-full w-full overflow-hidden">
                 <div className="flex h-full w-full flex-col overflow-hidden p-0 md:flex-row">
                     <header className="flex h-13 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 md:hidden">
@@ -141,8 +92,8 @@ const SettingsContent = () => {
                             />
                         </div>
                     </header>
-                    <div className="flex basis-auto flex-row gap-1 overflow-auto px-3 py-2 bg-sidebar md:basis-50 md:flex-col dark:[background:repeating-linear-gradient(45deg,var(--background),transparent_100px)]">
-                        {navItems.map((section) => (
+                    <div className="flex basis-auto flex-row gap-1 overflow-auto bg-sidebar px-3 py-2 md:basis-50 md:flex-col dark:[background:repeating-linear-gradient(45deg,var(--background),transparent_100px)]">
+                        {SettingsNavItems.map((section) => (
                             <Fragment key={section.label}>
                                 <h3 className="hidden pt-4 text-xs font-medium text-muted-foreground md:block">
                                     {section.label}

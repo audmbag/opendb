@@ -15,6 +15,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Kbd, KbdGroup } from '@/components/ui/kbd';
 import {
     SidebarMenu,
     SidebarMenuButton,
@@ -23,7 +24,6 @@ import {
 } from '@/components/ui/sidebar';
 import { useSettingsDialog } from '@/hooks/use-settings-modal';
 import LoginController from '@/wayfinder/actions/App/Http/Controllers/Auth/LoginController';
-import { Kbd, KbdGroup } from '@/components/ui/kbd';
 
 export function SidebarUser() {
 
@@ -31,7 +31,7 @@ export function SidebarUser() {
 
     const { props: { auth : { user } } } = usePage();
 
-    const { setOpen } = useSettingsDialog();
+    const { open: openSettingsDialog } = useSettingsDialog();
 
     const handleLogout = useCallback(() => {
         router.post(LoginController.logout());
@@ -82,7 +82,9 @@ export function SidebarUser() {
                         </DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuGroup>
-                            <DropdownMenuItem onSelect={() => setOpen(true)}>
+                            <DropdownMenuItem
+                                onSelect={() => openSettingsDialog()}
+                            >
                                 <CogIcon />
                                 Paramètres
                                 <KbdGroup className="ml-auto">

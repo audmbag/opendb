@@ -2,7 +2,6 @@ import {
     ArrowUpIcon,
     BrainCircuitIcon,
     BrainIcon,
-    HammerIcon,
     PaperclipIcon,
     PencilIcon,
     PencilOffIcon,

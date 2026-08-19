@@ -1,15 +1,14 @@
 import { useHttp } from '@inertiajs/react';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { useProviderStore } from '@/store/use-provider-store';
+import type { APIData } from '@/types/global';
 import type { Provider } from '@/types/models/provider';
 import ProviderController from '@/wayfinder/actions/App/Http/Controllers/ProviderController';
 
 
-type ProviderData = {
-    connectedProviders: Provider[];
-    disconnectedProviders: Provider[];
-}
+type ProviderData = APIData<Provider>
+
 
 const useProvider = () => {
 
@@ -19,22 +18,17 @@ const useProvider = () => {
 
     const [disconnectingId, setDisconnectingId] = useState<string | undefined>();
 
-    const connectedProviders = useProviderStore.use.connectedProviders();
-    const disconnectedProviders = useProviderStore.use.disconnectedProviders();
+    const providers = useProviderStore.use.providers();
     const setProviders = useProviderStore.use.setProviders();
 
     const loadData = useCallback((reload: boolean = false) => {
-        if (
-            !reload &&
-            (connectedProviders.length > 0 || disconnectedProviders.length > 0)
-        ) {
+        if ( !reload && (providers.length > 0)) {
             return;
         }
 
         get(ProviderController.index.url(), {
             onSuccess: (response) => {
-                setProviders(response.connectedProviders, 'connected');
-                setProviders(response.disconnectedProviders, 'disconnected');
+                setProviders(response.data);
             },
             onError: () => {
                 toast.error('Impossible de charger les providers', {
@@ -50,7 +44,7 @@ const useProvider = () => {
                 });
             },
         });
-    }, []);
+    }, [providers.length, setProviders]);
 
     const disconnect = useCallback((provider: Provider) => {
         setDisconnectingId(provider.id);
@@ -68,18 +62,18 @@ const useProvider = () => {
                 setDisconnectingId(undefined);
             },
         });
-    }, [connectedProviders, disconnectedProviders, setProviders]);
+    }, [loadData]);
+
+    const connectedProviders = useMemo(() => providers.filter((provider) => provider.is_connected), [providers]);
+
+    const disconnectedProviders = useMemo(() => providers.filter((provider) => !provider.is_connected), [providers]);
 
     const toggleProvider = useCallback((providerId: string, modelId: string, mutationCallback?: (status: boolean, error: boolean) => void) => {
         toggleModelRequest(
-            ProviderController.toggleModel.url({
-                provider: providerId,
-                modelId,
-            }),
-            {
+            ProviderController.toggleModel.url(providerId, { query: { modelId } }), {
                 onSuccess: ({ status }) => {
                     setProviders(
-                        connectedProviders.map((provider) => {
+                        providers.map((provider) => {
                             if (provider.id === providerId) {
                                 return {
                                     ...provider,
@@ -95,7 +89,6 @@ const useProvider = () => {
 
                             return provider;
                         }),
-                        'connected',
                     );
 
                     mutationCallback?.(status, false)
@@ -106,7 +99,7 @@ const useProvider = () => {
                 }
             },
         );
-    }, [connectedProviders, setProviders]);
+    }, [setProviders]);
 
     return {
         loadData,

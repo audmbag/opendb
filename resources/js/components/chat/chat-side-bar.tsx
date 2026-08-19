@@ -1,13 +1,14 @@
 import { usePage } from '@inertiajs/react';
 import {
     ArchiveIcon,
-    FolderIcon,
+    Loader,
+    MessageSquareTextIcon,
     PencilIcon,
     PlusCircleIcon,
     SearchIcon,
     TrashIcon,
 } from 'lucide-react';
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import type { SidebarItemType } from '@/components/app-sidebar';
 import { MenuItem } from '@/components/app-sidebar';
 import type { DropdownMenuItemType } from '@/components/dropdown-menu';
@@ -24,22 +25,81 @@ import {
     SidebarTrigger,
     useSidebar,
 } from '@/components/ui/sidebar';
+import { useConversation } from '@/hooks/use-conversation';
 import type { Project } from '@/types/models/project';
-import DiscussionController from '@/wayfinder/actions/App/Http/Controllers/DiscussionController';
+import ConversationController from '@/wayfinder/actions/App/Http/Controllers/ConversationController';
 
 
-const prompts: {
+type ConversationMenuItem = {
     id: number;
     title: string;
     options?: DropdownMenuItemType[];
-}[] = [
+}
 
-];
+
+const Conversations = () => {
+
+    const { open } = useSidebar();
+
+    const { conversations, loadConversations, loadConversationsRequest } = useConversation();
+
+    useEffect(() => {
+        loadConversations();
+    }, [loadConversations]);
+
+    if (loadConversationsRequest.processing) {
+        return <SidebarGroupContent>
+            <div className="w-full flex justify-center">
+                <Loader className="size-4 animate-spin" />
+            </div>
+        </SidebarGroupContent>
+    }
+
+    return (
+        <SidebarGroupContent>
+            {conversations.length > 0 ? (
+                <>
+                    <SidebarGroupLabel>Récents</SidebarGroupLabel>
+                    <SidebarMenu>
+                        {conversations.map((prompt) => (
+                            <MenuItem
+                                key={prompt.id}
+                                label={prompt.title}
+                                hiddenOnSidebarClosed
+                                options={[
+                                    {
+                                        label: 'Éditer',
+                                        icon: PencilIcon,
+                                    },
+                                    {
+                                        label: 'Archiver',
+                                        icon: ArchiveIcon,
+                                        separator: true,
+                                    },
+                                    {
+                                        label: 'Supprimer',
+                                        icon: TrashIcon,
+                                        destructive: true,
+                                    },
+                                ]}
+                            />
+                        ))}
+                    </SidebarMenu>
+                </>
+            ) : open ? (
+                <EmptyState
+                    icon={MessageSquareTextIcon}
+                    description="Vos historiques de conversations d'afficherons ici"
+                    className="p-0 pt-8"
+                />
+            ) : null}
+        </SidebarGroupContent>
+    );
+}
 
 export default function ChatSideBar() {
 
     const page = usePage<{project: Project}>()
-    const { open } = useSidebar();
 
 
     const SideBarItems = useMemo<SidebarItemType[]>(() => [
@@ -48,7 +108,7 @@ export default function ChatSideBar() {
             icon: PlusCircleIcon,
             shortcut: ['Ctrl', 'N'],
             variant: 'outline',
-            href: DiscussionController.home(page.props.project.id).url,
+            href: ConversationController.home(page.props.project.id).url,
             viewTransition: true
         },
     ], [page.props.project.id]);
@@ -74,44 +134,7 @@ export default function ChatSideBar() {
                     </SidebarGroupContent>
                 </SidebarGroup>
                 <SidebarGroup>
-                    <SidebarGroupContent>
-                        {prompts.length > 0 ? (
-                            <>
-                                <SidebarGroupLabel>Récents</SidebarGroupLabel>
-                                <SidebarMenu>
-                                    {prompts.map((prompt) => (
-                                        <MenuItem
-                                            key={prompt.id}
-                                            label={prompt.title}
-                                            hiddenOnSidebarClosed
-                                            options={[
-                                                {
-                                                    label: 'Éditer',
-                                                    icon: PencilIcon,
-                                                },
-                                                {
-                                                    label: 'Archiver',
-                                                    icon: ArchiveIcon,
-                                                    separator: true,
-                                                },
-                                                {
-                                                    label: 'Supprimer',
-                                                    icon: TrashIcon,
-                                                    destructive: true,
-                                                },
-                                            ]}
-                                        />
-                                    ))}
-                                </SidebarMenu>
-                            </>
-                        ) : (
-                            open ? <EmptyState
-                                icon={FolderIcon}
-                                description="Vos historiques de conversations d'afficherons ici"
-                                className="p-0 pt-8"
-                            /> : null
-                        )}
-                    </SidebarGroupContent>
+                    <Conversations />
                 </SidebarGroup>
             </SidebarContent>
         </Sidebar>

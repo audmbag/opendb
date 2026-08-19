@@ -1,47 +1,20 @@
+import { create } from 'zustand';
+import { devtools } from 'zustand/middleware';
+import { createSelectors } from '@/lib/utils';
+import type { Conversation } from '@/types/models/conversation';
 
-import type { UseHttpProps } from "node_modules/@inertiajs/react/types/useHttp";
-import { toast } from "sonner";
-import { create } from "zustand"
-import type { Driver } from "@/types/databases"
-import type { APIData } from "@/types/global";
-import DriverConfigController from "@/wayfinder/actions/App/Http/Controllers/API/DriverConfigController"
-
-
-interface DatabaseMSState {
-    data: Driver[];
-    loadData: (
-        httpClient: UseHttpProps<object, APIData<Driver>>['get'],
-        callback: (data: Driver[]) => void,
-    ) => void;
+interface ConversationStore {
+    conversations: Conversation[];
+    setConversations: (conversations: Conversation[]) => void;
+    addConversation: (conversation: Conversation) => void;
 }
 
-const useDriverStore = create<DatabaseMSState>((set, get) => ({
-    data: [],
-    loadData: async (GET, callback) => {
+const useConversationStore = createSelectors(
+    create<ConversationStore>()(devtools((set) => ({
+            conversations: [],
+            setConversations: (conversations) => set({ conversations: conversations }),
+            addConversation: (conversation: Conversation) => set(state => ({ conversations: [conversation, ...state.conversations] })),
+        }), { name: 'useConversationStore' }),
+    ));
 
-        const data = get().data
-
-        if(data.length > 0) {
-            callback(data)
-
-            return
-        }
-
-        await GET(DriverConfigController.index.url(), {
-            onSuccess: (response: any) => {
-                set({ data: response.data });
-                callback(response.data);
-            },
-            onError: () => {
-                callback([]);
-                toast.error('Impossible de charger les SGBD', {
-                    id: 'load-database-ms-error',
-                });
-            },
-        });
-    }
-}))
-
-
-
-export { useDriverStore }
+export { useConversationStore };

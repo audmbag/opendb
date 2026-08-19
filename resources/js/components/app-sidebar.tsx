@@ -16,7 +16,6 @@ import type { DropdownMenuItemType } from '@/components/dropdown-menu';
 import DropdownMenu from '@/components/dropdown-menu';
 import Button from '@/components/form/button';
 import { SidebarUser } from '@/components/sidebar-user';
-import ThemeToggle from '@/components/theme-toggle';
 import { Kbd, KbdGroup } from '@/components/ui/kbd';
 import { Separator } from '@/components/ui/separator';
 import {

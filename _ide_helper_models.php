@@ -91,11 +91,12 @@ namespace App\Models{
  * @property string $label
  * @property string|null $api_key
  * @property string|null $api_url
- * @property \Illuminate\Support\Collection|null $models
+ * @property array<array-key, mixed>|null $models
  * @property bool $custom_openai_compatible
  * @property \Carbon\CarbonImmutable|null $created_at
  * @property \Carbon\CarbonImmutable|null $updated_at
  * @property-read string $icon
+ * @property-read bool $is_connected
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Provider connected()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Provider disconnected()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Provider newModelQuery()

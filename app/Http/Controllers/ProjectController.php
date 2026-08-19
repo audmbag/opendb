@@ -22,7 +22,7 @@ class ProjectController extends Controller
 
         $project = $projectRepository->create($data);
 
-        return redirect()->action([DiscussionController::class, 'home'], $project);
+        return redirect()->action([ConversationController::class, 'home'], $project);
     }
 
     public function update(Project $project, ProjectRequest $request, ProjectRepository $projectRepository): RedirectResponse

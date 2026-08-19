@@ -95,18 +95,20 @@ const ConnectProviderModalContent = ({
     return (
         <Form
             className="flex flex-col gap-4 p-4"
-            onSuccess={(result) => {
-                toast.success(result.flash.success as string);
+            onSuccess={(page) => {
+                if(page.flash.error) {
+                    toast.error(page.flash.error as string, {
+                        duration: 10000
+                    });
+
+                    return
+                }
+
+                toast.success(page.flash.success as string);
 
                 if (provider) {
                     onSuccess({ provider });
                 }
-            }}
-            onNetworkError={() => {
-                toast.error('Erreur de réseau', {
-                    description:
-                        'Une erreur de réseau est survenue. Veuillez vérifier votre connexion internet.',
-                });
             }}
             action={
                 provider

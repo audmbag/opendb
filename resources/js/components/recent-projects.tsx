@@ -19,7 +19,7 @@ import DatabaseIconHelper from "./database-icon-helper";
 import CreateProjectModal from "./project/create-project-modal";
 import { H6, Muted, } from "./typograpfy/typography";
 import { buttonVariants } from "./ui/button";
-import DiscussionController from '@/wayfinder/actions/App/Http/Controllers/DiscussionController';
+import ConversationController from '@/wayfinder/actions/App/Http/Controllers/ConversationController';
 
 
 
@@ -105,7 +105,7 @@ const ProjectItem = ({ project, className, ...props }: ProjectItemType) => {
             </div>
             <div className="flex items-center gap-2">
                 <Link
-                    href={DiscussionController.home(project.id as string)}
+                    href={ConversationController.home(project.id as string)}
                     className={buttonVariants({ variant: 'secondary' })}
                 >
                     <PlugIcon />

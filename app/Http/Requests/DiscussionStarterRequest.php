@@ -24,7 +24,6 @@ class DiscussionStarterRequest extends FormRequest
     {
         return [
             'message' => 'required|string',
-            ''
         ];
     }
 }

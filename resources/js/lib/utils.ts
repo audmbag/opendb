@@ -24,6 +24,11 @@ export function shuffle(array: any[]) {
     return array;
 }
 
+
+export function numberFormat(value: number) {
+    return value.toLocaleString();
+}
+
 type WithSelectors<S> = S extends { getState: () => infer T }
     ? S & { use: { [K in keyof T]: () => T[K] } }
     : never;

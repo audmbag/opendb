@@ -25,19 +25,21 @@ const ProviderModelsContainer = ({ provider }: { provider: Provider }) => {
     const [inputValue, setInputValue] = useState('');
     const deferredInputValue = useDeferredValue(inputValue);
 
+    const [models, setModels] = useState(provider.models);
+
     const filteredTricks = useMemo(() => {
         if (!deferredInputValue) {
-            return provider.models;
+            return models;
         }
 
         const normalized = deferredInputValue.toLowerCase();
 
-        return provider.models.filter(
+        return models.filter(
             (item) =>
                 item.label.toLowerCase().includes(normalized) ||
                 item.id.toLowerCase().includes(normalized),
         );
-    }, [deferredInputValue, provider.models]);
+    }, [deferredInputValue, models]);
 
     const virtualizer = useVirtualizer({
         count: filteredTricks.length,
@@ -52,6 +54,19 @@ const ProviderModelsContainer = ({ provider }: { provider: Provider }) => {
         if (parentRef.current) {
             parentRef.current.scrollTop = 0;
         }
+    }, []);
+
+
+    const handleModelChangeStatus = useCallback((modelId: string, status: boolean) => {
+        setModels(mdls => {
+            return mdls.map((model) => {
+                if (model.id === modelId) {
+                    return { ...model, active: status };
+                }
+
+                return model;
+            });
+        });
     }, []);
 
     return (
@@ -111,6 +126,9 @@ const ProviderModelsContainer = ({ provider }: { provider: Provider }) => {
                                 <ModelItem
                                     model={model}
                                     providerId={provider.id}
+                                    onToggle={(status) =>
+                                        handleModelChangeStatus(model.id, status)
+                                    }
                                 />
                             </div>
                         );

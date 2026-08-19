@@ -5,11 +5,13 @@ import { H3 } from '@/components/typograpfy/typography';
 import AppLayout from '@/layouts/app';
 import ChatLayout from '@/layouts/chat-layout';
 import type { Project } from '@/types/models/project';
-import DiscussionController from '@/wayfinder/actions/App/Http/Controllers/DiscussionController';
+import ConversationController from '@/wayfinder/actions/App/Http/Controllers/ConversationController';
 
 const Home = () => {
 
     const page = usePage<{project: Project}>();
+
+
 
     return (
         <div className="flex h-full flex-col items-center gap-8 p-4 pt-32">
@@ -18,17 +20,18 @@ const Home = () => {
                 Comment puis-je vous aider aujourd'hui ?
             </H3>
             <PromptInput
-                onSubmit={(message) =>
-                    router.visit(
-                        DiscussionController.discussion({
-                            project: page.props.project.id as string,
-                            discussion: 'salut_les_gens_bien',
-                        }),
-                        {
-                            viewTransition: true,
-                        },
-                    )
-                }
+                onSubmit={(message) => {
+                    console.log(message);
+                    // router.visit(
+                    //     ConversationController.discussion({
+                    //         project: page.props.project.id as string,
+                    //         discussion: 'salut_les_gens_bien',
+                    //     }),
+                    //     {
+                    //         viewTransition: true,
+                    //     },
+                    // )
+                }}
                 className="[view-transition-name:prompt-input]"
             />
         </div>
@@ -38,3 +41,6 @@ const Home = () => {
 Home.layout = [AppLayout, ChatLayout];
 
 export default Home;
+
+
+

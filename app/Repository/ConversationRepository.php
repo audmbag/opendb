@@ -2,12 +2,20 @@
 
 namespace App\Repository;
 
-use App\Models\DriverConfig;
+use App\Models\Project;
+use App\Models\User;
+use Illuminate\Container\Attributes\CurrentUser;
+use Illuminate\Support\Collection;
 
-class DriverConfigRepository
+class ConversationRepository
 {
-    public function update(DriverConfig $driverConfig, array $driver_config): DriverConfig
+    public function __construct(
+        #[CurrentUser]
+        public User $user
+    ) {}
+
+    public function get(Project $project): Collection
     {
-        return tap($driverConfig)->update($driver_config);
+        return $this->user->conversations()->where('project_id', $project->id)->get();
     }
 }

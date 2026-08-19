@@ -5,18 +5,20 @@ namespace App\Http\Controllers;
 use App\Http\Requests\ProviderRequest;
 use App\Models\Provider;
 use App\Repository\ProviderRepository;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class ProviderController extends Controller
 {
-    public function index(ProviderRepository $providerRepository)
+    public function index(ProviderRepository $providerRepository): JsonResponse
     {
-        return [
-            'connectedProviders' => $providerRepository->connectedProviders(),
-            'disconnectedProviders' => $providerRepository->disconnectedProviders(),
-        ];
+        return response()->json([
+            'data' => $providerRepository->get(),
+        ]);
     }
 
     public function store(ProviderRequest $request) {}
@@ -25,7 +27,21 @@ class ProviderController extends Controller
     {
         $data = $request->validated();
 
-        $provider = $providerRepository->connect($data, $provider);
+        try {
+            $provider = $providerRepository->connect($data, $provider);
+        } catch (RequestException $exception) {
+            Inertia::flash([
+                'error' => "Impossible de connecter le provider {$provider->label}, vérifiez votre clé API et l'URL si nécessaire.",
+            ]);
+
+            return back();
+        } catch (ConnectionException $exception) {
+            Inertia::flash([
+                'error' => "Impossible de connecter le provider {$provider->label}, la connexion au fournisseur {$provider->label} a échoué. Essayer plus tard",
+            ]);
+
+            return back();
+        }
 
         Inertia::flash([
             'success' => "Le provider {$provider->label} a été connecté, vous pouvez maintenant utiliser ses modèles.",
@@ -43,5 +59,15 @@ class ProviderController extends Controller
         $provider = $providerRepository->disconnect($provider);
 
         return response()->json(['success' => true, 'message' => "Le provider {$provider->label} a été déconnecté, vous n'avez plus accès à ses modèles."]);
+    }
+
+
+    public function toggleModel(Provider $provider, Request $request, ProviderRepository $providerRepository): JsonResponse
+    {
+        $status = $providerRepository->toggleModel($provider, $request->input('modelId'));
+
+        return response()->json([
+            'status' => $status,
+        ]);
     }
 }

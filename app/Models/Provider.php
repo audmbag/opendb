@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Casts\AsCollection;
 use Illuminate\Database\Eloquent\Model;
 use Laravel\Ai\Enums\Lab;
 
@@ -13,6 +12,8 @@ class Provider extends Model
     public $incrementing = false;
 
     protected $keyType = 'string';
+
+    protected $hidden = ['api_key'];
 
     protected $appends = [
         'icon',
@@ -34,7 +35,7 @@ class Provider extends Model
             'id' => Lab::class,
             'api_key' => 'encrypted',
             'custom_openai_compatible' => 'boolean',
-            'models' => AsCollection::class,
+            'models' => 'json',
         ];
     }
 
@@ -57,6 +58,6 @@ class Provider extends Model
 
     public function getIsConnectedAttribute(): bool
     {
-        return $this->api_key !== null && $this->models->isNotEmpty();
+        return $this->api_key !== null && ! empty($this->models);
     }
 }
