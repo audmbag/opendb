@@ -1,6 +1,6 @@
 <?php
 
 return [
-    'default_username' => 'username',
-    'default_password' => 'password',
+    'default_username' => 'opendb',
+    'default_password' => 'opendb',
 ];

@@ -1,0 +1,306 @@
+version: '1'
+connection: production
+options:
+  chunk_size: 1000
+  enforce_column_types: false
+  drop_unknown_tables: false
+  drop_extra_columns: false
+  disable_foreign_key_checks: true
+  faker_locale: en_US
+tables:
+  author_types:
+    rows:
+      strategy: full
+      clear: delete
+    columns:
+      id:
+        strategy: remapping
+        arguments:
+          - { use: random_integer }
+          - { foreign_keys: [{ table: contributors, column: author_type_id, self_referential: false }] }
+      name:
+        strategy: fake
+        faker_method: name
+        faker_arguments: []
+  cache:
+    rows:
+      strategy: full
+      clear: delete
+  cache_locks:
+    rows:
+      strategy: full
+      clear: delete
+  comments:
+    rows:
+      strategy: full
+      clear: delete
+    columns:
+      id:
+        strategy: remapping
+        arguments:
+          - { use: random_integer }
+          - { foreign_keys: [] }
+      full_name:
+        strategy: fake
+        faker_method: name
+        faker_arguments: []
+      email:
+        strategy: fake
+        faker_method: safeEmail
+        faker_arguments: []
+  contributorables:
+    rows:
+      strategy: full
+      clear: delete
+  contributors:
+    rows:
+      strategy: full
+      clear: delete
+    columns:
+      id:
+        strategy: remapping
+        arguments:
+          - { use: random_integer }
+          - { foreign_keys: [] }
+      full_name:
+        strategy: fake
+        faker_method: name
+        faker_arguments: []
+      email:
+        strategy: fake
+        faker_method: safeEmail
+        faker_arguments: []
+      role:
+        strategy: fake
+        faker_method: jobTitle
+        faker_arguments: []
+  failed_jobs:
+    rows:
+      strategy: full
+      clear: delete
+    columns:
+      id:
+        strategy: remapping
+        arguments:
+          - { use: random_integer }
+          - { foreign_keys: [] }
+  job_batches:
+    rows:
+      strategy: full
+      clear: delete
+    columns:
+      name:
+        strategy: fake
+        faker_method: name
+        faker_arguments: []
+  jobs:
+    rows:
+      strategy: full
+      clear: delete
+    columns:
+      id:
+        strategy: remapping
+        arguments:
+          - { use: random_integer }
+          - { foreign_keys: [] }
+  magazines:
+    rows:
+      strategy: full
+      clear: delete
+    columns:
+      id:
+        strategy: remapping
+        arguments:
+          - { use: random_integer }
+          - { foreign_keys: [] }
+      title:
+        strategy: fake
+        faker_method: jobTitle
+        faker_arguments: []
+  migrations:
+    rows:
+      strategy: full
+      clear: delete
+    columns:
+      id:
+        strategy: remapping
+        arguments:
+          - { use: random_integer }
+          - { foreign_keys: [] }
+  news_letters:
+    rows:
+      strategy: full
+      clear: delete
+    columns:
+      id:
+        strategy: remapping
+        arguments:
+          - { use: random_integer }
+          - { foreign_keys: [] }
+      email:
+        strategy: fake
+        faker_method: safeEmail
+        faker_arguments: []
+  offers:
+    rows:
+      strategy: full
+      clear: delete
+    columns:
+      id:
+        strategy: remapping
+        arguments:
+          - { use: random_integer }
+          - { foreign_keys: [] }
+      title:
+        strategy: fake
+        faker_method: jobTitle
+        faker_arguments: []
+      organization:
+        strategy: fake
+        faker_method: company
+        faker_arguments: []
+  opinion_categories:
+    rows:
+      strategy: full
+      clear: delete
+    columns:
+      id:
+        strategy: remapping
+        arguments:
+          - { use: random_integer }
+          - { foreign_keys: [{ table: opinions, column: opinion_category_id, self_referential: false }] }
+      name:
+        strategy: fake
+        faker_method: name
+        faker_arguments: []
+  opinions:
+    rows:
+      strategy: full
+      clear: delete
+    columns:
+      id:
+        strategy: remapping
+        arguments:
+          - { use: random_integer }
+          - { foreign_keys: [] }
+      title:
+        strategy: fake
+        faker_method: jobTitle
+        faker_arguments: []
+  password_reset_tokens:
+    rows:
+      strategy: full
+      clear: delete
+    columns:
+      email:
+        strategy: fake
+        faker_method: safeEmail
+        faker_arguments: []
+  post_categories:
+    rows:
+      strategy: full
+      clear: delete
+    columns:
+      id:
+        strategy: remapping
+        arguments:
+          - { use: random_integer }
+          - { foreign_keys: [{ table: post_post_category, column: post_category_id, self_referential: false }, { table: video_post_category, column: post_category_id, self_referential: false }] }
+      name:
+        strategy: fake
+        faker_method: name
+        faker_arguments: []
+  post_post_category:
+    rows:
+      strategy: full
+      clear: delete
+  post_views:
+    rows:
+      strategy: full
+      clear: delete
+    columns:
+      id:
+        strategy: remapping
+        arguments:
+          - { use: random_integer }
+          - { foreign_keys: [] }
+      session_id:
+        strategy: fake
+        faker_method: uuid
+        faker_arguments: []
+  posts:
+    rows:
+      strategy: full
+      clear: delete
+    columns:
+      id:
+        strategy: remapping
+        arguments:
+          - { use: random_integer }
+          - { foreign_keys: [{ table: post_post_category, column: post_id, self_referential: false }] }
+      title:
+        strategy: fake
+        faker_method: jobTitle
+        faker_arguments: []
+  pubs:
+    rows:
+      strategy: full
+      clear: delete
+    columns:
+      id:
+        strategy: remapping
+        arguments:
+          - { use: random_integer }
+          - { foreign_keys: [] }
+  sessions:
+    rows:
+      strategy: full
+      clear: delete
+    columns:
+      ip_address:
+        strategy: fake
+        faker_method: ipv4
+        faker_arguments: []
+  users:
+    rows:
+      strategy: full
+      clear: truncate
+    columns:
+      id:
+        strategy: remapping
+        arguments:
+          - { use: random_integer }
+          - { foreign_keys: [{ table: comments, column: user_id, self_referential: false }] }
+      username:
+        strategy: fake
+        faker_method: userName
+        faker_arguments: []
+      email:
+        strategy: fake
+        faker_method: safeEmail
+        faker_arguments: []
+      password:
+        strategy: static
+        value: REDACTED
+      role:
+        strategy: fake
+        faker_method: jobTitle
+        faker_arguments: []
+  video_post_category:
+    rows:
+      strategy: full
+      clear: delete
+  videos:
+    rows:
+      strategy: full
+      clear: delete
+    columns:
+      id:
+        strategy: remapping
+        arguments:
+          - { use: random_integer }
+          - { foreign_keys: [{ table: video_post_category, column: video_id, self_referential: false }] }
+      title:
+        strategy: fake
+        faker_method: jobTitle
+        faker_arguments: []

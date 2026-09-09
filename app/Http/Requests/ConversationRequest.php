@@ -5,7 +5,7 @@ namespace App\Http\Requests;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
-class DiscussionStarterRequest extends FormRequest
+class ConversationRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -23,7 +23,7 @@ class DiscussionStarterRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'message' => 'required|string',
+            'title' => 'required|string|min:3|max:255',
         ];
     }
 }

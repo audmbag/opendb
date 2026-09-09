@@ -54,8 +54,8 @@ const LoginForm = () => {
                                 label="Nom d'utilisateur"
                                 placeholder="Entrez le nom d'utilisateur"
                                 description="Saisissez ici le nom d'utilisateur ou mettez celui par défaut"
-                                name="username"
-                                error={errors.username}
+                                name="name"
+                                error={errors.name}
                             />
                             <Input
                                 label="Mot de passe"

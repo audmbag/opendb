@@ -2,16 +2,16 @@
 
 namespace App\Ai\Tools\Database;
 
+use App\Ai\Enums\AgentAccessModeEnum;
 use App\Database\Contracts\DriverContract;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
-use Illuminate\Database\QueryException;
 use Illuminate\Support\Str;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
 use RuntimeException;
 use Stringable;
 
-class ReadQuery extends QueryTool implements Tool
+class ReadQuery extends BaseTool implements Tool
 {
     private const array ALLOWED_PREFIXES = ['SELECT', 'WITH', 'EXPLAIN', 'SHOW', 'DESCRIBE'];
 
@@ -37,30 +37,26 @@ class ReadQuery extends QueryTool implements Tool
     {
         return 'Exécute une requête SQL en lecture seule (SELECT, WITH, EXPLAIN, SHOW ou DESCRIBE) '
             .'sur la base de données courante et retourne les lignes obtenues '
-            ."(résultat limité à {$this->maxRows} lignes).";
+            ."si une requête SELECT est demandée, ajoute toujours une LIMITe de {$this->maxRows} et précise très "
+            .'bien à l\'utilisateur que la requête est tronquée si le nombre de lignes retournées est égal à cette limite.';
     }
 
     public function handle(Request $request): Stringable|string
     {
         $sql = trim((string) $request['query']);
+        $bindings = $request['bindings'];
 
-        try {
-            $this->assertReadOnly($sql);
+        $this->assertReadOnly($sql);
 
-            $rows = $this->driver->executeReadOnly($sql);
+        $rows = $this->driver->executeReadOnly($sql, $bindings);
 
-            $rows = array_slice($rows, 0, $this->maxRows);
-        } catch (QueryException $e) {
-            return $this->formatQueryError($e);
-        } catch (RuntimeException $e) {
-            return $e->getMessage();
-        }
+        $rows = array_slice($rows, 0, $this->maxRows);
 
         if (empty($rows)) {
-            return "La requête n'a retourné aucune ligne.";
+            return '[]';
         }
 
-        $json = json_encode($rows, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        $json = $this->toJson($rows);
 
         return count($rows) === $this->maxRows
             ? $json."\n\n(Résultat tronqué à {$this->maxRows} lignes.)"
@@ -69,11 +65,7 @@ class ReadQuery extends QueryTool implements Tool
 
     public function schema(JsonSchema $schema): array
     {
-        return [
-            'query' => $schema->string()
-                ->description('Requête SQL en lecture seule (SELECT, WITH, EXPLAIN, SHOW ou DESCRIBE).')
-                ->required(),
-        ];
+        return $this->getSchemaForQueryByAccessMode(AgentAccessModeEnum::ReadOnly, $schema);
     }
 
     private function assertReadOnly(string $sql): void

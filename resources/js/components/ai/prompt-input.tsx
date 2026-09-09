@@ -6,16 +6,12 @@ import {
     PencilIcon,
     PencilOffIcon,
 } from 'lucide-react';
-import React, { memo, useCallback, useState } from 'react';
+import React, { useCallback, useState } from 'react';
+import { toast } from 'sonner';
+import AttachmentItem from '@/components/ai/attachment-item';
 import ModelSelector from '@/components/ai/model-selector';
-import type { AttachmentData} from '@/components/ai-elements/attachments';
-import {
-    Attachment,
-    AttachmentPreview,
-    AttachmentRemove,
-    Attachments,
-} from '@/components/ai-elements/attachments';
-import type { PromptInputMessage} from '@/components/ai-elements/prompt-input';
+import { Attachments } from '@/components/ai-elements/attachments';
+import type { PromptInputMessage as AIPromptInputMessage} from '@/components/ai-elements/prompt-input';
 import {
     usePromptInputAttachments,
 } from '@/components/ai-elements/prompt-input';
@@ -33,7 +29,6 @@ import Button from '@/components/form/button';
 import Select from '@/components/form/select';
 import Presence from '@/components/presence';
 import PromptSuggestions from '@/components/prompt-suggestions';
-import Tooltip from '@/components/tooltip';
 import {
     Mention,
     MentionContent,
@@ -42,31 +37,8 @@ import {
 } from '@/components/ui/mention';
 import { cn } from '@/lib/utils';
 
-interface AttachmentItemProps {
-    attachment: AttachmentData;
-    onRemove: (id: string) => void;
-}
 
-const AttachmentItem = memo(({ attachment, onRemove }: AttachmentItemProps) => {
-    const handleRemove = useCallback(
-        () => onRemove(attachment.id),
-        [onRemove, attachment.id],
-    );
 
-    return (
-        <Tooltip key={attachment.id} value={attachment.filename}>
-            <Attachment
-                data={attachment}
-                key={attachment.id}
-                onRemove={handleRemove}
-                className="relative"
-            >
-                <AttachmentPreview />
-                <AttachmentRemove />
-            </Attachment>
-        </Tooltip>
-    );
-});
 
 const PromptInputAttachmentsDisplay = () => {
     const attachments = usePromptInputAttachments();
@@ -93,7 +65,7 @@ const PromptInputAttachmentsDisplay = () => {
     );
 };
 
-const AttachmentButton = () => {
+const AttachmentButton = (props: React.ComponentProps<typeof Button>) => {
 
     const attachments = usePromptInputAttachments();
 
@@ -101,13 +73,16 @@ const AttachmentButton = () => {
         attachments.openFileDialog();
     }, [attachments]);
 
-    return <Button
-        tooltip={['Ajouter un fichier', ['Ctrl', 'U']]}
-        icon={PaperclipIcon}
-        variant="secondary"
-        className="size-10 rounded-full"
-        onClick={handleSelectAttachments}
-    />
+    return (
+        <Button
+            {...props}
+            tooltip={['Ajouter un fichier', ['Ctrl', 'U']]}
+            icon={PaperclipIcon}
+            variant="secondary"
+            className="size-10 rounded-full"
+            onClick={handleSelectAttachments}
+        />
+    );
 }
 
 const users: any[] = [
@@ -161,26 +136,30 @@ const MentionWrapper = ({ children, ...props }: React.ComponentProps<typeof Ment
 };
 
 
-
-
-
 export default function PromptInput({
     className,
     onSubmit,
     suggestions = true,
+    loading = false,
     ...props
-}: Omit<React.ComponentProps<"div">, 'children'> & {
-    suggestions?: boolean, onSubmit?: (message: PromptInputMessage) => void;
-}) {
+}: {
+    suggestions?: boolean;
+    onSubmit?: (message: AIPromptInputMessage) => void;
+    loading?: boolean;
+} & Omit<React.ComponentProps<'div'>, 'children' | 'onSubmit'>) {
     const [mentions, setMentions] = useState<string[]>([]);
     const [prompt, setPrompt] = useState('');
-    const [isSubmited, setIsSubmited] = useState(false);
+    const [isSubmitted, setIsSubmitted] = useState(false);
 
-    const handleSubmitPromptMessage = (message: PromptInputMessage) => {
-        setPrompt('');
-        setIsSubmited(true);
-        onSubmit?.(message);
-    };
+    const handleSubmitPromptMessage = useCallback(
+        async (message: AIPromptInputMessage) => {
+            setPrompt('');
+            setIsSubmitted(true);
+
+            onSubmit?.(message);
+        },
+        [onSubmit],
+    );
 
     return (
         <div
@@ -192,6 +171,21 @@ export default function PromptInput({
                 className="relative z-20 *:data-[slot=input-group]:rounded-t-2xl *:data-[slot=input-group]:rounded-b-4xl *:data-[slot=input-group]:bg-background *:data-[slot=input-group]:p-0 dark:*:data-[slot=input-group]:bg-background"
                 globalDrop
                 multiple
+                maxFiles={3}
+                maxFileSize={10 * 1024 * 1024}
+                onError={(error) => {
+                    if (error.code === 'max_files') {
+                        toast.error(
+                            'Vous ne pouvez pas ajouter plus de 3 fichiers à la fois.',
+                        );
+                    }
+
+                    if (error.code === 'max_file_size') {
+                        toast.error(
+                            'Le fichier sélectionné dépasse la taille maximale autorisée de 10MB.',
+                        );
+                    }
+                }}
             >
                 <PromptInputAttachmentsDisplay />
                 <PromptInputBody>
@@ -205,19 +199,21 @@ export default function PromptInput({
                             placeholder="Démander n'importe quoi..."
                             value={prompt}
                             onChange={(e) => setPrompt(e.target.value)}
+                            disabled={loading}
                         />
                     </MentionWrapper>
                 </PromptInputBody>
                 <PromptInputFooter className="p-2 pt-0">
                     <PromptInputTools>
-                        <AttachmentButton />
+                        <AttachmentButton disabled={loading} />
                     </PromptInputTools>
                     <PromptInputSubmit asChild>
                         <Button
                             tooltip={['Envoyer le prompt', ['⏎']]}
                             icon={ArrowUpIcon}
                             className="size-10 rounded-full"
-                            disabled={!prompt}
+                            disabled={!prompt || loading}
+                            processing={loading}
                         />
                     </PromptInputSubmit>
                 </PromptInputFooter>
@@ -234,17 +230,11 @@ export default function PromptInput({
                             label: 'Lecture seule',
                             value: 'read-only',
                             icon: PencilOffIcon,
-                            description:
-                                'Lecture seule sur la base de données et votre dossier de travail',
-                            descriptionTooltip: true,
                         },
                         {
                             label: 'Lecture et écriture',
                             value: 'read-write',
                             icon: PencilIcon,
-                            description:
-                                'Lecture et écriture sur la base de données et votre dossier de travail',
-                            descriptionTooltip: true,
                         },
                     ]}
                 />
@@ -274,7 +264,7 @@ export default function PromptInput({
                     />
                 </div>
             </div>
-            {suggestions && !isSubmited && (
+            {suggestions && !isSubmitted && (
                 <Presence present={!prompt}>
                     <PromptSuggestions onClick={(value) => setPrompt(value)} />
                 </Presence>

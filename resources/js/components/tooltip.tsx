@@ -7,9 +7,9 @@ export type TooltipProps = {
     value: React.ReactNode | [string, string[]];
     variant?: 'default' | 'destructive' | 'success';
     children: React.ReactNode;
-};
+} & React.ComponentProps<typeof TooltipUI.TooltipContent>;
 
-export default function Tooltip({ value, variant = "default", children }: TooltipProps) {
+export default function Tooltip({ value, variant = "default", children, ...props }: TooltipProps) {
 
     const tooltipColorClass =
         variant === 'destructive'
@@ -25,15 +25,17 @@ export default function Tooltip({ value, variant = "default", children }: Toolti
                 {children}
             </TooltipUI.TooltipTrigger>
             {value && (
-                <TooltipUI.TooltipContent className={tooltipColorClass}>
+                <TooltipUI.TooltipContent
+                    className={tooltipColorClass}
+                    {...props}
+                >
                     {Array.isArray(value) ? (
                         <p className={'wrap-anywhere'}>
-                            {value[0]}
-                            {" "}
+                            {value[0]}{' '}
                             {value[1].map((item, index) => (
                                 <Fragment key={index}>
                                     <Kbd>{item}</Kbd>
-                                    {index < value[1].length - 1 && " + "}
+                                    {index < value[1].length - 1 && ' + '}
                                 </Fragment>
                             ))}
                         </p>

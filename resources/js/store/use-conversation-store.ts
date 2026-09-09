@@ -1,19 +1,28 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
+import type { PromptInputMessage } from '@/components/ai-elements/prompt-input';
 import { createSelectors } from '@/lib/utils';
 import type { Conversation } from '@/types/models/conversation';
 
 interface ConversationStore {
     conversations: Conversation[];
-    setConversations: (conversations: Conversation[]) => void;
-    addConversation: (conversation: Conversation) => void;
+    pendingMessage: PromptInputMessage | null;
+    fill: (conversations: Conversation[]) => void;
+    add: (conversation: Conversation) => void;
+    remove: (conversation: Conversation) => void;
+    setPendingMessage: (message: PromptInputMessage | null) => void;
+    clearPendingMessage: () => void;
 }
 
 const useConversationStore = createSelectors(
     create<ConversationStore>()(devtools((set) => ({
             conversations: [],
-            setConversations: (conversations) => set({ conversations: conversations }),
-            addConversation: (conversation: Conversation) => set(state => ({ conversations: [conversation, ...state.conversations] })),
+            pendingMessage: null,
+            fill: (conversations) => set({ conversations: conversations }),
+            add: (conversation: Conversation) => set(state => ({ conversations: [conversation, ...state.conversations] })),
+            remove: (conversation: Conversation) => set(state => ({ conversations: state.conversations.filter((c) => c.id !== conversation.id) })),
+            setPendingMessage: (message: PromptInputMessage | null) => set({ pendingMessage: message }),
+            clearPendingMessage: () => set({ pendingMessage: null }),
         }), { name: 'useConversationStore' }),
     ));
 

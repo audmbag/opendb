@@ -2,6 +2,7 @@ import { clsx } from 'clsx';
 import type { ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import type { StoreApi, UseBoundStore } from 'zustand';
+import { PromptInputMessage } from '@/components/ai-elements/prompt-input';
 
 export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
@@ -45,3 +46,11 @@ export const createSelectors = <S extends UseBoundStore<StoreApi<object>>>(
 
     return store;
 };
+
+
+export async function dataUrlToBlob(file: PromptInputMessage['files'][0]) {
+    const res = await fetch(file.url);
+    const blob = await res.blob();
+
+    return new File([blob], file.filename || 'file', { type: file.mediaType });
+}

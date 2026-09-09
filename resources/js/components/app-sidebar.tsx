@@ -1,8 +1,6 @@
-import { Link, usePage } from '@inertiajs/react';
-import type { LucideIcon } from 'lucide-react';
-import { MoreHorizontalIcon } from 'lucide-react';
+import { usePage } from '@inertiajs/react';
 import { FolderPlusIcon } from 'lucide-react';
-import { ExternalLinkIcon, FileTextIcon } from 'lucide-react';
+import { FileTextIcon } from 'lucide-react';
 import {
     Code2Icon,
     FolderCogIcon,
@@ -11,13 +9,8 @@ import {
     Table2Icon,
 } from 'lucide-react';
 import * as React from 'react';
-import { Fragment } from 'react';
-import type { DropdownMenuItemType } from '@/components/dropdown-menu';
-import DropdownMenu from '@/components/dropdown-menu';
-import Button from '@/components/form/button';
+import { SidebarMenuItem, SidebarMenuItemType } from '@/components/sidebar-menu-item';
 import { SidebarUser } from '@/components/sidebar-user';
-import { Kbd, KbdGroup } from '@/components/ui/kbd';
-import { Separator } from '@/components/ui/separator';
 import {
     Sidebar,
     SidebarContent,
@@ -27,28 +20,15 @@ import {
     SidebarHeader,
     SidebarMenu,
     SidebarMenuButton,
-    SidebarMenuItem,
+    SidebarMenuItem as UISidebarMenuItem,
     SidebarTrigger,
     useSidebar,
 } from '@/components/ui/sidebar';
 import { cn, limit } from '@/lib/utils';
 import type { Project } from '@/types/models/project';
 
-export type SidebarItemType = {
-    label: string;
-    icon?: LucideIcon;
-    separator?: boolean;
-    external?: boolean;
-    shortcut?: string[];
-    variant?: React.ComponentProps<typeof SidebarMenuButton>['variant'];
-    options?: DropdownMenuItemType[];
-    hiddenOnSidebarClosed?: boolean;
-    onClick?: () => void;
-    href?: string;
-    viewTransition?: boolean;
-};
 
-const data: SidebarItemType[] = [
+const data: SidebarMenuItemType[] = [
     {
         label: 'Nouveau',
         icon: FolderPlusIcon,
@@ -78,7 +58,7 @@ const data: SidebarItemType[] = [
     },
 ];
 
-const Footerdata: SidebarItemType[] = [
+const Footerdata: SidebarMenuItemType[] = [
     {
         label: 'Documentation',
         icon: FileTextIcon,
@@ -87,72 +67,6 @@ const Footerdata: SidebarItemType[] = [
     }
 ];
 
-export const MenuItem = ({
-    label,
-    icon: Icon,
-    separator,
-    external,
-    shortcut,
-    variant,
-    options = [],
-    hiddenOnSidebarClosed = false,
-    href,
-    viewTransition,
-    ...pros
-}: SidebarItemType & { key: React.Key }) => {
-    const { open } = useSidebar();
-
-    return (
-        <Fragment {...pros}>
-            {(!hiddenOnSidebarClosed || open) && (
-                <>
-                    <SidebarMenuItem>
-                        <SidebarMenuButton
-                            asChild
-                            tooltip={label}
-                            variant={variant}
-                            className={cn('text-nowrap', {
-                                'justify-between': options.length > 0,
-                            })}
-                        >
-                            <Link
-                                href={href}
-                                target={external ? '_blank' : undefined}
-                                viewTransition={viewTransition}
-                            >
-                                {Icon && <Icon />}
-                                <span>{limit(label, 20)}</span>
-                                {external && (
-                                    <ExternalLinkIcon className="ml-auto" />
-                                )}
-                                {shortcut && (
-                                    <KbdGroup className="ml-auto">
-                                        {shortcut.map((key) => (
-                                            <Kbd key={key} className="ml-auto">
-                                                {key}
-                                            </Kbd>
-                                        ))}
-                                    </KbdGroup>
-                                )}
-                                {options.length > 0 && (
-                                    <DropdownMenu items={options}>
-                                        <Button
-                                            icon={MoreHorizontalIcon}
-                                            variant="ghost"
-                                            size="icon-sm"
-                                            className="size-6 h-4"
-                                        />
-                                    </DropdownMenu>
-                                )}
-                            </Link>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                    {separator && <Separator />}
-                </>
-            )}
-        </Fragment>
-    );
-};
 
 const Header = () => {
 
@@ -163,7 +77,7 @@ const Header = () => {
     return (
         <SidebarHeader>
             <SidebarMenu>
-                <SidebarMenuItem>
+                <UISidebarMenuItem>
                     <SidebarMenuButton
                         size="lg"
                         className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
@@ -191,7 +105,7 @@ const Header = () => {
                             />
                         </div>
                     </SidebarMenuButton>
-                </SidebarMenuItem>
+                </UISidebarMenuItem>
             </SidebarMenu>
         </SidebarHeader>
     );
@@ -217,7 +131,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                 )}
                             />
                             {data.map((item) => (
-                                <MenuItem key={item.label} {...item} />
+                                <SidebarMenuItem key={item.label} {...item} />
                             ))}
                         </SidebarMenu>
                     </SidebarGroupContent>
@@ -226,7 +140,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarFooter>
                 <SidebarMenu>
                     {Footerdata.map((item) => (
-                        <MenuItem key={item.label} {...item} />
+                        <SidebarMenuItem key={item.label} {...item} />
                     ))}
                 </SidebarMenu>
                 <SidebarUser />

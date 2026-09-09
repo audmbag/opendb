@@ -2,6 +2,8 @@
 
 namespace App\Database\Drivers;
 
+use AlbertoArena\Truss\Export\ExportBuilder;
+use AlbertoArena\Truss\TrussManager;
 use App\Database\Contracts\DriverContract;
 use App\Database\Enums\DriverLabEnum;
 use Closure;
@@ -20,16 +22,16 @@ class BaseDriver
 
     protected Connection $connection;
 
-    public function label(): string
-    {
-        return (string) str(class_basename(static::class))->beforeLast('Driver')->lower();
-    }
-
     public function __construct(private readonly array $databaseConfig)
     {
         $this->connect();
 
         $this->connection = $this->getConnection();
+    }
+
+    public function label(): string
+    {
+        return (string) str(class_basename(static::class))->beforeLast('Driver')->lower();
     }
 
     public static function for(array $config): DriverContract
@@ -53,6 +55,12 @@ class BaseDriver
     public function connect(): void
     {
         Config::set('database.connections.'.self::CONNECTION_NAME, $this->getConfig());
+
+        Config::set('truss.connections.'.self::CONNECTION_NAME, [
+            'excluded_tables' => [],
+        ]);
+
+        Config::set('truss.excluded_tables', []);
 
         DB::purge(self::CONNECTION_NAME);
 
@@ -121,5 +129,60 @@ class BaseDriver
         $key = "opendb:schema:{$this->connection->getDriverName()}:{$host}:{$database}:{$suffix}";
 
         return Cache::remember($key, self::SCHEMA_CACHE_TTL, $callback);
+    }
+
+    private function getExportBuilder(): ExportBuilder
+    {
+        return app(TrussManager::class)->snapshot()->connection(self::CONNECTION_NAME);
+    }
+
+    public function statement(string $sql, mixed $bindings): bool
+    {
+        return $this->connection->statement($sql, $bindings);
+    }
+
+    public function listTables(bool $withDetails = true): array
+    {
+        $tables = $this->getExportBuilder()->toArray();
+
+        return array_map(function (array $table) use ($withDetails): string {
+
+            if (! $withDetails) {
+                return $table['name'];
+            }
+
+            $columns = count($table['columns'] ?? []);
+            $hasPk = ($table['primary_key'] ?? []) !== [] ? 'has PK' : 'no PK';
+            $fks = count($table['foreign_keys'] ?? []);
+
+            return "{$table['name']}: {$columns} columns, {$hasPk}, {$fks} FK".($fks === 1 ? '' : 's');
+        }, $tables);
+    }
+
+    public function focusTable(string $tableName, bool $withRelatedTables = true): array
+    {
+        $table = $this->getExportBuilder()->only([$tableName]);
+
+        if ($withRelatedTables) {
+            $table = $this->getExportBuilder()->focus($tableName, 1);
+        }
+
+        return $table->toArray();
+    }
+
+    public function getSchema(): array
+    {
+        return $this->getExportBuilder()->toArray();
+    }
+
+    public function exportSchema(string $format): string
+    {
+        $acceptedFormats = ['dbml', 'json', 'csv', 'markdown', 'mermaid', 'llm'];
+
+        if (! in_array($format, $acceptedFormats)) {
+            $format = 'dbml';
+        }
+
+        return $this->getExportBuilder()->render($format);
     }
 }

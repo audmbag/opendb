@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\API\DriverConfigController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Chat\DatabaseSchemaController;
 use App\Http\Controllers\ConversationController;
 use App\Http\Controllers\FileTreeController;
 use App\Http\Controllers\HomeController;
@@ -23,20 +24,36 @@ Route::middleware(['auth'])->group(function () {
         Route::get('file-tree', FileTreeController::class);
     });
 
-    Route::resource('providers', ProviderController::class)->only(['index', 'store', 'update', 'destroy']);
-    Route::patch('providers/{provider}', [ProviderController::class, 'connect']);
-    Route::delete('providers/{provider}', [ProviderController::class, 'disconnect']);
-    Route::post('toggle-model/{provider}', [ProviderController::class, 'toggleModel']);
+    Route::resource('/providers', ProviderController::class)->only(['index', 'store', 'update', 'destroy']);
 
-    Route::post('/project', [ProjectController::class, 'store']);
-    Route::patch('/project/{project}', [ProjectController::class, 'update']);
-    Route::delete('/project/{project}', [ProjectController::class, 'delete']);
+    Route::prefix('/providers')->group(function () {
+        Route::patch('/{provider}', [ProviderController::class, 'connect']);
+        Route::delete('/{provider}', [ProviderController::class, 'disconnect']);
+        Route::post('/toggle-model/{provider}', [ProviderController::class, 'toggleModel']);
+    });
+
+    Route::prefix('/projects')->group(function () {
+        Route::post('/', [ProjectController::class, 'store']);
+        Route::patch('/{project}', [ProjectController::class, 'update']);
+        Route::delete('/{project}', [ProjectController::class, 'delete']);
+    });
 
     Route::patch('/driver-config/{config}', [DriverConfigController::class, 'update']);
 
     Route::prefix('/{project}')->group(function () {
         Route::get('/', [ConversationController::class, 'home']);
-        Route::resource('conversations', ConversationController::class)->only(['index', 'store']);
-        Route::get('/{discussion}', [ConversationController::class, 'discussion']);
+        Route::resource('/conversations', ConversationController::class)->only(['index', 'store']);
+        Route::get('/chat/{conversation}', [ConversationController::class, 'conversation'])->name('conversation.chat');
+
+        Route::get('/schema/database', [DatabaseSchemaController::class, 'database']);
+        Route::get('/schema/table/{table}', [DatabaseSchemaController::class, 'table']);
     });
+
+    Route::prefix('/conversations')->group(function () {
+        Route::post('/{conversation}', [ConversationController::class, 'update']);
+        Route::patch('/{conversation}/archive', [ConversationController::class, 'archive']);
+        Route::delete('/{conversation}', [ConversationController::class, 'destroy']);
+        Route::post('/{conversation}/chat', [ConversationController::class, 'chat']);
+    });
+
 });

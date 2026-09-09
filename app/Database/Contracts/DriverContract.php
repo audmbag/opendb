@@ -17,17 +17,18 @@ interface DriverContract
 
     public function describeDatabase(): array;
 
-    /*
-     * Describe all database tables if $table is null
-     */
-    public function describeTables(?string $table = null): array;
-
-    public function describeRelations(): array;
-
     public function label(): string;
 
-    /**
-     * @throws Throwable
-     */
-    public function executeReadOnly(string $sql): array;
+    public function listTables(bool $withDetails = true): array;
+
+    public function focusTable(string $tableName, bool $withRelations = true): array;
+
+    public function getSchema(): array;
+
+    public function exportSchema(string $format): string;
+
+
+    public function executeReadOnly(string $sql, array $bindings = []): array;
+
+    public function statement(string $sql, mixed $bindings): bool;
 }

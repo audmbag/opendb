@@ -8,12 +8,11 @@ import {
     SearchIcon,
     TrashIcon,
 } from 'lucide-react';
-import React, { useEffect, useMemo } from 'react';
-import type { SidebarItemType } from '@/components/app-sidebar';
-import { MenuItem } from '@/components/app-sidebar';
-import type { DropdownMenuItemType } from '@/components/dropdown-menu';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import Button from '@/components/form/button';
+import type { SidebarMenuItemType } from '@/components/sidebar-menu-item';
+import SidebarMenuItem from '@/components/sidebar-menu-item';
 import {
     Sidebar,
     SidebarContent,
@@ -26,26 +25,34 @@ import {
     useSidebar,
 } from '@/components/ui/sidebar';
 import { useConversation } from '@/hooks/use-conversation';
+import { useConversationStore } from '@/store/use-conversation-store';
 import type { Project } from '@/types/models/project';
 import ConversationController from '@/wayfinder/actions/App/Http/Controllers/ConversationController';
-
-
-type ConversationMenuItem = {
-    id: number;
-    title: string;
-    options?: DropdownMenuItemType[];
-}
+import { Conversation } from '@/types/models/conversation';
 
 
 const Conversations = () => {
 
     const { open } = useSidebar();
 
-    const { conversations, loadConversations, loadConversationsRequest } = useConversation();
+    const { loadConversations, loadConversationsRequest, archive, remove } = useConversation();
+
+    const conversations = useConversationStore.use.conversations();
+
+    const [editingConversation, setEditingConversation] = useState<
+        null | Conversation
+    >(null);
+
+    const { update } = useConversation();
 
     useEffect(() => {
         loadConversations();
     }, [loadConversations]);
+
+    const handleUpdateTitle = useCallback((conversation: Conversation, value: string) => {
+        setEditingConversation(null);
+        update(conversation, { title: value });
+    }, [update]);
 
     if (loadConversationsRequest.processing) {
         return <SidebarGroupContent>
@@ -61,25 +68,36 @@ const Conversations = () => {
                 <>
                     <SidebarGroupLabel>Récents</SidebarGroupLabel>
                     <SidebarMenu>
-                        {conversations.map((prompt) => (
-                            <MenuItem
-                                key={prompt.id}
-                                label={prompt.title}
+                        {conversations.map((conversation) => (
+                            <SidebarMenuItem
+                                key={conversation.id}
+                                label={conversation.title || '...'}
                                 hiddenOnSidebarClosed
+                                viewTransition
+                                editing={editingConversation?.id === conversation.id}
+                                onSubmitEditing={value => handleUpdateTitle(conversation, value)}
+                                onCancelEditing={() => setEditingConversation(null)}
+                                href={ConversationController.conversation.url({
+                                    project: conversation.project_id,
+                                    conversation: conversation.id,
+                                })}
                                 options={[
                                     {
                                         label: 'Éditer',
                                         icon: PencilIcon,
+                                        onClick: () => setEditingConversation(conversation),
                                     },
                                     {
                                         label: 'Archiver',
                                         icon: ArchiveIcon,
                                         separator: true,
+                                        onClick: () => archive(conversation),
                                     },
                                     {
                                         label: 'Supprimer',
                                         icon: TrashIcon,
                                         destructive: true,
+                                        onClick: () => remove(conversation),
                                     },
                                 ]}
                             />
@@ -102,16 +120,19 @@ export default function ChatSideBar() {
     const page = usePage<{project: Project}>()
 
 
-    const SideBarItems = useMemo<SidebarItemType[]>(() => [
-        {
-            label: 'Nouvelle discussion',
-            icon: PlusCircleIcon,
-            shortcut: ['Ctrl', 'N'],
-            variant: 'outline',
-            href: ConversationController.home(page.props.project.id).url,
-            viewTransition: true
-        },
-    ], [page.props.project.id]);
+    const SideBarItems = useMemo<SidebarMenuItemType[]>(
+        () => [
+            {
+                label: 'Nouvelle discussion',
+                icon: PlusCircleIcon,
+                shortcut: ['Ctrl', 'N'],
+                variant: 'outline',
+                href: ConversationController.home(page.props.project.id).url,
+                viewTransition: true,
+            },
+        ],
+        [page.props.project.id],
+    );
 
 
     return (
@@ -128,7 +149,7 @@ export default function ChatSideBar() {
                     <SidebarGroupContent>
                         <SidebarMenu>
                             {SideBarItems.map((item) => (
-                                <MenuItem key={item.label} {...item} />
+                                <SidebarMenuItem key={item.label} {...item} />
                             ))}
                         </SidebarMenu>
                     </SidebarGroupContent>

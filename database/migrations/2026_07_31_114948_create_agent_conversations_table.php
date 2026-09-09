@@ -21,7 +21,8 @@ return new class extends AiMigration
             $table->unsignedBigInteger('participant_id')->nullable();
             $table->string('title')->nullable();
 
-            $table->foreignIdFor(Project::class)->constrained()->cascadeOnDelete();
+            $table->foreignIdFor(Project::class)->nullable()->constrained()->cascadeOnDelete();
+            $table->boolean('is_archived')->default(false);
 
             $table->timestamps();
 
@@ -42,7 +43,7 @@ return new class extends AiMigration
             $table->text('usage');
             $table->text('meta');
             $table->text('approval_state')->nullable();
-            $table->boolean('is_user_pending')->default(false);
+            $table->boolean('is_start')->default(false);
             $table->timestamps();
 
             $table->index(['conversation_id', 'participant_type', 'participant_id', 'updated_at'], 'conversation_index');

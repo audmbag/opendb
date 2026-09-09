@@ -4,13 +4,17 @@ namespace App\Ai\Agents;
 
 use App\Ai\Enums\AgentAccessModeEnum;
 use App\Ai\Middleware\LogAgentActivity;
-use App\Ai\Tools\Database\DescribeSchema;
+use App\Ai\Tools\Database\CreateRecord;
+use App\Ai\Tools\Database\DatabaseSchema;
+use App\Ai\Tools\Database\FocusTable;
+use App\Ai\Tools\Database\ListTables;
 use App\Ai\Tools\Database\ReadQuery;
+use App\Ai\Tools\Database\ShowSchemaDiagram;
 use App\Ai\Tools\Database\WriteQuery;
 use App\Ai\Tools\FileStorage\DeleteFile;
+use App\Database\Contracts\DriverContract;
 use App\Models\Driver;
 use App\Models\Project;
-use Illuminate\Database\Connection;
 use Laravel\Ai\Attributes\MaxSteps;
 use Laravel\Ai\Attributes\Model;
 use Laravel\Ai\Concerns\RemembersConversations;
@@ -32,11 +36,11 @@ class SQLDatabaseAgent implements Agent, Conversational, HasMiddleware, HasTools
 
     const string FILE_DISK = 'open-db';
 
-    public readonly Connection $connection;
+    public readonly DriverContract $driver;
 
     public function __construct(
         public readonly AgentAccessModeEnum $accessMode,
-        public readonly Project $project
+        public readonly Project $project,
     ) {
         $this->configureDisk();
 
@@ -45,7 +49,7 @@ class SQLDatabaseAgent implements Agent, Conversational, HasMiddleware, HasTools
             'user',
         ]);
 
-        $this->connection = $this->project->driver_config->getDriver()->getConnection();
+        $this->driver = $this->project->driver_config->getDriver();
     }
 
     public function configureDisk(): void
@@ -71,24 +75,25 @@ class SQLDatabaseAgent implements Agent, Conversational, HasMiddleware, HasTools
             .view($this->accessMode->instructionsView())->render();
     }
 
-    public function messages(): iterable
-    {
-        return [
-        ];
-    }
-
     public function tools(): iterable
     {
         return match ($this->accessMode) {
             AgentAccessModeEnum::ReadOnly => [
-                new ReadQuery($this->project->driver_config->getDriver()),
-                new DescribeSchema($this->project->driver_config->getDriver()),
+                new ReadQuery($this->driver),
+                new DatabaseSchema($this->driver),
+                new FocusTable($this->driver),
+                new ListTables($this->driver),
+                new ShowSchemaDiagram($this->driver),
                 ...FileStorage::readOnly(self::FILE_DISK),
             ],
             AgentAccessModeEnum::ReadWrite => [
-                new ReadQuery($this->project->driver_config->getDriver()),
-                new WriteQuery($this->connection),
-                new DescribeSchema($this->project->driver_config->getDriver()),
+                new ReadQuery($this->driver),
+                new WriteQuery($this->driver),
+                new DatabaseSchema($this->driver),
+                new FocusTable($this->driver),
+                new ListTables($this->driver),
+                new CreateRecord($this->driver),
+                new ShowSchemaDiagram($this->driver),
                 ...FileStorage::readOnly(self::FILE_DISK)
                     ->merge([
                         new WriteFile(self::FILE_DISK),

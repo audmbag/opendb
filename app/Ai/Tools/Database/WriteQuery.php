@@ -2,9 +2,9 @@
 
 namespace App\Ai\Tools\Database;
 
+use App\Ai\Enums\AgentAccessModeEnum;
+use App\Database\Contracts\DriverContract;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
-use Illuminate\Database\Connection;
-use Illuminate\Database\QueryException;
 use Laravel\Ai\Approvals\Approval;
 use Laravel\Ai\Concerns\InteractsWithApprovals;
 use Laravel\Ai\Contracts\Approvable;
@@ -13,7 +13,7 @@ use Laravel\Ai\Tools\Request;
 use RuntimeException;
 use Stringable;
 
-class WriteQuery extends QueryTool implements Approvable, Tool
+class WriteQuery extends BaseTool implements Approvable, Tool
 {
     use InteractsWithApprovals;
 
@@ -22,51 +22,48 @@ class WriteQuery extends QueryTool implements Approvable, Tool
     private const array FORBIDDEN_KEYWORDS = ['GRANT', 'REVOKE', 'SHUTDOWN'];
 
     public function __construct(
-        private readonly Connection $connection,
+        private readonly DriverContract $driver,
     ) {}
 
     public function description(): Stringable|string
     {
         return 'Exécute une requête SQL de modification (INSERT, UPDATE, DELETE, CREATE, ALTER, TRUNCATE) '
-            .'sur la base de données courante. Les opérations destructrices nécessitent une autorisation '
-            .'explicite avant exécution. Avant de supprimer une table verifie d\'abord si elle est vide, si elle est vide dis-le ouvertement à l\'utilisateur.'
-            .'Les requêtes multiples (empilage de statements) ne sont pas autorisées.';
+            .'sur la base de données courante. '
+            .'Si vous souhaitez supprimer une table, vérifiez d\'abord si elle est vide. Si elle est vide, indiquez-le clairement à l\'utilisateur.'
+            .'Les requêtes multiples (empilage de statements) ne sont pas autorisées.'
+            .'Note importante: pour les opérations insertion des informations qui sont généralement hashées comme le mot de passe,'
+            .'vérifie d\'abord si l\'utilisateur a fourni un mot de passe en clair, si c\'est le cas, hash-le avant de l\'insérer dans la base des données. '
+            .'Pour les opérations de suppression d\'enregistrements(DELETE), utilise toujours la clause WHERE sur la clé primaire s\'il y en a une, sinon sur un identifiant unique, et jamais sur un champ qui peut contenir des doublons.';
     }
 
     public function handle(Request $request): Stringable|string
     {
         $sql = trim((string) $request['query']);
+        $bindings = $request['bindings'];
 
-        try {
-            $this->assertAllowed($sql);
+        $this->assertAllowed($sql);
 
-            $this->connection->statement($sql);
-        } catch (QueryException $e) {
-            return $this->formatQueryError($e);
-        } catch (RuntimeException $e) {
-            return $e->getMessage();
+        if ($this->driver->statement($sql, $bindings)) {
+            return $this->toJson(['success' => true]);
         }
 
-        return 'Requête exécutée avec succès.';
+        return $this->toJson(['success' => false]);
     }
 
     public function schema(JsonSchema $schema): array
     {
-        return [
-            'query' => $schema->string()
-                ->description('Requête SQL de modification (INSERT, UPDATE, DELETE, CREATE, ALTER, TRUNCATE).')
-                ->required(),
-        ];
+        return $this->getSchemaForQueryByAccessMode(AgentAccessModeEnum::ReadWrite, $schema);
     }
 
     protected function needsApproval(Request $request): Approval|bool
     {
-        $sql = strtoupper((string) $request['query']);
+        $raw_sql = (string) $request['query'];
+        $sql = strtoupper($raw_sql);
 
         foreach (self::DESTRUCTIVE_KEYWORDS as $keyword) {
             if (preg_match('/\b'.$keyword.'\b/', $sql)) {
                 return Approval::required(
-                    "Cette requête contient une opération destructrice ({$keyword}) sur la base de données."
+                    "`$raw_sql` : Cette requête contient une opération destructrice ({$keyword}) sur la base de données. Voulez-vous autoriser l'outil à continuer ?"
                 );
             }
         }

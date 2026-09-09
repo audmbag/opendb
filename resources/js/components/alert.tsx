@@ -4,21 +4,28 @@ import {
     TriangleAlertIcon,
 } from 'lucide-react';
 import React, { useMemo } from 'react';
-import { Alert as UiAlert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import {
+    Alert as UiAlert,
+    AlertAction,
+    AlertDescription,
+    AlertTitle,
+} from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
+import Button, { ButtonProps } from '@/components/form/button';
 
 type Props = {
-    variant?: "default" | "destructive" | "success" | "warning";
+    variant?: 'default' | 'destructive' | 'success' | 'warning';
     title: string;
     message: string;
-} & Omit<React.ComponentProps<typeof UiAlert>, "variant">;
+    buttons?: (ButtonProps & { label: string })[];
+} & Omit<React.ComponentProps<typeof UiAlert>, 'variant'>;
 
 const variantClass = {
     success: "bg-green-50 text-green-800 dark:bg-green-900 dark:text-green-200",
     warning: "bg-yellow-50 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
 };
 
-export default function Alert({ variant, title, message, className, ...props }: Props) {
+export default function Alert({ variant, title, message, className, buttons, ...props }: Props) {
 
     const alertVariant = useMemo(() => {
         return variant === 'destructive' || variant === 'default'
@@ -52,6 +59,13 @@ export default function Alert({ variant, title, message, className, ...props }: 
             {Icon}
             <AlertTitle>{title}</AlertTitle>
             <AlertDescription>{message}</AlertDescription>
+            <AlertAction>
+                {buttons?.map((button, index) => (
+                    <Button key={index} {...button}>
+                        {button.label}
+                    </Button>
+                ))}
+            </AlertAction>
         </UiAlert>
     );
 }

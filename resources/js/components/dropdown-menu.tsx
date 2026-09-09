@@ -25,7 +25,10 @@ export default function DropdownMenu({ items, children }: Props) {
                 {items.map((item, index) => (
                     <Fragment key={index}>
                         <DropdownMenuUI.DropdownMenuItem
-                            onClick={item.onClick}
+                            onClick={e => {
+                                e.stopPropagation();
+                                item.onClick?.()
+                            }}
                             variant={item.destructive ? "destructive" : "default"}>
                             {item.icon && <item.icon />}
                             {item.label}

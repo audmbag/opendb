@@ -68,6 +68,8 @@ namespace App\Models{
  * @property int $user_id
  * @property \Carbon\CarbonImmutable|null $created_at
  * @property \Carbon\CarbonImmutable|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \Laravel\Ai\Models\Conversation> $conversation
+ * @property-read int|null $conversation_count
  * @property-read \App\Models\DriverConfig|null $driver_config
  * @property-read string $created_at_diff_for_humans
  * @property-read \App\Models\User $user

@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clonio Audit Log · production → local-dev</title>
+<style>
+  @page { margin: 18mm 14mm 18mm 14mm; }
+  body { font-family: "DejaVu Sans", "Helvetica", sans-serif; color: #0f172a; font-size: 10pt; line-height: 1.5; }
+
+  .hero { width: 100%; margin-bottom: 8mm; }
+  .hero td { vertical-align: middle; }
+  .hero .left { padding-right: 4mm; }
+  .hero .right { text-align: right; width: 28mm; }
+  .hero .right img { width: 22mm; height: auto; }
+  .eyebrow { font-size: 8pt; color: #6366f1; letter-spacing: 0.16em; text-transform: uppercase; font-weight: bold; }
+  h1 { font-size: 24pt; margin: 1mm 0 1mm 0; color: #0f172a; font-weight: bold; letter-spacing: -0.02em; }
+  .lede { color: #475569; font-size: 10.5pt; margin: 0; }
+
+  .status-band { background: #ecfdf5; border-left: 4px solid #10b981; padding: 4mm 5mm; margin-bottom: 6mm; }
+  .status-band.failure { background: #fef2f2; border-left-color: #ef4444; }
+  .status-band table { width: 100%; }
+  .status-band td { vertical-align: middle; }
+  .status-band .status-text { font-size: 13pt; font-weight: bold; color: #065f46; }
+  .status-band.failure .status-text { color: #991b1b; }
+  .status-band .status-meta { font-size: 9pt; color: #475569; margin-top: 1mm; }
+
+  .kpi { width: 100%; border-collapse: separate; border-spacing: 3mm 0; margin-bottom: 6mm; margin-left: -3mm; margin-right: -3mm; }
+  .kpi td { width: 25%; background: #f8fafc; border: 1px solid #e2e8f0; padding: 4mm; vertical-align: top; border-radius: 2mm; }
+  .kpi.kpi-3 td { width: 33.33%; }
+  .kpi .kpi-label { font-size: 8pt; color: #64748b; text-transform: uppercase; letter-spacing: 0.1em; font-weight: bold; }
+  .kpi .kpi-value { font-size: 18pt; color: #0f172a; font-weight: bold; margin-top: 2mm; letter-spacing: -0.02em; }
+  .kpi .kpi-sub { font-size: 8pt; color: #94a3b8; margin-top: 1mm; }
+
+  .conn-grid { width: 100%; border-collapse: separate; border-spacing: 3mm 0; margin: 0 -3mm 4mm -3mm; }
+  .conn-grid td { width: 50%; background: #f8fafc; border: 1px solid #e2e8f0; padding: 4mm 5mm; vertical-align: top; border-radius: 2mm; }
+  .conn-grid .conn-eyebrow { font-size: 8pt; color: #6366f1; text-transform: uppercase; letter-spacing: 0.12em; font-weight: bold; }
+  .conn-grid .conn-name { font-size: 13pt; color: #0f172a; font-weight: bold; margin: 1mm 0 3mm 0; letter-spacing: -0.01em; }
+
+  h2 { font-size: 13pt; color: #0f172a; margin: 7mm 0 3mm 0; font-weight: bold; }
+  h2.page-break { page-break-before: always; break-before: page; }
+  h2 .h2-count { color: #94a3b8; font-weight: normal; font-size: 11pt; margin-left: 2mm; }
+
+  .badge { display: inline-block; padding: 1mm 3mm; border-radius: 10mm; font-size: 9pt; font-weight: bold; }
+  .badge.success { background: #d1fae5; color: #065f46; }
+  .badge.failure { background: #fee2e2; color: #991b1b; }
+
+  table.data { width: 100%; border-collapse: collapse; font-size: 9.5pt; border: 1px solid #e2e8f0; }
+  table.data thead th { background: #f1f5f9; text-align: left; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.08em;
+                        color: #475569; padding: 3mm 3mm; border-bottom: 1px solid #e2e8f0; font-weight: bold; }
+  table.data tbody td { padding: 3mm 3mm; border-bottom: 1px solid #f1f5f9; }
+  table.data tr.alt td { background: #fafbfc; }
+  table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
+  table.data .mono { font-family: "DejaVu Sans Mono", monospace; font-size: 9pt; color: #475569; }
+
+  .chip { display: inline-block; padding: 0.5mm 2.5mm; background: #f1f5f9; color: #475569; border-radius: 2mm; font-size: 8.5pt; font-weight: bold; }
+  .chip-indigo { background: #eef2ff; color: #4338ca; }
+  .dot { display: inline-block; width: 2.5mm; height: 2.5mm; border-radius: 5mm; vertical-align: middle; margin-right: 1.5mm; }
+  .dot-green { background: #10b981; }
+  .dot-amber { background: #f59e0b; }
+
+  .meta-table { width: 100%; border-collapse: collapse; margin-top: 2mm; }
+  .meta-table td { padding: 1.5mm 0; vertical-align: top; }
+  .meta-table .label { color: #64748b; font-size: 9pt; width: 38%; }
+  .meta-table .value { color: #0f172a; font-size: 10pt; }
+
+  .integrity-card { background: #0f172a; color: #cbd5e1; padding: 5mm; border-radius: 2mm; margin-top: 3mm; font-size: 8.5pt; }
+  .integrity-card .label { color: #6366f1; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.12em; font-weight: bold; }
+  .integrity-card .hash { font-family: "DejaVu Sans Mono", monospace; word-break: break-all; margin: 1mm 0 3mm 0; color: #f1f5f9; }
+  .integrity-card .hash:last-child { margin-bottom: 0; }
+</style>
+</head>
+<body>
+
+<table class="hero">
+  <tr>
+    <td class="left">
+      <div class="eyebrow">Clonio Audit Log</div>
+      <h1>Cloning Protocol</h1>
+      <p class="lede">production &nbsp;→&nbsp; local-dev</p>
+    </td>
+    <td class="right"><img src="data:image/png;base64,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" alt="Clonio"></td>
+  </tr>
+</table>
+
+<div class="status-band">
+  <table><tr><td>
+    <div class="status-text"><span class="badge success">Success</span>&nbsp; Run completed successfully</div>
+    <div class="status-meta">2026-09-06 13:27:23 UTC &nbsp;→&nbsp; 2026-09-06 13:27:25 UTC &nbsp;·&nbsp; 00:00:01,958 duration</div>
+  </td></tr></table>
+</div>
+
+<table class="kpi">
+  <tr>
+    <td>
+      <div class="kpi-label">Rows transferred</div>
+      <div class="kpi-value">449</div>
+      <div class="kpi-sub">across 25 tables</div>
+    </td>
+    <td>
+      <div class="kpi-label">Rows skipped</div>
+      <div class="kpi-value">0</div>
+      <div class="kpi-sub">filtered or errored</div>
+    </td>
+    <td>
+      <div class="kpi-label">PII columns</div>
+      <div class="kpi-value">40</div>
+      <div class="kpi-sub">anonymised</div>
+    </td>
+    <td>
+      <div class="kpi-label">Duration</div>
+      <div class="kpi-value">00:00:01,958</div>
+      <div class="kpi-sub">wall-clock</div>
+    </td>
+  </tr>
+</table>
+
+<h2>Run details</h2>
+<table class="meta-table">
+  <tr><td class="label">Clonio version</td><td class="value">v1.0.2</td></tr>
+  <tr><td class="label">Configuration</td><td class="value">production.cloning.yaml</td></tr>
+  <tr><td class="label">Started</td><td class="value">2026-09-06 13:27:23 UTC</td></tr>
+  <tr><td class="label">Finished</td><td class="value">2026-09-06 13:27:25 UTC</td></tr>
+</table>
+
+<h2>Table results <span class="h2-count">· 25</span></h2>
+<table class="data">
+  <thead><tr><th>Table</th><th>State</th><th>Strategy</th><th class="num">Transferred</th><th class="num">Skipped</th><th class="num">Duration</th></tr></thead>
+  <tbody><tr><td><strong>author_types</strong></td><td><span class="dot dot-green"></span> Done</td><td><span class="chip">full</span></td><td class="num">5</td><td class="num">0</td><td class="num mono">00:00:00,065</td></tr><tr class="alt"><td><strong>cache</strong></td><td><span class="dot dot-green"></span> Done</td><td><span class="chip">full</span></td><td class="num">0</td><td class="num">0</td><td class="num mono">00:00:00,027</td></tr><tr><td><strong>cache_locks</strong></td><td><span class="dot dot-green"></span> Done</td><td><span class="chip">full</span></td><td class="num">0</td><td class="num">0</td><td class="num mono">00:00:00,035</td></tr><tr class="alt"><td><strong>contributorables</strong></td><td><span class="dot dot-green"></span> Done</td><td><span class="chip">full</span></td><td class="num">0</td><td class="num">0</td><td class="num mono">00:00:00,025</td></tr><tr><td><strong>failed_jobs</strong></td><td><span class="dot dot-green"></span> Done</td><td><span class="chip">full</span></td><td class="num">0</td><td class="num">0</td><td class="num mono">00:00:00,033</td></tr><tr class="alt"><td><strong>job_batches</strong></td><td><span class="dot dot-green"></span> Done</td><td><span class="chip">full</span></td><td class="num">0</td><td class="num">0</td><td class="num mono">00:00:00,025</td></tr><tr><td><strong>jobs</strong></td><td><span class="dot dot-green"></span> Done</td><td><span class="chip">full</span></td><td class="num">0</td><td class="num">0</td><td class="num mono">00:00:00,027</td></tr><tr class="alt"><td><strong>magazines</strong></td><td><span class="dot dot-green"></span> Done</td><td><span class="chip">full</span></td><td class="num">0</td><td class="num">0</td><td class="num mono">00:00:00,035</td></tr><tr><td><strong>migrations</strong></td><td><span class="dot dot-green"></span> Done</td><td><span class="chip">full</span></td><td class="num">25</td><td class="num">0</td><td class="num mono">00:00:00,046</td></tr><tr class="alt"><td><strong>news_letters</strong></td><td><span class="dot dot-green"></span> Done</td><td><span class="chip">full</span></td><td class="num">0</td><td class="num">0</td><td class="num mono">00:00:00,037</td></tr><tr><td><strong>offers</strong></td><td><span class="dot dot-green"></span> Done</td><td><span class="chip">full</span></td><td class="num">0</td><td class="num">0</td><td class="num mono">00:00:00,025</td></tr><tr class="alt"><td><strong>opinion_categories</strong></td><td><span class="dot dot-green"></span> Done</td><td><span class="chip">full</span></td><td class="num">3</td><td class="num">0</td><td class="num mono">00:00:00,060</td></tr><tr><td><strong>password_reset_tokens</strong></td><td><span class="dot dot-green"></span> Done</td><td><span class="chip">full</span></td><td class="num">0</td><td class="num">0</td><td class="num mono">00:00:00,025</td></tr><tr class="alt"><td><strong>post_categories</strong></td><td><span class="dot dot-green"></span> Done</td><td><span class="chip">full</span></td><td class="num">8</td><td class="num">0</td><td class="num mono">00:00:00,053</td></tr><tr><td><strong>post_views</strong></td><td><span class="dot dot-green"></span> Done</td><td><span class="chip">full</span></td><td class="num">130</td><td class="num">0</td><td class="num mono">00:00:00,069</td></tr><tr class="alt"><td><strong>posts</strong></td><td><span class="dot dot-green"></span> Done</td><td><span class="chip">full</span></td><td class="num">30</td><td class="num">0</td><td class="num mono">00:00:00,059</td></tr><tr><td><strong>pubs</strong></td><td><span class="dot dot-green"></span> Done</td><td><span class="chip">full</span></td><td class="num">0</td><td class="num">0</td><td class="num mono">00:00:00,028</td></tr><tr class="alt"><td><strong>sessions</strong></td><td><span class="dot dot-green"></span> Done</td><td><span class="chip">full</span></td><td class="num">2</td><td class="num">0</td><td class="num mono">00:00:00,037</td></tr><tr><td><strong>users</strong></td><td><span class="dot dot-green"></span> Done</td><td><span class="chip">full</span></td><td class="num">5</td><td class="num">0</td><td class="num mono">00:00:00,036</td></tr><tr class="alt"><td><strong>videos</strong></td><td><span class="dot dot-green"></span> Done</td><td><span class="chip">full</span></td><td class="num">10</td><td class="num">0</td><td class="num mono">00:00:00,040</td></tr><tr><td><strong>contributors</strong></td><td><span class="dot dot-green"></span> Done</td><td><span class="chip">full</span></td><td class="num">50</td><td class="num">0</td><td class="num mono">00:00:00,055</td></tr><tr class="alt"><td><strong>opinions</strong></td><td><span class="dot dot-green"></span> Done</td><td><span class="chip">full</span></td><td class="num">6</td><td class="num">0</td><td class="num mono">00:00:00,048</td></tr><tr><td><strong>post_post_category</strong></td><td><span class="dot dot-green"></span> Done</td><td><span class="chip">full</span></td><td class="num">30</td><td class="num">0</td><td class="num mono">00:00:00,053</td></tr><tr class="alt"><td><strong>comments</strong></td><td><span class="dot dot-green"></span> Done</td><td><span class="chip">full</span></td><td class="num">135</td><td class="num">0</td><td class="num mono">00:00:00,084</td></tr><tr><td><strong>video_post_category</strong></td><td><span class="dot dot-green"></span> Done</td><td><span class="chip">full</span></td><td class="num">10</td><td class="num">0</td><td class="num mono">00:00:00,041</td></tr></tbody>
+</table>
+
+<h2 class="page-break">PII transformations <span class="h2-count">· 40</span></h2>
+<table class="data">
+  <thead><tr><th>Table</th><th>Column</th><th>Strategy</th></tr></thead>
+  <tbody><tr><td><strong>author_types</strong></td><td>id</td><td><span class="chip chip-indigo">remapping</span></td></tr><tr class="alt"><td><strong>author_types</strong></td><td>name</td><td><span class="chip chip-indigo">fake</span></td></tr><tr><td><strong>failed_jobs</strong></td><td>id</td><td><span class="chip chip-indigo">remapping</span></td></tr><tr><td><strong>job_batches</strong></td><td>name</td><td><span class="chip chip-indigo">fake</span></td></tr><tr><td><strong>jobs</strong></td><td>id</td><td><span class="chip chip-indigo">remapping</span></td></tr><tr><td><strong>magazines</strong></td><td>id</td><td><span class="chip chip-indigo">remapping</span></td></tr><tr class="alt"><td><strong>magazines</strong></td><td>title</td><td><span class="chip chip-indigo">fake</span></td></tr><tr><td><strong>migrations</strong></td><td>id</td><td><span class="chip chip-indigo">remapping</span></td></tr><tr><td><strong>news_letters</strong></td><td>id</td><td><span class="chip chip-indigo">remapping</span></td></tr><tr class="alt"><td><strong>news_letters</strong></td><td>email</td><td><span class="chip chip-indigo">fake</span></td></tr><tr><td><strong>offers</strong></td><td>id</td><td><span class="chip chip-indigo">remapping</span></td></tr><tr class="alt"><td><strong>offers</strong></td><td>title</td><td><span class="chip chip-indigo">fake</span></td></tr><tr><td><strong>offers</strong></td><td>organization</td><td><span class="chip chip-indigo">fake</span></td></tr><tr><td><strong>opinion_categories</strong></td><td>id</td><td><span class="chip chip-indigo">remapping</span></td></tr><tr class="alt"><td><strong>opinion_categories</strong></td><td>name</td><td><span class="chip chip-indigo">fake</span></td></tr><tr><td><strong>password_reset_tokens</strong></td><td>email</td><td><span class="chip chip-indigo">fake</span></td></tr><tr><td><strong>post_categories</strong></td><td>id</td><td><span class="chip chip-indigo">remapping</span></td></tr><tr class="alt"><td><strong>post_categories</strong></td><td>name</td><td><span class="chip chip-indigo">fake</span></td></tr><tr><td><strong>post_views</strong></td><td>id</td><td><span class="chip chip-indigo">remapping</span></td></tr><tr class="alt"><td><strong>post_views</strong></td><td>session_id</td><td><span class="chip chip-indigo">fake</span></td></tr><tr><td><strong>posts</strong></td><td>id</td><td><span class="chip chip-indigo">remapping</span></td></tr><tr class="alt"><td><strong>posts</strong></td><td>title</td><td><span class="chip chip-indigo">fake</span></td></tr><tr><td><strong>pubs</strong></td><td>id</td><td><span class="chip chip-indigo">remapping</span></td></tr><tr><td><strong>sessions</strong></td><td>ip_address</td><td><span class="chip chip-indigo">fake</span></td></tr><tr><td><strong>users</strong></td><td>id</td><td><span class="chip chip-indigo">remapping</span></td></tr><tr class="alt"><td><strong>users</strong></td><td>username</td><td><span class="chip chip-indigo">fake</span></td></tr><tr><td><strong>users</strong></td><td>email</td><td><span class="chip chip-indigo">fake</span></td></tr><tr class="alt"><td><strong>users</strong></td><td>password</td><td><span class="chip chip-indigo">static</span></td></tr><tr><td><strong>users</strong></td><td>role</td><td><span class="chip chip-indigo">fake</span></td></tr><tr><td><strong>videos</strong></td><td>id</td><td><span class="chip chip-indigo">remapping</span></td></tr><tr class="alt"><td><strong>videos</strong></td><td>title</td><td><span class="chip chip-indigo">fake</span></td></tr><tr><td><strong>contributors</strong></td><td>id</td><td><span class="chip chip-indigo">remapping</span></td></tr><tr class="alt"><td><strong>contributors</strong></td><td>full_name</td><td><span class="chip chip-indigo">fake</span></td></tr><tr><td><strong>contributors</strong></td><td>email</td><td><span class="chip chip-indigo">fake</span></td></tr><tr class="alt"><td><strong>contributors</strong></td><td>role</td><td><span class="chip chip-indigo">fake</span></td></tr><tr><td><strong>opinions</strong></td><td>id</td><td><span class="chip chip-indigo">remapping</span></td></tr><tr class="alt"><td><strong>opinions</strong></td><td>title</td><td><span class="chip chip-indigo">fake</span></td></tr><tr><td><strong>comments</strong></td><td>id</td><td><span class="chip chip-indigo">remapping</span></td></tr><tr class="alt"><td><strong>comments</strong></td><td>full_name</td><td><span class="chip chip-indigo">fake</span></td></tr><tr><td><strong>comments</strong></td><td>email</td><td><span class="chip chip-indigo">fake</span></td></tr></tbody>
+</table>
+
+<h2 class="page-break">Summary &amp; Integrity</h2>
+
+<table class="conn-grid">
+  <tr>
+    <td>
+      <div class="conn-eyebrow">Source</div>
+      <div class="conn-name">production</div>
+      <table class="meta-table">
+        <tr><td class="label">Type</td><td class="value">mysql</td></tr>
+        <tr><td class="label">Host</td><td class="value">127.0.0.1:3306</td></tr>
+        <tr><td class="label">Database</td><td class="value">allingrandslacs</td></tr>
+        <tr><td class="label">Username</td><td class="value">root</td></tr>
+      </table>
+    </td>
+    <td>
+      <div class="conn-eyebrow">Target</div>
+      <div class="conn-name">local-dev</div>
+      <table class="meta-table">
+        <tr><td class="label">Type</td><td class="value">sqlite</td></tr>
+        <tr><td class="label">Host</td><td class="value">—</td></tr>
+        <tr><td class="label">Database</td><td class="value">database/test-clonio.sqlite</td></tr>
+        <tr><td class="label">Username</td><td class="value">—</td></tr>
+      </table>
+    </td>
+  </tr>
+</table>
+
+<table class="kpi kpi-3">
+  <tr>
+    <td>
+      <div class="kpi-label">Rows transferred</div>
+      <div class="kpi-value">449</div>
+      <div class="kpi-sub">across 25 tables</div>
+    </td>
+    <td>
+      <div class="kpi-label">PII columns</div>
+      <div class="kpi-value">40</div>
+      <div class="kpi-sub">anonymised</div>
+    </td>
+    <td>
+      <div class="kpi-label">Duration</div>
+      <div class="kpi-value">00:00:01,958</div>
+      <div class="kpi-sub">wall-clock</div>
+    </td>
+  </tr>
+</table>
+
+<div class="integrity-card">
+  <div class="label">SHA-256 content hash</div>
+  <div class="hash">96bd9182078983fb8a9faf619b63c9fc3dcd816c76ea823fe056898891fa1b06</div>
+  <div class="label">HMAC signature</div>
+  <div class="hash">c384882513259b0520bdb0b680007acab7f602f431570ae68b23d410145443e7</div>
+</div>
+
+<script type="application/json" id="audit-data">{
+    "clonio_version": "v1.0.2",
+    "finished_at": "2026-09-06T13:27:25+00:00",
+    "source_connection": "production",
+    "started_at": "2026-09-06T13:27:23+00:00",
+    "success": true,
+    "target_connection": "local-dev",
+    "total_rows_skipped": 0,
+    "total_rows_transferred": 449,
+    "yaml_file_name": "production.cloning.yaml"
+}</script>
+</body>
+</html>

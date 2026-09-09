@@ -1,8 +1,4 @@
-Sujet : 1. Conception d'un agent conversationnel pour l'exploration et la manipulation de bases de données relationnelles
-
-
-
-!!! : Add default user and password.
+Sujet : 1. Conception et implémentation d'un agent IA conversationnel privacy-first pour la gestion et la manipulation des bases de données SQL relationnelles.
 
 Features :
 1. create-project-form
@@ -27,4 +23,9 @@ de la base de données, clé API, etc.)
         $app->useEnvironmentPath(base_path: dirname(__DIR__));
     })
 ```
+- Configure php.ini
+ - upload_max_filesize: 15M
+ - post_max_size: 15M
+
+- Liste noire de champs et des tables à ne jamais exposer aux LLM
 ⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️

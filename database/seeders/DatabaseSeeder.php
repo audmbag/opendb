@@ -20,6 +20,8 @@ class DatabaseSeeder extends Seeder
             'password' => bcrypt(config('opendb.default_password')),
         ]);
 
+        User::factory(10)->create();
+
         $this->call([
             ProviderSeeder::class,
         ]);

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\HomeController;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -29,9 +30,7 @@ class LoginController
             return to_action(HomeController::class);
         }
 
-        return back()->withErrors([
-            'failed' => __('auth.failed'),
-        ])->onlyInput('username');
+        return back()->withErrors(['failed' => __('auth.failed')])->onlyInput('name');
     }
 
     public function logout(Request $request): RedirectResponse

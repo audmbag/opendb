@@ -4,9 +4,13 @@ namespace App\Ai\Services;
 
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Str;
 use Laravel\Ai\Enums\Lab;
 use LmSomeco\AiModels\Data\AiModel;
 use LmSomeco\AiModels\Facades\AiModels;
+use Throwable;
+
+use function Laravel\Ai\agent;
 
 readonly class ProviderManagerService
 {
@@ -46,5 +50,24 @@ readonly class ProviderManagerService
                 'active' => false,
             ];
         });
+    }
+
+    public static function generateConversationTitle(string $prompt): string
+    {
+        try {
+            $instructions = 'Generate a concise 3-5 word title for a conversation that starts with the given message. Use the same language as the message. Respond with only the title, no quotes or punctuation.';
+
+            $response = agent(instructions: $instructions)->prompt(<<<PROMPT
+                The message :
+                ___
+                {$prompt}
+                ___
+            PROMPT);
+
+            return Str::limit($response->text, 100);
+
+        } catch (Throwable) {
+            return Str::limit($prompt, 100, preserveWords: true);
+        }
     }
 }

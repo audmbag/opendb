@@ -1,175 +1,198 @@
-import { MessageSquareIcon } from 'lucide-react';
-import { nanoid } from 'nanoid';
-import { useEffect, useState } from 'react';
-import {
-    Conversation as AiElementConversation,
-    ConversationContent,
-    ConversationDownload,
-    ConversationEmptyState,
-    ConversationScrollButton,
-} from '@/components/ai-elements/conversation';
-import { Message, MessageContent } from '@/components/ai-elements/message';
-
-const messages: {
-    key: string;
-    content: string;
-    role: 'user' | 'assistant';
-}[] = [
-    {
-        content: 'Hello, how are you?',
-        key: nanoid(),
-        role: 'user',
-    },
-    {
-        content: "I'm good, thank you! How can I assist you today?",
-        key: nanoid(),
-        role: 'assistant',
-    },
-    {
-        content: "I'm looking for information about your services.",
-        key: nanoid(),
-        role: 'user',
-    },
-    {
-        content:
-            'Sure! We offer a variety of AI solutions. What are you interested in?',
-        key: nanoid(),
-        role: 'assistant',
-    },
-    {
-        content: "I'm interested in natural language processing tools.",
-        key: nanoid(),
-        role: 'user',
-    },
-    {
-        content:
-            'Great choice! We have several NLP APIs. Would you like a demo?',
-        key: nanoid(),
-        role: 'assistant',
-    },
-    {
-        content: 'Yes, a demo would be helpful.',
-        key: nanoid(),
-        role: 'user',
-    },
-    {
-        content: 'Alright, I can show you a sentiment analysis example. Ready?',
-        key: nanoid(),
-        role: 'assistant',
-    },
-    {
-        content: 'Yes, please proceed.',
-        key: nanoid(),
-        role: 'user',
-    },
-    {
-        content:
-            "Here is a sample: 'I love this product!' → Positive sentiment.",
-        key: nanoid(),
-        role: 'assistant',
-    },
-    {
-        content: 'Impressive! Can it handle multiple languages?',
-        key: nanoid(),
-        role: 'user',
-    },
-    {
-        content: 'Absolutely, our models support over 20 languages.',
-        key: nanoid(),
-        role: 'assistant',
-    },
-    {
-        content: 'How do I get started with the API?',
-        key: nanoid(),
-        role: 'user',
-    },
-    {
-        content: 'You can sign up on our website and get an API key instantly.',
-        key: nanoid(),
-        role: 'assistant',
-    },
-    {
-        content: 'Is there a free trial available?',
-        key: nanoid(),
-        role: 'user',
-    },
-    {
-        content: 'Yes, we offer a 14-day free trial with full access.',
-        key: nanoid(),
-        role: 'assistant',
-    },
-    {
-        content: 'What kind of support do you provide?',
-        key: nanoid(),
-        role: 'user',
-    },
-    {
-        content: 'We provide 24/7 chat and email support for all users.',
-        key: nanoid(),
-        role: 'assistant',
-    },
-    {
-        content: 'Thank you for the information!',
-        key: nanoid(),
-        role: 'user',
-    },
-    {
-        content: "You're welcome! Let me know if you have any more questions.",
-        key: nanoid(),
-        role: 'assistant',
-    },
-];
+import type { DataUIPart, DynamicToolUIPart, FileUIPart, ToolUIPart } from 'ai';
+import { RefreshCcwIcon, } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import ApprovalFormRenderer from '@/components/ai/approval-form-renderer';
+import Confirmation from '@/components/ai/confirmation';
+import ProcessingIndicator from '@/components/ai/processing-indicator';
+import PromptInput from '@/components/ai/prompt-input';
+import Tool from '@/components/ai/tool';
+import UIMessage from '@/components/ai/ui-message';
+import { Conversation as AiElementConversation, ConversationContent, ConversationScrollButton, } from '@/components/ai-elements/conversation';
+import Alert from '@/components/alert';
+import { useConversation, useConversationMessage } from '@/hooks/use-conversation';
+import { ArtifactableTools, CustomOutputToolUIPart } from '@/types/agent';
 
 const Conversation = () => {
-    const [visibleMessages, setVisibleMessages] = useState<
-        {
-            key: string;
-            content: string;
-            role: 'user' | 'assistant';
-        }[]
-    >([]);
+
+    const { conversation, initialMessages } = useConversation();
+
+    const {
+        pendingMessage,
+        clearPendingMessage,
+        messages,
+        status,
+        submitPromptMessage,
+        error,
+        regenerate,
+        addToolApprovalResponse,
+        approvalReasonsRef,
+    } = useConversationMessage(conversation, initialMessages);
+
+    const hasAutoSent = useRef(false);
 
     useEffect(() => {
-        let currentIndex = 0;
-        const interval = setInterval(() => {
-            if (currentIndex < messages.length && messages[currentIndex]) {
-                const currentMessage = messages[currentIndex];
-                setVisibleMessages((prev) => [
-                    ...prev,
-                    {
-                        content: currentMessage.content,
-                        key: currentMessage.key,
-                        role: currentMessage.role,
-                    },
-                ]);
-                currentIndex += 1;
-            } else {
-                clearInterval(interval);
-            }
-        }, 500);
+        if (!pendingMessage || initialMessages.length > 0 || hasAutoSent.current) {
+            return;
+        }
 
-        return () => clearInterval(interval);
-    }, []);
+        hasAutoSent.current = true;
+
+        submitPromptMessage(pendingMessage);
+
+        clearPendingMessage();
+
+    }, [pendingMessage, initialMessages.length, clearPendingMessage, submitPromptMessage]);
+
+
+    const approvalRequestPart = useMemo(() => {
+        const latestMessage = messages[messages.length - 1];
+
+        return latestMessage?.parts?.find(
+            (part) => (part as DynamicToolUIPart).state === 'approval-requested',
+        ) as ToolUIPart | undefined;
+    }, [messages])
+
+    const handleApprovalResponse = useCallback(({id, approved}: {id: string, approved: boolean}) =>
+        addToolApprovalResponse({ id, approved})
+    , [addToolApprovalResponse]);
 
     return (
-        <AiElementConversation className="[]relative size-full mask-[linear-gradient(to_bottom,transparent_0%,black_10%,black_90%,transparent_100%)]">
-            <ConversationContent className="max-w-4xl m-auto pb-12">
-                {visibleMessages.length === 0 ? (
-                    <ConversationEmptyState
-                        description="Messages will appear here as the conversation progresses."
-                        icon={<MessageSquareIcon className="size-6" />}
-                        title="Start a conversation"
-                    />
-                ) : (
-                    visibleMessages.map(({ key, content, role }) => (
-                        <Message from={role} key={key}>
-                            <MessageContent>{content}</MessageContent>
-                        </Message>
-                    ))
-                )}
-            </ConversationContent>
-            <ConversationScrollButton className="bottom-8" />
-        </AiElementConversation>
+        <>
+            <AiElementConversation className="relative size-full mask-[linear-gradient(to_bottom,black_90%,transparent_100%)]">
+                <ConversationContent className="m-auto max-w-4xl gap-4 pb-12">
+                    {messages.map((message, messageIndex) => {
+                        const isLast = messageIndex === messages.length - 1;
+
+                        const attachments: FileUIPart[] = [];
+                        const artifactables: CustomOutputToolUIPart[] = [];
+                        const fromInfo: DataUIPart<{
+                            [key: string]: string;
+                        }>[] = [];
+
+                        message.parts.forEach((part) => {
+                            if (part.type === 'file') {
+                                attachments.push(part);
+                            }
+
+                            if (part.type.startsWith('data-')) {
+                                fromInfo.push(
+                                    part as DataUIPart<{
+                                        [key: string]: string;
+                                    }>,
+                                );
+                            }
+
+                            if (ArtifactableTools.includes((part as ToolUIPart).type as any)) {
+
+                                let output = {}
+
+                                try {
+                                    output = JSON.parse((part as ToolUIPart).output as string);
+                                } catch { /* empty */ }
+
+                                const withFormatedOutput = {
+                                    ...part,
+                                    output,
+                                } as CustomOutputToolUIPart;
+
+                                if (withFormatedOutput.output.success) {
+                                    artifactables.push(
+                                        withFormatedOutput as CustomOutputToolUIPart,
+                                    );
+                                }
+                            }
+                        });
+
+                        return message.parts.map((part, i) => {
+                            if (part.type === 'text') {
+                                return (
+                                    <UIMessage
+                                        key={`${message.id}-${i}`}
+                                        message={message}
+                                        messageIndex={messageIndex}
+                                        part={part}
+                                        attachments={attachments}
+                                        status={status}
+                                        isLast={isLast}
+                                        partIndex={i}
+                                        fromModel={fromInfo}
+                                        artifactables={artifactables}
+                                    />
+                                );
+                            }
+
+                            if (part.type.startsWith('tool-')) {
+                                return (
+                                    <Tool
+                                        part={part as ToolUIPart}
+                                        key={(part as ToolUIPart).toolCallId}
+                                    />
+                                );
+                            }
+
+                            return null;
+                        });
+                    })}
+
+                    {(() => {
+                        if (!approvalRequestPart) {
+                            return null;
+                        }
+
+                        switch (approvalRequestPart.type) {
+                            case 'tool-CreateRecord':
+                                return (
+                                    <ApprovalFormRenderer
+                                        part={approvalRequestPart}
+                                    />
+                                );
+                            default:
+                                return (
+                                    <Confirmation
+                                        part={approvalRequestPart}
+                                        approvalReason={
+                                            approvalRequestPart?.approval
+                                                ?.reason ||
+                                            // eslint-disable-next-line react-hooks/refs
+                                            approvalReasonsRef.current.get(
+                                                approvalRequestPart?.approval
+                                                    ?.id ?? '',
+                                            )
+                                        }
+                                        onApprovalResponded={
+                                            handleApprovalResponse
+                                        }
+                                    />
+                                );
+                        }
+                    })()}
+
+                    {<ProcessingIndicator status={status} />}
+
+                    {(status === 'error' || error) && (
+                        <Alert
+                            title="Une erreur est survenue"
+                            message="Une erreur est survenue lors de la génération de la réponse. Veuillez réessayer."
+                            variant="destructive"
+                            buttons={[
+                                {
+                                    label: 'Réessayer',
+                                    onClick: () => regenerate(),
+                                    icon: RefreshCcwIcon,
+                                },
+                            ]}
+                        />
+                    )}
+                </ConversationContent>
+                <ConversationScrollButton className="bottom-8" />
+            </AiElementConversation>
+            <PromptInput
+                suggestions={false}
+                className="[view-transition-name:prompt-input]"
+                onSubmit={submitPromptMessage}
+                loading={status === 'streaming'}
+            />
+        </>
     );
 };
 
