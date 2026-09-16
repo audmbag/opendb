@@ -13,6 +13,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { ButtonProps } from '@/components/form/button';
 
 
 export interface SelectItemInterface {
@@ -30,10 +31,11 @@ type Props = {
     button?: boolean;
     tooltip?: TooltipProps['value'];
     align?: React.ComponentProps<typeof SelectContent>['align'];
+    size?: ButtonProps['size'];
 } & React.ComponentProps<typeof UISelect>;
 
 
-export default function Select({ label, items, button, tooltip, align = "center", ...props }: Props) {
+export default function Select({ label, items, button, tooltip, align = "center", size = 'sm', ...props }: Props) {
     return (
         <UISelect {...props}>
             <Tooltip value={tooltip}>
@@ -41,7 +43,7 @@ export default function Select({ label, items, button, tooltip, align = "center"
                     className={cn(
                         '[&_.description]:hidden!',
                         button &&
-                            buttonVariants({ variant: 'ghost', size: 'sm' }),
+                            buttonVariants({ variant: 'ghost', size }),
                         button && 'justify-between shadow-none',
                     )}
                 >

@@ -81,6 +81,7 @@ const AttachmentButton = (props: React.ComponentProps<typeof Button>) => {
             variant="secondary"
             className="size-10 rounded-full"
             onClick={handleSelectAttachments}
+            size="sm"
         />
     );
 }
@@ -141,11 +142,13 @@ export default function PromptInput({
     onSubmit,
     suggestions = true,
     loading = false,
+    variant = 'primary',
     ...props
 }: {
     suggestions?: boolean;
     onSubmit?: (message: AIPromptInputMessage) => void;
     loading?: boolean;
+    variant?: 'primary' | 'secondary';
 } & Omit<React.ComponentProps<'div'>, 'children' | 'onSubmit'>) {
     const [mentions, setMentions] = useState<string[]>([]);
     const [prompt, setPrompt] = useState('');
@@ -168,7 +171,15 @@ export default function PromptInput({
         >
             <PromptInputComponent
                 onSubmit={handleSubmitPromptMessage}
-                className="relative z-20 *:data-[slot=input-group]:rounded-t-2xl *:data-[slot=input-group]:rounded-b-4xl *:data-[slot=input-group]:bg-background *:data-[slot=input-group]:p-0 dark:*:data-[slot=input-group]:bg-background"
+                className={cn(
+                    'relative z-20 *:data-[slot=input-group]:rounded-b-4xl *:data-[slot=input-group]:bg-background *:data-[slot=input-group]:p-0 dark:*:data-[slot=input-group]:bg-background',
+                    {
+                        '*:data-[slot=input-group]:rounded-t-2xl':
+                            variant === 'primary',
+                        '*:data-[slot=input-group]:rounded-t-4xl':
+                            variant === 'secondary',
+                    },
+                )}
                 globalDrop
                 multiple
                 maxFiles={3}
@@ -214,11 +225,20 @@ export default function PromptInput({
                             className="size-10 rounded-full"
                             disabled={!prompt || loading}
                             processing={loading}
+                            size="sm"
                         />
                     </PromptInputSubmit>
                 </PromptInputFooter>
             </PromptInputComponent>
-            <div className="-mt-6 flex items-center justify-between gap-2 rounded-b-lg border border-t-0 border-border bg-sidebar p-2 pt-8">
+            <div
+                className={cn(
+                    '-mt-6 flex items-center justify-between gap-2 pt-8 pb-2',
+                    {
+                        'rounded-b-lg border border-t-0 border-border bg-sidebar px-2':
+                            variant === 'primary',
+                    },
+                )}
+            >
                 <Select
                     label="Mode d'accès"
                     defaultValue="read-only"

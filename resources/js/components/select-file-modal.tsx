@@ -33,8 +33,11 @@ const SelectFileModal = createCallable<SelectFolderModalProps, FileNode | null>(
             open={!call.ended}
             showHeader
             onOpenChange={() => call.end(null)}
-            title="Créer un nouveau projet"
-            description="Formulaire pour créer un nouveau projet"
+            title={
+                onlyFolders
+                    ? 'Séléctionner un dossier'
+                    : 'Séléctionner un fichier'
+            }
             className="sm:max-w-120"
         >
             <ModalContent

@@ -3,23 +3,39 @@
 namespace App\Ai\Tools\Database;
 
 use App\Ai\Enums\AgentAccessModeEnum;
+use App\Database\Contracts\DriverContract;
 use Illuminate\Database\QueryException;
 use Illuminate\JsonSchema\JsonSchema;
-use Illuminate\JsonSchema\Types\Type;
+use RuntimeException;
 
 class BaseTool
 {
     protected function formatQueryError(QueryException $e): string
     {
-        $driverMessage = $e->getPrevious()?->getMessage() ?? $e->getMessage();
-        $cleaned = preg_replace('/SQLSTATE\[\w+\]:\s*/', '', explode(' (Connection:', $driverMessage)[0]);
-
-        return "La requête a échoué : {$cleaned}. Vérifie les noms des colonnes/tables avant de réessayer.";
+        return $e->getPrevious()?->getMessage() ?? $e->getMessage();
     }
 
     protected function toJson(array $data): string
     {
         return json_encode($data, JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * @param string $tableName
+     * @param DriverContract $driver
+     * @return array
+     *
+     * @throws RuntimeException if the table does not exist in the database.
+     */
+    protected function validateTable(string $tableName, DriverContract $driver): array
+    {
+        $listTables = $driver->listTables(false);
+
+        if (! in_array($tableName, $listTables)) {
+            throw new RuntimeException("La table spécifiée dans `focusedTable.tableName` n'existe pas dans la base de données. Utilise le tool `ListTables` pour vérifier les noms exacts des tables disponibles.");
+        }
+
+        return $listTables;
     }
 
     public function getSchemaForQueryByAccessMode(AgentAccessModeEnum $mode, JsonSchema $schema): array

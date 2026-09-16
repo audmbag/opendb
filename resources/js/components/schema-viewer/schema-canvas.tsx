@@ -9,8 +9,10 @@ import {
     useNodesState,
 } from '@xyflow/react';
 import type { EdgeTypes, NodeTypes } from '@xyflow/react';
-import { FileCode2Icon, ImageDownIcon, Loader2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ImageDownIcon, Maximize2, Minimize2, Loader2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useHotkeys } from 'react-hotkeys-hook';
 import '@xyflow/react/dist/style.css';
 import { exportSchemaImage } from './export-schema';
 import { getLayoutedElements } from './layout';
@@ -75,9 +77,31 @@ function Canvas({ schema, showForeignKeys = true }: SchemaCanvasProps) {
     const [nodes, setNodes, onNodesChange] = useNodesState<TableNodeType>([]);
     const [edges, setEdges, onEdgesChange] =
         useEdgesState<RelationshipEdgeType>([]);
-    const [exportingFormat, setExportingFormat] = useState<
-        'png' | 'svg' | null
-    >(null);
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const canvasContainerRef = useRef<HTMLDivElement>(null);
+    const [isExporting, setIsExporting] = useState(false);
+
+    useHotkeys(
+        'escape',
+        () => {
+            setIsFullscreen(false);
+        },
+        { enabled: isFullscreen },
+    );
+
+    useEffect(() => {
+        if (!isFullscreen) {
+            return;
+        }
+
+        const previousOverflow = document.body.style.overflow;
+
+        document.body.style.overflow = 'hidden';
+
+        return () => {
+            document.body.style.overflow = previousOverflow;
+        };
+    }, [isFullscreen]);
 
     const handleNodesChange = useCallback(
         (changes: Parameters<typeof onNodesChange>[0]) => {
@@ -223,31 +247,28 @@ function Canvas({ schema, showForeignKeys = true }: SchemaCanvasProps) {
             }),
         [activeEdgeIds, edges, nodes, showForeignKeys],
     );
-    const handleExport = useCallback(
-        async (format: 'png' | 'svg') => {
-            if (exportingFormat) {
-                return;
-            }
+    const handleExport = useCallback(async () => {
+        if (isExporting || !canvasContainerRef.current) {
+            return;
+        }
 
-            setExportingFormat(format);
+        setIsExporting(true);
 
-            try {
-                await new Promise<void>((resolve) => {
-                    requestAnimationFrame(() => {
-                        requestAnimationFrame(() => resolve());
-                    });
+        try {
+            await new Promise<void>((resolve) => {
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => resolve());
                 });
-                await exportSchemaImage(format, nodes, schema);
-            } catch (error) {
-                console.error("Erreur lors de l'export de l'image", error);
-            } finally {
-                setExportingFormat(null);
-            }
-        },
-        [exportingFormat, nodes, schema],
-    );
+            });
 
-    return (
+            await exportSchemaImage(nodes, canvasContainerRef.current);
+        } catch (error) {
+            console.error("Erreur lors de l'export de l'image", error);
+        } finally {
+            setIsExporting(false);
+        }
+    }, [isExporting, nodes]);
+    const flow = (
         <ReactFlow
             nodes={displayNodes}
             edges={displayEdges}
@@ -270,33 +291,57 @@ function Canvas({ schema, showForeignKeys = true }: SchemaCanvasProps) {
                 className="overflow-hidden rounded-md border border-border bg-card"
             >
                 <ControlButton
-                    onClick={() => handleExport('png')}
-                    disabled={exportingFormat !== null}
+                    onClick={handleExport}
+                    disabled={isExporting}
                     title="Exporter en PNG"
                 >
-                    {exportingFormat === 'png' ? (
+                    {isExporting ? (
                         <Loader2 className="max-h-3.5! max-w-3.5! animate-spin fill-none!" />
                     ) : (
                         <ImageDownIcon className="max-h-3.5! max-w-3.5! fill-none!" />
                     )}
                 </ControlButton>
                 <ControlButton
-                    onClick={() => handleExport('svg')}
-                    disabled={exportingFormat !== null}
-                    title="Exporter en SVG"
+                    onClick={() => setIsFullscreen((current) => !current)}
+                    title={
+                        isFullscreen
+                            ? 'Quitter le plein écran'
+                            : 'Afficher en plein écran'
+                    }
                 >
-                    {exportingFormat === 'svg' ? (
-                        <Loader2 className="max-h-3.5! max-w-3.5! animate-spin fill-none!" />
+                    {isFullscreen ? (
+                        <Minimize2 className="max-h-3.5! max-w-3.5!" />
                     ) : (
-                        <FileCode2Icon className="max-h-3.5! max-w-3.5! fill-none!" />
+                        <Maximize2 className="max-h-3.5! max-w-3.5!" />
                     )}
                 </ControlButton>
             </Controls>
         </ReactFlow>
     );
+
+    if (isFullscreen) {
+        return createPortal(
+            <div
+                ref={canvasContainerRef}
+                className="fixed inset-0 z-100 h-screen w-screen bg-background"
+            >
+                {flow}
+            </div>,
+            document.body,
+        );
+    }
+
+    return (
+        <div ref={canvasContainerRef} className="h-full w-full">
+            {flow}
+        </div>
+    );
 }
 
-export default function SchemaCanvas({ schema }: SchemaCanvasProps) {
+export default function SchemaCanvas({
+    schema,
+    showForeignKeys,
+}: SchemaCanvasProps) {
     return (
         <div className="h-full w-full bg-background">
             <style>{`
@@ -314,7 +359,7 @@ export default function SchemaCanvas({ schema }: SchemaCanvasProps) {
                 }
             `}</style>
             <ReactFlowProvider>
-                <Canvas schema={schema} />
+                <Canvas schema={schema} showForeignKeys={showForeignKeys} />
             </ReactFlowProvider>
         </div>
     );

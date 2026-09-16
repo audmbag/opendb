@@ -17,7 +17,7 @@ import { H6, Muted, Small } from '@/components/typograpfy/typography';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import { useCopyConfig, useDriverConfig } from '@/hooks/use-driver-config';
+import { useCopyConfig, useDriverConfigTestConnection } from '@/hooks/use-driver-config';
 import type { Project } from '@/types/models/project';
 import { router } from '@inertiajs/react';
 import HomeController from '@/wayfinder/actions/App/Http/Controllers/HomeController';
@@ -41,7 +41,7 @@ const DatabaseConnectionStatus = () => {
 
 export function DatabaseStatusBar({ project }: { project: Project }) {
 
-    const { processing, testConnection } = useDriverConfig();
+    const { processing, testConnection } = useDriverConfigTestConnection();
     const { copying, handleCopy } = useCopyConfig(project.driver_config, 5000);
 
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);

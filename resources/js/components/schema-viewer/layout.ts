@@ -4,7 +4,10 @@ import type { RelationshipEdgeType, TableNodeType } from './types';
 const TABLE_WIDTH = 250;
 const HEADER_HEIGHT = 40;
 const ROW_HEIGHT = 30;
-const ISOLATED_ROW_GAP = 64;
+const MAX_ISOLATED_COLUMNS = 4;
+const ISOLATED_COLUMN_GAP = 56;
+const ISOLATED_ROW_GAP = 48;
+const CONNECTED_GRAPH_GAP = 56;
 const elk = new ELK();
 
 const portId = (tableId: string, column: string, kind: 'source' | 'target') =>
@@ -27,8 +30,10 @@ export async function getLayoutedElements(
         layoutOptions: {
             'elk.algorithm': 'layered',
             'elk.direction': 'RIGHT',
-            'elk.layered.spacing.nodeNodeBetweenLayers': '80',
-            'elk.spacing.nodeNode': '80',
+            'elk.layered.spacing.nodeNodeBetweenLayers': '56',
+            'elk.spacing.nodeNode': '56',
+            'elk.layered.layering.strategy': 'COFFMAN_GRAHAM',
+            'elk.layered.coffmanGraham.layerBound': '4',
             'elk.edgeRouting': 'ORTHOGONAL',
             'elk.portConstraints': 'FIXED_POS',
             'elk.spacing.edgeNode': '24',
@@ -86,31 +91,52 @@ export async function getLayoutedElements(
         console.error('Erreur de layout ELK', error);
     }
 
-    const connectedBounds = layoutedConnectedNodes.reduce(
-        (bounds, node) => ({
-            minX: Math.min(bounds.minX, node.position.x),
-            minY: Math.min(bounds.minY, node.position.y),
-        }),
-        { minX: Infinity, minY: 0 },
+    const isolatedRows = Math.ceil(isolatedNodes.length / MAX_ISOLATED_COLUMNS);
+    const isolatedRowHeight = isolatedNodes.reduce(
+        (height, node) =>
+            Math.max(
+                height,
+                HEADER_HEIGHT + node.data.columns.length * ROW_HEIGHT,
+            ),
+        0,
     );
-    const isolatedX = Number.isFinite(connectedBounds.minX)
-        ? connectedBounds.minX - 80 - TABLE_WIDTH
-        : 0;
-    let cursorY = connectedBounds.minY;
+    const isolatedGridHeight =
+        isolatedRows > 0
+            ? isolatedRows * isolatedRowHeight +
+              (isolatedRows - 1) * ISOLATED_ROW_GAP
+            : 0;
     const layoutedIsolatedNodes = isolatedNodes.map((node) => {
-        const positioned = { ...node, position: { x: isolatedX, y: cursorY } };
-        cursorY +=
-            HEADER_HEIGHT +
-            node.data.columns.length * ROW_HEIGHT +
-            ISOLATED_ROW_GAP;
+        const isolatedIndex = isolatedNodes.indexOf(node);
+        const column = isolatedIndex % MAX_ISOLATED_COLUMNS;
+        const row = Math.floor(isolatedIndex / MAX_ISOLATED_COLUMNS);
+
+        const positioned = {
+            ...node,
+            position: {
+                x: column * (TABLE_WIDTH + ISOLATED_COLUMN_GAP),
+                y: row * (isolatedRowHeight + ISOLATED_ROW_GAP),
+            },
+        };
 
         return positioned;
     });
+    const layoutedConnectedNodesWithOffset = layoutedConnectedNodes.map(
+        (node) => ({
+            ...node,
+            position: {
+                x: node.position.x,
+                y:
+                    node.position.y +
+                    (isolatedGridHeight > 0
+                        ? isolatedGridHeight + CONNECTED_GRAPH_GAP
+                        : 0),
+            },
+        }),
+    );
     const positionedById = new Map(
-        [...layoutedConnectedNodes, ...layoutedIsolatedNodes].map((node) => [
-            node.id,
-            node,
-        ]),
+        [...layoutedConnectedNodesWithOffset, ...layoutedIsolatedNodes].map(
+            (node) => [node.id, node],
+        ),
     );
 
     return {

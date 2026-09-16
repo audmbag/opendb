@@ -5,7 +5,8 @@ import {
     PaletteIcon,
     Settings2Icon,
 } from 'lucide-react';
-import  { LazyExoticComponent, useCallback } from 'react';
+import type { LazyExoticComponent} from 'react';
+import  { useCallback } from 'react';
 import { lazy } from 'react';
 import React, {
     createContext,

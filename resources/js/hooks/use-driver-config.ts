@@ -1,8 +1,10 @@
 import { useHttp } from '@inertiajs/react';
 import { useCallback, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import type { DriverConfig} from '@/types/databases';
+import { DriverStore } from '@/store/driver-store';
+import type { Driver, DriverConfig } from '@/types/databases';
 import  { DefaultDrivers } from '@/types/databases';
+import type { APIData } from '@/types/global';
 import DriverConfigController from '@/wayfinder/actions/App/Http/Controllers/API/DriverConfigController';
 
 
@@ -23,15 +25,48 @@ const purgeConfig = (driverConfig: DriverConfig): Omit<DriverConfig, "id"> => {
         username: driverConfig.username,
         password: driverConfig.password,
         database: driverConfig.database,
+        ssh: driverConfig.ssh,
     };
 };
 
+
 const useDriverConfig = () => {
+    const loadDriversRequest = useHttp<object, APIData<Driver>>({});
+
+    const drivers = DriverStore.use.drivers()
+    const fillDrivers = DriverStore.use.fillDrivers();
+
+    const loadDrivers = useCallback((refresh: boolean = false) => {
+        if (drivers.length > 0 && !refresh) {
+            return;
+        }
+
+        loadDriversRequest.get(DriverConfigController.index.url(), {
+            onSuccess: ({ data }) => {
+                fillDrivers(data);
+            },
+            onError: () => {
+                toast.error('Impossible de charger les Drivers', {
+                    id: 'load-database-ms-error',
+                });
+            },
+        });
+    }, [drivers.length, fillDrivers]);
+
+
+    return {
+        loadDrivers,
+        loadDriversRequest,
+        drivers,
+    };
+}
+
+
+const useDriverConfigTestConnection = () => {
 
     const { post, errors, processing, resetAndClearErrors, optimistic } = useHttp<{ driver_config: Omit<DriverConfig, "id"> }, TestResultProps>();
 
-    const testConnection = useCallback(
-        (driverConfig: DriverConfig, successCallback?: (result: TestResultProps) => void) => {
+    const testConnection = useCallback((driverConfig: DriverConfig, successCallback?: (result: TestResultProps) => void) => {
 
             resetAndClearErrors();
 
@@ -96,4 +131,4 @@ const useCopyConfig = (driverConfig: DriverConfig, duration: number = 1000) => {
 };
 
 
-export { useDriverConfig, useCopyConfig };
+export { useDriverConfigTestConnection, useCopyConfig, useDriverConfig };

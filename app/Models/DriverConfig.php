@@ -18,6 +18,7 @@ class DriverConfig extends Model
         'database',
         'username',
         'password',
+        'ssh',
     ];
 
     protected $appends = [
@@ -32,6 +33,7 @@ class DriverConfig extends Model
             'host' => 'encrypted',
             'database' => 'encrypted',
             'username' => 'encrypted',
+            'ssh' => 'encrypted:array',
         ];
     }
 
@@ -49,6 +51,7 @@ class DriverConfig extends Model
             'username' => $this->username,
             'password' => $this->password,
             'driver_id' => $this->driver_id,
+            'ssh' => $this->ssh,
         ]);
     }
 

@@ -17,6 +17,14 @@ export type Driver = {
 };
 
 
+export interface SSHConfiguration {
+    host: string;
+    port: number;
+    user: string;
+    id_file: string;
+}
+
+
 export interface DriverConfig extends BaseModel<number> {
     driver?: Driver;
     driver_id?: string;
@@ -26,4 +34,5 @@ export interface DriverConfig extends BaseModel<number> {
     username?: string;
     password?: string;
     connection_string?: string;
-};
+    ssh?: SSHConfiguration;
+}

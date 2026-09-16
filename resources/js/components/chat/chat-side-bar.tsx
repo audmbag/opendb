@@ -26,9 +26,9 @@ import {
 } from '@/components/ui/sidebar';
 import { useConversation } from '@/hooks/use-conversation';
 import { useConversationStore } from '@/store/use-conversation-store';
+import type { Conversation } from '@/types/models/conversation';
 import type { Project } from '@/types/models/project';
 import ConversationController from '@/wayfinder/actions/App/Http/Controllers/ConversationController';
-import { Conversation } from '@/types/models/conversation';
 
 
 const Conversations = () => {

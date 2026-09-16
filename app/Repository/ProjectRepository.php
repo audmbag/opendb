@@ -43,7 +43,7 @@ readonly class ProjectRepository
     {
         return Project::with('driver_config.driver')
             ->latest()
-            ->limit(3)
+            ->limit(4)
             ->get();
     }
 

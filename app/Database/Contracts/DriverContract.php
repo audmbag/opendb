@@ -2,6 +2,7 @@
 
 namespace App\Database\Contracts;
 
+use Exception;
 use Illuminate\Database\Connection;
 use Throwable;
 
@@ -9,7 +10,12 @@ interface DriverContract
 {
     public function __construct(array $databaseConfig);
 
-    public function testConnection(): true|string;
+    /**
+     * @return void
+     *
+     * @throws Exception
+     */
+    public function testConnection(): void;
 
     public function getConnectionString(): string;
 

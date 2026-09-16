@@ -10,7 +10,8 @@ import UIMessage from '@/components/ai/ui-message';
 import { Conversation as AiElementConversation, ConversationContent, ConversationScrollButton, } from '@/components/ai-elements/conversation';
 import Alert from '@/components/alert';
 import { useConversation, useConversationMessage } from '@/hooks/use-conversation';
-import { ArtifactableTools, CustomOutputToolUIPart } from '@/types/agent';
+import type { CustomOutputToolUIPart } from '@/types/agent';
+import { ArtifactableTools } from '@/types/agent';
 
 const Conversation = () => {
 
@@ -58,7 +59,7 @@ const Conversation = () => {
 
     return (
         <>
-            <AiElementConversation className="relative size-full mask-[linear-gradient(to_bottom,black_90%,transparent_100%)]">
+            <AiElementConversation resize="instant" initial="instant" className="relative size-full mask-[linear-gradient(to_bottom,black_90%,transparent_100%)]">
                 <ConversationContent className="m-auto max-w-4xl gap-4 pb-12">
                     {messages.map((message, messageIndex) => {
                         const isLast = messageIndex === messages.length - 1;
@@ -167,7 +168,7 @@ const Conversation = () => {
                         }
                     })()}
 
-                    {<ProcessingIndicator status={status} />}
+                    <ProcessingIndicator status={status} />
 
                     {(status === 'error' || error) && (
                         <Alert
@@ -191,6 +192,7 @@ const Conversation = () => {
                 className="[view-transition-name:prompt-input]"
                 onSubmit={submitPromptMessage}
                 loading={status === 'streaming'}
+                variant="secondary"
             />
         </>
     );

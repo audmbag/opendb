@@ -6,6 +6,7 @@ use App\Database\Drivers\BaseDriver;
 use App\Http\Requests\ProjectRequest;
 use App\Models\Project;
 use App\Repository\ProjectRepository;
+use Exception;
 use Illuminate\Http\RedirectResponse;
 
 class ProjectController extends Controller
@@ -16,8 +17,10 @@ class ProjectController extends Controller
 
         $driver = BaseDriver::for($data['driver_config']);
 
-        if (($result = $driver->testConnection()) !== true) {
-            return back()->withErrors(['connectionFailed' => $result]);
+        try {
+            $driver->testConnection();
+        } catch (Exception $e) {
+            return back()->withErrors(['connectionFailed' => $e->getMessage()]);
         }
 
         $project = $projectRepository->create($data);

@@ -287,11 +287,7 @@ const useConversation = () => {
         title: ''
     });
 
-    const loadConversations = useCallback((refresh: boolean = false) => {
-        if(conversations.length > 0 && !refresh) {
-            return
-        }
-
+    const loadConversations = useCallback(() => {
         loadConversationsRequest.get(ConversationController.index.url(page.props.project.id), {
             onSuccess: ({ data }) => {
                 fillConversations(data);

@@ -1,7 +1,5 @@
 <?php
 
-use App\Models\Driver;
-use App\Models\Project;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -16,12 +14,13 @@ return new class extends Migration
         Schema::create('driver_configs', function (Blueprint $table) {
             $table->id();
             $table->string('driver_id', 25);
-            $table->foreignUlid("project_id")->constrained()->cascadeOnDelete();
+            $table->foreignUlid('project_id')->constrained()->cascadeOnDelete();
             $table->string('host')->nullable();
             $table->string('port')->nullable();
             $table->string('database')->nullable();
             $table->string('username')->nullable();
             $table->string('password')->nullable();
+            $table->json('ssh')->nullable();
         });
     }
 

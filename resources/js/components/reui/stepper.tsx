@@ -52,7 +52,7 @@ const StepItemContext = createContext<StepItemContextValue | undefined>(
 
 function useStepper() {
   const ctx = useContext(StepperContext)
-  if (!ctx) throw new Error("useStepper must be used within a Stepper")
+  if (!ctx) throw new Error("useStepper must be used within a Wizard")
   return ctx
 }
 

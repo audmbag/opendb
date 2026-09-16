@@ -9,7 +9,7 @@ type Props = {
     onChange?: (value: string) => void;
     value?: string;
     defaultValue?: string;
-} & Omit<React.ComponentPropsWithoutRef<typeof Input>, 'button' | 'label' | 'placeholder' | 'onChange' | 'value' | 'defaultValue'>;
+} & Omit<React.ComponentPropsWithoutRef<typeof Input>, 'button' | 'label' | 'onChange' | 'value' | 'defaultValue'>;
 
 export default function InputFile({
   onlyFolders,
@@ -17,6 +17,7 @@ export default function InputFile({
   value: controlledValue,
   defaultValue,
   onChange,
+  placeholder,
   ...props
 }: Props) {
     const [isControlled] = useState(() => controlledValue !== undefined);
@@ -51,7 +52,7 @@ export default function InputFile({
         <Input
             {...props}
             label={`Sélectionner un ${onlyFolders ? 'dossier' : 'fichier'}`}
-            placeholder={`Sélectionner un ${onlyFolders ? 'dossier' : 'fichier'}`}
+            placeholder={placeholder || `Sélectionner un ${onlyFolders ? 'dossier' : 'fichier'}`}
             value={value}
             onChange={handleChange}
             button={{

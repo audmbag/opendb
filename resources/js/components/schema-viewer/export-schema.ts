@@ -1,14 +1,13 @@
 import { getNodesBounds, getViewportForBounds } from '@xyflow/react';
 import type { Node } from '@xyflow/react';
-import { toPng, toSvg } from 'html-to-image';
-import type { SchemaExport, TableNodeData, TableNodeType } from './types';
+import { toPng } from 'html-to-image';
+import type { TableNodeData, TableNodeType } from './types';
 
 export function exportSchemaImage(
-    format: 'png' | 'svg',
     nodes: TableNodeType[],
-    schema: SchemaExport | null,
+    container: HTMLElement,
 ): Promise<void> {
-    const viewportElement = document.querySelector<HTMLElement>(
+    const viewportElement = container.querySelector<HTMLElement>(
         '.react-flow__viewport',
     );
 
@@ -28,10 +27,9 @@ export function exportSchemaImage(
         2,
         0.2,
     );
-    const backgroundColor = getComputedStyle(document.documentElement)
+    const backgroundToken = getComputedStyle(document.documentElement)
         .getPropertyValue('--background')
         .trim();
-    const exportImage = format === 'png' ? toPng : toSvg;
     const svgElements = Array.from(
         viewportElement.querySelectorAll<SVGElement>('svg *'),
     );
@@ -59,8 +57,8 @@ export function exportSchemaImage(
         });
     });
 
-    return exportImage(viewportElement, {
-        backgroundColor: backgroundColor || '#ffffff',
+    return toPng(viewportElement, {
+        backgroundColor: backgroundToken || '#ffffff',
         width: imageWidth,
         height: imageHeight,
         pixelRatio: 2,
@@ -79,9 +77,8 @@ export function exportSchemaImage(
         },
     })
         .then((dataUrl) => {
-            const extension = format;
             const link = document.createElement('a');
-            link.download = `schema-${schema?.connection ?? 'export'}.${extension}`;
+            link.download = 'schema-export.png';
             link.href = dataUrl;
             link.click();
         })

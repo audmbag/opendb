@@ -5,6 +5,7 @@ namespace App\Ai\Tools\Database;
 use App\Ai\Enums\AgentAccessModeEnum;
 use App\Database\Contracts\DriverContract;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Illuminate\Database\QueryException;
 use Laravel\Ai\Approvals\Approval;
 use Laravel\Ai\Concerns\InteractsWithApprovals;
 use Laravel\Ai\Contracts\Approvable;
@@ -41,13 +42,17 @@ class WriteQuery extends BaseTool implements Approvable, Tool
         $sql = trim((string) $request['query']);
         $bindings = $request['bindings'];
 
-        $this->assertAllowed($sql);
+        try {
+            $this->assertAllowed($sql);
 
-        if ($this->driver->statement($sql, $bindings)) {
-            return $this->toJson(['success' => true]);
+            $this->driver->statement($sql, $bindings);
+        } catch (QueryException $e) {
+            return $this->formatQueryError($e);
+        } catch (RuntimeException $e) {
+            return $e->getMessage();
         }
 
-        return $this->toJson(['success' => false]);
+        return 'Requête exécutée avec succès.';
     }
 
     public function schema(JsonSchema $schema): array

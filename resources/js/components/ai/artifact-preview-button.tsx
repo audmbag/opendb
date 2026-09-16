@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import SchemaDiagramPreview from '@/components/ai/schema-diagram-preview';
 import { AgentTools } from '@/types/agent';
 import type {ShemaDiagramToolUIPart, CustomOutputToolUIPart } from '@/types/agent';
@@ -7,7 +6,7 @@ type Props = {
     artifactables: CustomOutputToolUIPart[];
 };
 
-export default function ArtifactPreviewButtons({ artifactables }: Props) {
+export default function ArtifactPreviewButton({ artifactables }: Props) {
 
     return (
         <div className="flex flex-col gap-2">

@@ -6,6 +6,7 @@ use App\Database\Contracts\DriverContract;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
+use RuntimeException;
 use Stringable;
 
 class FocusTable extends BaseTool implements Tool
@@ -30,6 +31,12 @@ class FocusTable extends BaseTool implements Tool
     {
         $tableName = $request->string('tableName');
         $withRelatedTables = $request->boolean('withRelatedTables');
+
+        try {
+            $this->validateTable($tableName, $this->driver);
+        } catch (RuntimeException $e) {
+            return $e->getMessage();
+        }
 
         $schema = $this->driver->focusTable($tableName, $withRelatedTables);
 

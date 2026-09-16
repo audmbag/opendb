@@ -34,6 +34,7 @@ class ConversationRepository
         return $this->user->conversations()
             ->where('project_id', $project->id)
             ->where('is_archived', false)
+            ->latest()
             ->get();
     }
 

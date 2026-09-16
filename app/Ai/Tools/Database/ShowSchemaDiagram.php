@@ -58,13 +58,11 @@ class ShowSchemaDiagram extends BaseTool implements Tool
 
     private function validateAndGetTables(array $focusedTable): array
     {
-        $listTables = $this->driver->listTables(false);
-
         if (empty($focusedTable)) {
             return [
                 'focusedTable' => null,
                 'withRelatedTables' => false,
-                'displayedTables' => $listTables,
+                'displayedTables' => $listTables = $this->driver->listTables(false),
                 'displayedTablesCount' => count($listTables),
             ];
         }
@@ -81,9 +79,7 @@ class ShowSchemaDiagram extends BaseTool implements Tool
         $withRelatedTables = (bool) $focusedTable['withRelatedTables'];
         $displayedTables = [];
 
-        if (! in_array($table, $listTables)) {
-            throw new RuntimeException("La table spécifiée dans `focusedTable.tableName` n'existe pas dans la base de données. Utilise le tool `ListTables` pour vérifier les noms exacts des tables disponibles.");
-        }
+        $this->validateTable($table, $this->driver);
 
         if ($withRelatedTables) {
             $tables = $this->driver->focusTable($table);

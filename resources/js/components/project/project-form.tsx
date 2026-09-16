@@ -4,7 +4,7 @@ import React, { lazy, Suspense, useCallback, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import CardFrame from '@/components/card-frame';
 import Button from '@/components/form/button';
-import { useDriverConfig } from '@/hooks/use-driver-config';
+import { useDriverConfigTestConnection } from '@/hooks/use-driver-config';
 import type { Project } from '@/types/models/project';
 import DriverConfigController from '@/wayfinder/actions/App/Http/Controllers/API/DriverConfigController';
 import ProjectController from '@/wayfinder/actions/App/Http/Controllers/ProjectController';
@@ -42,7 +42,7 @@ const ProjectForm = ({
         processing: processingTest,
         errors: testErrors,
         resetAndClearErrors,
-    } = useDriverConfig();
+    } = useDriverConfigTestConnection();
 
     const [connectionTest, setConnectionTest] = useState(
         CONNECTION_TEST_DEFAULT,
@@ -72,12 +72,14 @@ const ProjectForm = ({
     }, [resetAndClearErrors]);
 
     return (
-        <Form<Project>
+        <Form
             ref={formRef}
             action={
                 project
                     ? part === 'config'
-                        ? DriverConfigController.update(project.driver_config.id)
+                        ? DriverConfigController.update(
+                              project.driver_config.id,
+                          )
                         : ProjectController.update(project.id as string)
                     : ProjectController.store()
             }
@@ -112,10 +114,7 @@ const ProjectForm = ({
                             description="Remplissez les informations de base pour créer un nouveau projet"
                         >
                             <Suspense fallback={<div>Chargement...</div>}>
-                                <ProjectInfoForm
-                                    errors={errors}
-                                    project={project}
-                                />
+                                <ProjectInfoForm project={project} />
                             </Suspense>
                         </CardFrame>
                     )}
@@ -176,9 +175,17 @@ const ProjectForm = ({
                                 Annuler
                             </Button>
                             <Button
+                                variant="outline"
+                                onClick={onClose}
+                                disabled={processing || processingTest}
+                            >
+                                Cloner
+                            </Button>
+                            <Button
                                 icon={project ? CheckIcon : PlusIcon}
                                 processing={processing}
                                 disabled={processingTest}
+                                tooltip={project ? '' : 'Créer le project et continuer avec la configuration de la base de données'}
                                 onClick={() => {
                                     resetAndClearErrors();
                                     submit();

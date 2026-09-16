@@ -130,7 +130,6 @@ const ProjectItem = ({ project, className, ...props }: ProjectItemType) => {
                                     title: 'Suppression',
                                     description: `Vous ête sur de vouloir supprimer le projet : ${project.name} ?`,
                                     confirmText: 'Supprimer',
-                                    variant: 'destructive',
                                     icon: TrashIcon,
                                 }}
                             />

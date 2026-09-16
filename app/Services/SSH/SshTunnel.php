@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services\SSH;
 
 use Closure;
@@ -16,7 +18,7 @@ final class SshTunnel
 {
     public ?int $usedPort = null;
 
-    private const CONTROL_SOCKET_PATH = '~/.ssh/master-%r@%h:%p';
+    private const string CONTROL_SOCKET_PATH = '~/.ssh/master-%r@%h:%p';
 
     /**
      * ssh password not implemented by design (use ssh keys)
@@ -42,6 +44,7 @@ final class SshTunnel
          * Time after which the master connection will be automatically closed if no connections are open.
          * units: ⟨none⟩/s/S seconds, m/M minutes, h/H hours, d/D days, w/W weeks
          * examples: 600 (600s), 10m (10 minutes), 1h30m (90 minutes)
+         *
          * @see https://man7.org/linux/man-pages/man5/sshd_config.5.html#TIME_FORMATS
          */
         private readonly string $autoDisconnectTimeout = '10s',
@@ -59,25 +62,26 @@ final class SshTunnel
          */
         private readonly ?Closure $logger = null,
     ) {
-        if (!preg_match('/^(\d+[smhdw])+$/i', $this->autoDisconnectTimeout)) {
-            throw new InvalidArgumentException('Invalid autoDisconnectTimeout format given. Must be in the format of ⟨number⟩[s|m|h|d|w] (given: "' . $this->autoDisconnectTimeout . '")');
+        if (! preg_match('/^(\d+[smhdw])+$/i', $this->autoDisconnectTimeout)) {
+            throw new InvalidArgumentException('Invalid autoDisconnectTimeout format given. Must be in the format of ⟨number⟩[s|m|h|d|w] (given: "'.$this->autoDisconnectTimeout.'")');
         }
 
         if ($this->localPort !== null && ($this->localPort < 1 || $this->localPort > 65535)) {
-            throw new InvalidArgumentException('Invalid localPort given. Must be in the range of 1-65535 (given: ' . $this->localPort . ')');
+            throw new InvalidArgumentException('Invalid localPort given. Must be in the range of 1-65535 (given: '.$this->localPort.')');
         }
 
         if ($this->sshPort < 1 || $this->sshPort > 65535) {
-            throw new InvalidArgumentException('Invalid sshPort given. Must be in the range of 1-65535 (given: ' . $this->sshPort . ')');
+            throw new InvalidArgumentException('Invalid sshPort given. Must be in the range of 1-65535 (given: '.$this->sshPort.')');
         }
 
-        if ($this->identityFile !== null && !is_readable($this->identityFile)) {
-            throw new InvalidArgumentException('Identity file not readable (must be an absolute path, "~" is not expanded): ' . $this->identityFile);
+        if ($this->identityFile !== null && ! is_readable($this->identityFile)) {
+            throw new InvalidArgumentException('Identity file not readable (must be an absolute path, "~" is not expanded): '.$this->identityFile);
         }
     }
 
     /**
      * @return int returns the local port
+     *
      * @throws RuntimeException
      */
     public function start(): int
@@ -88,7 +92,7 @@ final class SshTunnel
 
         $process = new Process($this->controlCommand('forward', [
             '-o', 'ExitOnForwardFailure=yes',
-            '-L', $this->usedPort . ':' . $this->remote->path,
+            '-L', $this->usedPort.':'.$this->remote->path,
         ]));
         $process->mustRun();
 
@@ -101,6 +105,7 @@ final class SshTunnel
     {
         if ($this->isMasterRunning()) {
             $this->log('SSH master already running.');
+
             return;
         }
 
@@ -125,25 +130,36 @@ final class SshTunnel
     private function getFreePort(int $startPort = 49152, int $maxPort = 65535): int
     {
         for ($port = $startPort; $port <= $maxPort; $port++) {
-            $socket = @stream_socket_server('tcp://127.0.0.1:' . $port, $errno, $errstr);
+            $socket = @stream_socket_server('tcp://127.0.0.1:'.$port, $errno, $errstr);
 
             if ($socket) {
                 fclose($socket); // Port is free
+
                 return $port;
             }
         }
 
-        throw new RuntimeException('Could not find a free port between ' . $startPort . ' and ' . $maxPort);
+        throw new RuntimeException('Could not find a free port between '.$startPort.' and '.$maxPort);
     }
 
     /** @return list<string> */
     private function commonArgs(): array
     {
-        $args = [];
+        $args = [
+            // Never let ssh block waiting for a password/passphrase prompt that has
+            // nowhere to go (no TTY here) - fail fast with a clear error instead.
+            '-o', 'BatchMode=yes',
+        ];
 
         if ($this->identityFile !== null) {
             $args[] = '-i';
             $args[] = $this->identityFile;
+            // Without this, ssh silently falls back to keys offered by a running
+            // ssh-agent or to the default ~/.ssh/id_* files, even if identityFile
+            // points to a wrong or unrelated key. This forces ssh to use ONLY
+            // the key given above.
+            $args[] = '-o';
+            $args[] = 'IdentitiesOnly=yes';
         }
 
         if ($this->sshPort !== 22) {
@@ -168,14 +184,14 @@ final class SshTunnel
             '-f',
             '-N',
             '-o', 'ControlMaster=auto',
-            '-o', 'ControlPersist=' . $this->autoDisconnectTimeout,
+            '-o', 'ControlPersist='.$this->autoDisconnectTimeout,
             '-S', self::CONTROL_SOCKET_PATH,
             $this->destination(),
         ];
     }
 
     /**
-     * @param list<string> $extra
+     * @param  list<string>  $extra
      * @return list<string>
      */
     private function controlCommand(string $sshControlCommand, array $extra = []): array
@@ -207,12 +223,12 @@ final class SshTunnel
         $process = new Process($this->controlCommand('check'));
         $process->run();
 
-        if (!in_array($process->getExitCode(), [0, 255], true)) {
+        if (! in_array($process->getExitCode(), [0, 255], true)) {
             throw new ProcessFailedException($process);
         }
 
         $isSuccessful = $process->isSuccessful();
-        if (!$isSuccessful) {
+        if (! $isSuccessful) {
             $this->usedPort = null;
         }
 
@@ -228,12 +244,12 @@ final class SshTunnel
 
     public function stop(): void
     {
-        if (!$this->usedPort || !$this->isMasterRunning()) {
+        if (! $this->usedPort || ! $this->isMasterRunning()) {
             return;
         }
 
         $process = new Process($this->controlCommand('cancel', [
-            '-L', $this->usedPort . ':' . $this->remote->path,
+            '-L', $this->usedPort.':'.$this->remote->path,
         ]));
         $process->mustRun();
         $this->usedPort = null;
@@ -245,10 +261,10 @@ final class SshTunnel
      */
     public function stopMaster(): void
     {
-        if (!$this->isMasterRunning()) {
+        if (! $this->isMasterRunning()) {
             return;
         }
 
-        (new Process($this->controlCommand('exit')))->mustRun();
+        new Process($this->controlCommand('exit'))->mustRun();
     }
 }

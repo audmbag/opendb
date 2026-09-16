@@ -5,6 +5,7 @@ namespace App\Ai\Tools\Database;
 use App\Ai\Enums\AgentAccessModeEnum;
 use App\Database\Contracts\DriverContract;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Str;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
@@ -48,9 +49,17 @@ class ReadQuery extends BaseTool implements Tool
 
         $this->assertReadOnly($sql);
 
-        $rows = $this->driver->executeReadOnly($sql, $bindings);
+        try {
+            $this->assertReadOnly($sql);
 
-        $rows = array_slice($rows, 0, $this->maxRows);
+            $rows = $this->driver->executeReadOnly($sql);
+
+            $rows = array_slice($rows, 0, $this->maxRows);
+        } catch (QueryException $e) {
+            return $this->formatQueryError($e);
+        } catch (RuntimeException $e) {
+            return $e->getMessage();
+        }
 
         if (empty($rows)) {
             return '[]';

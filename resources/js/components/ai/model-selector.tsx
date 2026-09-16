@@ -140,7 +140,7 @@ const ModelSelector = () => {
                         />
                     ) : <AstroidIcon className="size-4" />}
                     <ModelSelectorName>
-                        {selectedModelData?.model?.label || "Configure un modèle"}
+                        {selectedModelData?.model?.label || "Configurer un fournisseur"}
                     </ModelSelectorName>
                 </span>
             </Button>

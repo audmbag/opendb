@@ -8,7 +8,7 @@ import type {
 import type {DynamicToolUIPart} from 'ai';
 import { CheckIcon, CopyIcon } from 'lucide-react';
 import { memo, useCallback, useState } from 'react';
-import ArtifactPreviewButtons from '@/components/ai/artifact-preview-button';
+import ArtifactPreviewButton from '@/components/ai/artifact-preview-button';
 import AttachmentItem from '@/components/ai/attachment-item';
 import { Attachments } from '@/components/ai-elements/attachments';
 import {
@@ -102,7 +102,7 @@ const UIMessage = ({
             </MessageContent>
 
             {artifactables && artifactables.length > 0 && (
-                <ArtifactPreviewButtons artifactables={artifactables} />
+                <ArtifactPreviewButton artifactables={artifactables} />
             )}
 
             {(part.type === 'text' || part.type.startsWith('data-')) &&

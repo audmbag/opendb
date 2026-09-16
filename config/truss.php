@@ -31,7 +31,7 @@ return [
     |
     */
 
-    'enabled' => env('TRUSS_ENABLED', env('APP_ENV', 'production') === 'local'),
+    'enabled' => false && env('TRUSS_ENABLED', env('APP_ENV', 'production') === 'local'),
 
     /*
     |--------------------------------------------------------------------------
@@ -120,14 +120,6 @@ return [
     */
 
     'excluded_tables' => [
-        'migrations',
-        'password_reset_tokens',
-        'sessions',
-        'cache',
-        'cache_locks',
-        'jobs',
-        'job_batches',
-        'failed_jobs',
     ],
 
     /*

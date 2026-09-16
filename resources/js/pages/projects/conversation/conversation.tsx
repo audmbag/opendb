@@ -45,7 +45,7 @@ const ChatDiscussion = () => {
 
     return (
         <>
-            <div className="flex justify-between px-4 py-2 absolute top-0 left-0 w-full z-10 bg-transparent">
+            <div className="flex justify-between pl-4 py-2 pr-6 absolute top-0 left-0 w-full z-10 bg-transparent">
                 <div className="flex items-center gap-2">
                     <SidebarTrigger className="md:hidden" />
                     <Editable
@@ -110,7 +110,7 @@ const ChatDiscussion = () => {
                     onClick={toggleDataPreview}
                 />
             </div>
-            <div className="flex w-full flex-1 flex-col items-center overflow-auto p-4 pt-0">
+            <div className="flex w-full flex-1 flex-col items-center overflow-auto">
                 <Conversation key={conversation?.id} />
             </div>
         </>
