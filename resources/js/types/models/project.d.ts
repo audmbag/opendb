@@ -5,6 +5,7 @@ export interface Project extends BaseModel {
     name: string;
     description: string;
     path: string;
-    driver_config: DriverConfig;
+    driver_config?: DriverConfig;
     created_at_diff_for_humans: string;
+    status: 'draft' | 'inactive';
 }

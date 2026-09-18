@@ -5,18 +5,16 @@ import { Field, FieldContent, FieldLabel, FieldTitle } from '@/components/ui/fie
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Spinner } from '@/components/ui/spinner';
 import { useDriverConfig } from '@/hooks/use-driver-config';
-import { DriverStore } from '@/store/driver-store';
 import { DefaultDrivers, Driver } from '@/types/databases';
-import type { Project } from '@/types/models/project';
 
 type Props = {
-    project?: Project;
     selectedDriver?: string;
     onDriverChange?: (driver: Driver) => void;
     defaultSelected?: string;
+    exists?: boolean;
 };
 
-const DatabaseDriverSelector = memo(({ project, defaultSelected, selectedDriver, onDriverChange }: Props) => {
+const DatabaseDriverSelector = memo(({ exists, defaultSelected, selectedDriver, onDriverChange }: Props) => {
 
     const { drivers, loadDrivers, loadDriversRequest } = useDriverConfig();
 
@@ -45,7 +43,7 @@ const DatabaseDriverSelector = memo(({ project, defaultSelected, selectedDriver,
                 </div>
             ) : (
                 <>
-                    {project && (
+                    {exists && (
                         <Alert
                             variant="warning"
                             title="Attention"
@@ -55,7 +53,7 @@ const DatabaseDriverSelector = memo(({ project, defaultSelected, selectedDriver,
                     <input
                         type="hidden"
                         readOnly
-                        name="driver_config.driver_id"
+                        name="driver_id"
                         defaultValue={selectedDriver}
                     />
                     <RadioGroup

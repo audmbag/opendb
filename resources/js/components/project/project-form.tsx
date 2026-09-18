@@ -1,203 +1,145 @@
-import { Form } from '@inertiajs/react';
-import { CheckIcon, FlaskConicalIcon, PlusIcon } from 'lucide-react';
-import React, { lazy, Suspense, useCallback, useRef, useState } from 'react';
-import { toast } from 'sonner';
-import CardFrame from '@/components/card-frame';
+import {
+    CheckCircle2Icon,
+    ChevronLeftIcon,
+    ChevronRightIcon,
+    CopyIcon,
+} from 'lucide-react';
+import React, {
+    lazy,
+    Suspense,
+    useCallback,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import Button from '@/components/form/button';
-import { useDriverConfigTestConnection } from '@/hooks/use-driver-config';
-import type { Project } from '@/types/models/project';
-import DriverConfigController from '@/wayfinder/actions/App/Http/Controllers/API/DriverConfigController';
-import ProjectController from '@/wayfinder/actions/App/Http/Controllers/ProjectController';
+import Wizard from '@/components/form/wizard';
+import type { DriverConfigFormProps } from '@/components/project/driver-config-form';
+import type  { ProjectInfoFormRef } from '@/hooks/use-project';
 
 const ProjectInfoForm = lazy(() => import('./project-info-form'));
 const DriverConfigForm = lazy(() => import('./driver-config-form'));
+const TablesSelector = lazy(() => import('./tables-selector'));
 
 
-type Props = {
-    onClose: () => void;
-    project?: Project;
-    part?: 'config' | 'info';
-    onSuccess?: () => void
-};
+const ProjectForm = () => {
 
-const CONNECTION_TEST_DEFAULT = {
-    state: false,
-    triggered: false,
-    message: '',
-};
+    const [currentStep, setCurrentStep] = useState(1);
+    const [processing, setProcessing] = useState(false);
 
-type FormRefHandle = Omit<React.ComponentRef<typeof Form>, 'getData'> & {
-    getData: () => Project;
-};
+    const projectInfoFormRef = useRef<ProjectInfoFormRef>(null);
+    const driverConfigRef = useRef<DriverConfigFormProps>(null);
 
-
-const ProjectForm = ({
-    onClose,
-    project,
-    part,
-    onSuccess
-}: Props) => {
-    const {
-        testConnection,
-        processing: processingTest,
-        errors: testErrors,
-        resetAndClearErrors,
-    } = useDriverConfigTestConnection();
-
-    const [connectionTest, setConnectionTest] = useState(
-        CONNECTION_TEST_DEFAULT,
-    );
-
-    const formRef = useRef<FormRefHandle>(null);
-
-    const handleTestConnection = useCallback(() => {
-        if (!formRef.current) {
-            return;
+    const handleNextStep = useCallback(async () => {
+        if (projectInfoFormRef.current && currentStep === 1) {
+            await projectInfoFormRef.current.submit();
+            setCurrentStep(c => c + 1);
         }
 
-        setConnectionTest(CONNECTION_TEST_DEFAULT);
+        if(currentStep === 2 && driverConfigRef.current) {
+            driverConfigRef.current.submit();
+        }
+    }, [currentStep]);
 
-        testConnection(
-            formRef.current.getData().driver_config,
-            ({ success, message }) => {
-                setConnectionTest({ state: success, triggered: true, message });
+
+    const steps = useMemo(() => [
+            {
+                id: 'info',
+                header: {
+                    title: 'Project',
+                    description: 'Informations du projet',
+                },
+                content: (
+                    <Suspense fallback={'Chargement...'}>
+                        <ProjectInfoForm
+                            ref={projectInfoFormRef}
+                            onStart={() => setProcessing(true)}
+                            onFinish={() => setProcessing(false)}
+                        />
+                    </Suspense>
+                ),
             },
-        );
-    }, [testConnection]);
-
-    const resetData = useCallback(() => {
-        formRef.current?.clearErrors();
-        resetAndClearErrors();
-        setConnectionTest(CONNECTION_TEST_DEFAULT);
-    }, [resetAndClearErrors]);
+            {
+                id: 'database',
+                header: {
+                    title: 'Base de données',
+                    description: 'Informations de la base de données',
+                },
+                content: (
+                    <Suspense fallback={'Chargement...'}>
+                        <DriverConfigForm
+                            ref={driverConfigRef}
+                            onStart={() => setProcessing(true)}
+                            onFinish={() => setProcessing(false)}
+                            onSuccess={() => setCurrentStep(c => c + 1)}
+                        />
+                    </Suspense>
+                ),
+            },
+            {
+                id: 'tables',
+                header: {
+                    title: 'Tables',
+                    description: "Accès de l'agent IA",
+                },
+                content: (
+                    <Suspense fallback={'Chargement...'}>
+                        <TablesSelector />
+                    </Suspense>
+                ),
+            },
+        ],
+        [],
+    );
 
     return (
-        <Form
-            ref={formRef}
-            action={
-                project
-                    ? part === 'config'
-                        ? DriverConfigController.update(
-                              project.driver_config.id,
-                          )
-                        : ProjectController.update(project.id as string)
-                    : ProjectController.store()
-            }
-            method={project ? 'PATCH' : 'POST'}
-            disableWhileProcessing
-            onError={(errors) => {
-                if (errors.connectionFailed) {
-                    setConnectionTest({
-                        state: false,
-                        triggered: true,
-                        message: errors.connectionFailed,
-                    });
-                    toast.error(errors.connectionFailed);
-                }
-            }}
-            onSuccess={() => {
-                toast.success(
-                    ['config', 'info'].includes(part as string)
-                        ? part === 'config'
-                            ? 'La configuration du projet a été mise à jour avec succès.'
-                            : 'Le projet a été mis à jour avec succès.'
-                        : 'Le projet a été créé avec succès.',
-                );
-                onSuccess?.();
-            }}
-        >
-            {({ processing, errors, submit }) => (
-                <div className="flex h-full flex-col gap-4 p-4">
-                    {(part === 'info' || !part) && (
-                        <CardFrame
-                            title="Informations du projet"
-                            description="Remplissez les informations de base pour créer un nouveau projet"
-                        >
-                            <Suspense fallback={<div>Chargement...</div>}>
-                                <ProjectInfoForm project={project} />
-                            </Suspense>
-                        </CardFrame>
-                    )}
-                    {(part === 'config' || !part) && (
-                        <CardFrame
-                            title="Base de données"
-                            description="Sélectionnez le type de base de données pour votre projet."
-                        >
-                            <Suspense fallback={<div>Chargement...</div>}>
-                                <DriverConfigForm
-                                    onDriverChanged={resetData}
-                                    errors={{ ...testErrors, ...errors }}
-                                    project={project}
-                                />
-                            </Suspense>
-                        </CardFrame>
-                    )}
+        <div className="flex flex-col gap-4 p-4">
+            <Wizard
+                steps={steps}
+                value={currentStep}
+                onValueChange={setCurrentStep}
+            />
 
-                    <div className="flex justify-between">
-                        <div className="flex items-center gap-2">
-                            {(part === 'config' || !part) && (
-                                <Button
-                                    variant="ghost"
-                                    icon={FlaskConicalIcon}
-                                    onClick={handleTestConnection}
-                                    disabled={processing}
-                                    processing={processingTest}
-                                    tooltipColor={
-                                        connectionTest.triggered
-                                            ? connectionTest.state
-                                                ? 'success'
-                                                : 'destructive'
-                                            : 'default'
-                                    }
-                                    stateAppearance={
-                                        connectionTest.triggered
-                                            ? connectionTest.state
-                                                ? 'success'
-                                                : 'destructive'
-                                            : undefined
-                                    }
-                                    tooltip={
-                                        connectionTest.triggered
-                                            ? connectionTest.message
-                                            : undefined
-                                    }
-                                >
-                                    Tester la connexion
-                                </Button>
-                            )}
-                        </div>
-                        <div className="flex justify-end gap-2">
-                            <Button
-                                variant="outline"
-                                onClick={onClose}
-                                disabled={processing || processingTest}
-                            >
-                                Annuler
-                            </Button>
-                            <Button
-                                variant="outline"
-                                onClick={onClose}
-                                disabled={processing || processingTest}
-                            >
-                                Cloner
-                            </Button>
-                            <Button
-                                icon={project ? CheckIcon : PlusIcon}
-                                processing={processing}
-                                disabled={processingTest}
-                                tooltip={project ? '' : 'Créer le project et continuer avec la configuration de la base de données'}
-                                onClick={() => {
-                                    resetAndClearErrors();
-                                    submit();
-                                }}
-                            >
-                                {project ? 'Mettre à jour' : 'Confirmer'}
-                            </Button>
-                        </div>
+            <div className="flex items-center justify-between gap-2.5">
+                <Button
+                    variant="outline"
+                    disabled={processing || currentStep === 1}
+                    onClick={() => setCurrentStep((c) => c - 1)}
+                    icon={ChevronLeftIcon}
+                >
+                    Précédent
+                </Button>
+                {currentStep < steps.length ? (
+                    <Button
+                        variant="outline"
+                        onClick={handleNextStep}
+                        processing={processing}
+                        icon={ChevronRightIcon}
+                        className={'flex-row-reverse'}
+                    >
+                        Suivant
+                    </Button>
+                ) : (
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            icon={CopyIcon}
+                            tooltip="
+                                Cloner et anonymiser la base de données plutôt que d'utiliser votre base de données originale
+                            "
+                        >
+                            Cloner et anonymiser
+                        </Button>
+                        <Button
+                            icon={CheckCircle2Icon}
+                            className={'flex-row-reverse'}
+                        >
+                            Créer le projet
+                        </Button>
                     </div>
-                </div>
-            )}
-        </Form>
+                )}
+            </div>
+        </div>
     );
 };
 

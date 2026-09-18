@@ -1,4 +1,9 @@
-import { EyeClosedIcon, EyeIcon, TriangleAlertIcon } from 'lucide-react';
+import {
+    EyeClosedIcon,
+    EyeIcon,
+    LucideIcon,
+    TriangleAlertIcon,
+} from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import {
     Field,
@@ -12,12 +17,14 @@ import { ButtonGroup } from '../ui/button-group';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../ui/input-group';
 import type { ButtonProps } from './button';
 import Button from './button';
+import Tooltip from '@/components/tooltip';
 
 export type InputPropsType = {
     label?: string;
     error?: string;
     description?: string;
     button?: ButtonProps;
+    icon?: LucideIcon
 };
 
 export default function Input({
@@ -27,6 +34,7 @@ export default function Input({
     button,
     className,
     type: inputType,
+    icon: Icon,
     ...props
 }: InputPropsType & React.ComponentPropsWithoutRef<typeof InputGroupInput>) {
     const [showPassword, setShowPassword] = useState(false);
@@ -41,12 +49,28 @@ export default function Input({
 
     return (
         <Field className={cn('gap-2', className)}>
-            {label && <FieldLabel htmlFor={props.id}>{label}</FieldLabel>}
+            {label && (
+                <FieldLabel htmlFor={props.name || props.id}>
+                    {label}
+                </FieldLabel>
+            )}
 
             <ButtonGroup>
                 <InputGroup>
+                    {Icon && !error && (
+                        <InputGroupAddon>
+                            <Icon className={'size-4'} />
+                        </InputGroupAddon>
+                    )}
+                    {error && (
+                        <Tooltip value={error} variant="destructive">
+                            <InputGroupAddon className="cursor-auto text-destructive">
+                                <TriangleAlertIcon className={'size-4'} />
+                            </InputGroupAddon>
+                        </Tooltip>
+                    )}
                     <InputGroupInput
-                        id={props.id}
+                        id={props.name || props.id}
                         name={props.name || props.id}
                         type={type}
                         autoComplete="off"
@@ -66,14 +90,14 @@ export default function Input({
                 {button && <Button type="button" {...button} />}
             </ButtonGroup>
             {description && <FieldDescription>{description}</FieldDescription>}
-            {error && (
-                <FieldError>
-                    <TriangleAlertIcon
-                        className={'-mt-1.5 inline-block size-4'}
-                    />
-                    <span className="pl-1">{error}</span>
-                </FieldError>
-            )}
+            {/*{error && (*/}
+            {/*    <FieldError>*/}
+            {/*        <TriangleAlertIcon*/}
+            {/*            className={'-mt-1.5 inline-block size-4'}*/}
+            {/*        />*/}
+            {/*        <span className="pl-1">{error}</span>*/}
+            {/*    </FieldError>*/}
+            {/*)}*/}
         </Field>
     );
 }

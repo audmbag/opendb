@@ -32,24 +32,25 @@ class DriverConfigRequest extends FormRequest
 
     public static function getValidationRules(InputBag $input): array
     {
-        $unless_sqlite = 'required_unless:driver_config.driver_id,'.DriverLabEnum::SQLITE->value;
+        $unless_sqlite = 'required_unless:driver_id,'.DriverLabEnum::SQLITE->value;
 
         return [
-            'driver_config.driver_id' => ['required', 'string', Rule::exists(Driver::class, 'id')],
-            'driver_config.host' => [$unless_sqlite, 'string'],
-            'driver_config.port' => [$unless_sqlite, 'numeric'],
-            'driver_config.database' => ['required', 'string', function (string $attribute, mixed $value, Closure $fail) use ($input) {
-                if ($input->get('driver_config.driver_id') === DriverLabEnum::SQLITE->value && ! is_file($value) && ! is_writable($value)) {
+            'id' => ['nullable', 'string'],
+            'driver_id' => ['required', 'string', Rule::exists(Driver::class, 'id')],
+            'host' => [$unless_sqlite, 'string'],
+            'port' => [$unless_sqlite, 'numeric'],
+            'database' => ['required', 'string', function (string $attribute, mixed $value, Closure $fail) use ($input) {
+                if ($input->get('driver_id') === DriverLabEnum::SQLITE->value && ! is_file($value) && ! is_writable($value)) {
                     return $fail("The {$attribute} must be a valid file path and writable.");
                 }
             }],
-            'driver_config.username' => [$unless_sqlite, 'string'],
-            'driver_config.password' => [$unless_sqlite, 'string'],
-            'driver_config.ssh' => ['nullable', 'array'],
-            'driver_config.ssh.host' => ['required_with:driver_config.ssh', 'string'],
-            'driver_config.ssh.port' => ['nullable', 'numeric'],
-            'driver_config.ssh.user' => ['required_with:driver_config.ssh', 'string'],
-            'driver_config.ssh.id_file' => ['required_with:driver_config.ssh', 'string', function (string $attribute, mixed $value, Closure $fail) {
+            'username' => [$unless_sqlite, 'string'],
+            'password' => [$unless_sqlite, 'string'],
+            'ssh' => ['nullable', 'array'],
+            'ssh.host' => ['required_with:ssh', 'string'],
+            'ssh.port' => ['nullable', 'numeric'],
+            'ssh.user' => ['required_with:ssh', 'string'],
+            'ssh.id_file' => ['required_with:ssh', 'string', function (string $attribute, mixed $value, Closure $fail) {
                 if (! is_file($value)) {
                     return $fail("The {$attribute} must be a valid file path.");
                 }

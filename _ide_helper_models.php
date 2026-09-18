@@ -42,6 +42,7 @@ namespace App\Models{
  * @property string|null $database
  * @property string|null $username
  * @property string|null $password
+ * @property array<array-key, mixed>|null $ssh
  * @property-read \App\Models\Driver|null $driver
  * @property-read string $connection_string
  * @method static \Illuminate\Database\Eloquent\Builder<static>|DriverConfig newModelQuery()
@@ -54,6 +55,7 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|DriverConfig wherePassword($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|DriverConfig wherePort($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|DriverConfig whereProjectId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|DriverConfig whereSsh($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|DriverConfig whereUsername($value)
  */
 	class DriverConfig extends \Eloquent {}
@@ -65,6 +67,7 @@ namespace App\Models{
  * @property string $name
  * @property string|null $description
  * @property string $path
+ * @property \App\Enums\ProjectStatusEnum $status
  * @property int $user_id
  * @property \Carbon\CarbonImmutable|null $created_at
  * @property \Carbon\CarbonImmutable|null $updated_at
@@ -73,6 +76,7 @@ namespace App\Models{
  * @property-read \App\Models\DriverConfig|null $driver_config
  * @property-read string $created_at_diff_for_humans
  * @property-read \App\Models\User $user
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Project clearDrafts()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Project newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Project newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Project query()
@@ -81,6 +85,7 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Project whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Project whereName($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Project wherePath($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Project whereStatus($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Project whereUpdatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Project whereUserId($value)
  */

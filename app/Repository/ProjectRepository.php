@@ -2,6 +2,7 @@
 
 namespace App\Repository;
 
+use App\Models\DriverConfig;
 use App\Models\Project;
 use App\Models\User;
 use Illuminate\Container\Attributes\CurrentUser;
@@ -14,6 +15,31 @@ readonly class ProjectRepository
         #[CurrentUser]
         protected User $user
     ) {}
+
+    public function storeInfo(mixed $data): Project
+    {
+        if ($data['id'] ?? false) {
+            return $this->update(Project::findOrFail($data['id']), $data);
+        }
+
+        return $this->user->projects()->create($data);
+    }
+
+    public function storeDriverConfig(Project $project, array $data): DriverConfig
+    {
+        /**
+         * @var DriverConfig $config
+         */
+        $config = null;
+
+        if ($data['id'] ?? false) {
+            $config = tap($project->driver_config)->update($data);
+        } else {
+            $config = $project->driver_config()->create($data);
+        }
+
+        return $config;
+    }
 
     public function create(array $projectData): Project
     {
@@ -41,7 +67,8 @@ readonly class ProjectRepository
 
     public function getRecentProjects(): Collection
     {
-        return Project::with('driver_config.driver')
+        return Project::clearDrafts()
+            ->with('driver_config.driver')
             ->latest()
             ->limit(4)
             ->get();
@@ -49,6 +76,6 @@ readonly class ProjectRepository
 
     public function getProjectCount(): int
     {
-        return Project::count();
+        return Project::clearDrafts()->count();
     }
 }

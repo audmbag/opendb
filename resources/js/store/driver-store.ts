@@ -1,4 +1,4 @@
-import { create } from "zustand"
+import { create } from 'zustand';
 import { createSelectors } from '@/lib/utils';
 import type { Driver } from "@/types/databases"
 

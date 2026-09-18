@@ -25,7 +25,7 @@ class DriverConfigController extends Controller
     {
         $data = $request->validated();
 
-        $driver = BaseDriver::for($data['driver_config']);
+        $driver = BaseDriver::for($data);
 
         try {
             $driver->testConnection();
@@ -40,7 +40,7 @@ class DriverConfigController extends Controller
     {
         $data = $request->validated();
 
-        $config->fill($data['driver_config']);
+        $config->fill($data);
 
         try {
             $config->getDriver()->testConnection();

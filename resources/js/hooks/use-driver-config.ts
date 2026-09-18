@@ -64,15 +64,15 @@ const useDriverConfig = () => {
 
 const useDriverConfigTestConnection = () => {
 
-    const { post, errors, processing, resetAndClearErrors, optimistic } = useHttp<{ driver_config: Omit<DriverConfig, "id"> }, TestResultProps>();
+    const { post, errors, processing, resetAndClearErrors, optimistic } = useHttp<Omit<DriverConfig, "id">, TestResultProps>();
 
-    const testConnection = useCallback((driverConfig: DriverConfig, successCallback?: (result: TestResultProps) => void) => {
+    const testConnection = useCallback(async (driverConfig: DriverConfig, successCallback?: (result: TestResultProps) => void, errorCallback?: () => void) => {
 
             resetAndClearErrors();
 
-            optimistic(() => ({ driver_config: purgeConfig(driverConfig) }));
+            optimistic(() => purgeConfig(driverConfig));
 
-            post(DriverConfigController.testConnection.url(), {
+            await post(DriverConfigController.testConnection.url(), {
                 onSuccess: (result) => {
                     successCallback?.(result);
                     toast[result.success ? 'success' : 'error'](result.message);
@@ -81,10 +81,12 @@ const useDriverConfigTestConnection = () => {
                     if (errors.unexpectedError) {
                         toast.error(errors.unexpectedError);
                     }
+
+                    errorCallback?.();
                 },
             });
         },
-        [optimistic, post, resetAndClearErrors],
+        [optimistic, resetAndClearErrors],
     );
 
 

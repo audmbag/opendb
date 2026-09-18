@@ -4,7 +4,7 @@ export enum DefaultDrivers {
     MYSQL = 'mysql',
     SQLITE = 'sqlite',
     MARIADB = 'mariadb',
-    POSTGRESQL = 'postgresql',
+    POSTGRESQL = 'pgsql',
 }
 
 export type Driver = {
@@ -25,6 +25,13 @@ export interface SSHConfiguration {
 }
 
 
+
+export interface Table {
+    name: string;
+    columns: number;
+    enabled: boolean;
+}
+
 export interface DriverConfig extends BaseModel<number> {
     driver?: Driver;
     driver_id?: string;
@@ -35,4 +42,5 @@ export interface DriverConfig extends BaseModel<number> {
     password?: string;
     connection_string?: string;
     ssh?: SSHConfiguration;
+    tables_info?: Table[];
 }

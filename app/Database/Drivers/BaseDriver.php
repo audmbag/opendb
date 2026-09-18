@@ -46,7 +46,6 @@ class BaseDriver
         $this->connection = $this->getConnection();
     }
 
-
     protected function createConnectionName(): string
     {
         return strtolower(config('app.name')).'_'.str_replace(['.', ':'], '_', $this->databaseConfig['host']).'_'.$this->databaseConfig['port'].'_'.$this->databaseConfig['database'];
@@ -192,11 +191,14 @@ class BaseDriver
         return $this->connection->statement($sql, $bindings);
     }
 
-    public function listTables(bool $withDetails = true): array
+    public function listTables(bool $withDetails = true, ?callable $mapper = null): array
     {
         $tables = $this->getExportBuilder()->toArray();
 
-        return array_map(function (array $table) use ($withDetails): string {
+        return array_map(function (array $table) use ($mapper, $withDetails): string|array {
+            if ($mapper) {
+                return $mapper($table);
+            }
 
             if (! $withDetails) {
                 return $table['name'];

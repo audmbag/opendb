@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\ProjectStatusEnum;
 use App\Models\User;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -17,6 +18,7 @@ return new class extends Migration
             $table->string('name', 60)->unique();
             $table->string('description', 255)->nullable();
             $table->string('path', 255);
+            $table->string('status', 25)->default(ProjectStatusEnum::DRAFT->value); // ['draft', 'active']
             $table->foreignIdFor(User::class)->constrained()->cascadeOnDelete();
             $table->timestamps();
         });

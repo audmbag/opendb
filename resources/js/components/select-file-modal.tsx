@@ -90,7 +90,7 @@ function TreeContent({ rootFolder, onCancel, onConfirm, fetchFolder, onlyFolders
             {...tree.getContainerProps()}
         >
             <Input value={selectedItemId ?? ''} readOnly />
-            <div className="flex-1 overflow-y-auto rounded-md bg-background p-2 pt-0">
+            <div className="flex-1 overflow-y-auto rounded-md bg-background p-2">
                 <Tree indent={indent} tree={tree}>
                     {tree.getItems().map((item) => (
                         <TreeItem key={item.getId()} item={item}>
