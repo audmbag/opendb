@@ -1,12 +1,10 @@
-import type { LucideIcon} from 'lucide-react';
 import {
     BrainIcon,
     KeyboardIcon,
     PaletteIcon,
     Settings2Icon,
 } from 'lucide-react';
-import type { LazyExoticComponent} from 'react';
-import  { useCallback } from 'react';
+import  { Suspense, useCallback } from 'react';
 import { lazy } from 'react';
 import React, {
     createContext,
@@ -14,62 +12,72 @@ import React, {
     useState,
 } from 'react';
 import { useHotkeys } from "react-hotkeys-hook";
+import type {
+    SmallSidebarNavItem,
+    SmallSidebarNavItemValue,
+} from '@/components/sm-side-bar/types';
 
 
-export const SettingsNavItems = [
+const GeneralSettings = lazy(() => import('../components/settings/general-settings'))
+const ThemeSettings = lazy(() => import('../components/settings/themes-settings'))
+const ShortcutsSettings = lazy(() => import('../components/settings/shortcuts-settings'))
+const ModelsSettings = lazy(() => import('../components/settings/models-settings'))
+
+
+export const SettingsNavItems: SmallSidebarNavItem[] = [
     {
-        label: 'Bureau',
-        items: [
-            {
-                value: 'general',
-                name: 'Général',
-                icon: Settings2Icon,
-                component: lazy(() => import('../components/settings/general-settings')),
-            },
-            {
-                value: 'themes',
-                name: 'Thèmes',
-                icon: PaletteIcon,
-                component: lazy(() => import('../components/settings/themes-settings')),
-            },
-            {
-                value: 'shortcuts',
-                name: 'Raccourcis',
-                icon: KeyboardIcon,
-                component: lazy(() => import('../components/settings/shortcuts-settings')),
-            },
-        ],
+        value: 'general',
+        name: 'Général',
+        icon: Settings2Icon,
+        component: (
+            <Suspense fallback="Chargement...">
+                <GeneralSettings />
+            </Suspense>
+        ),
+        group: 'Bureau',
     },
     {
-        label: 'Serveur',
-        items: [
-            {
-                value: 'models',
-                name: 'Modèles',
-                icon: BrainIcon,
-                component: lazy(() => import('../components/settings/models-settings')),
-            },
-        ],
+        value: 'themes',
+        name: 'Thèmes',
+        icon: PaletteIcon,
+        component: (
+            <Suspense fallback="Chargement...">
+                <ThemeSettings />
+            </Suspense>
+        ),
+        group: 'Bureau',
     },
-] as const satisfies {
-    label: string;
-    items: {
-        value: string;
-        name: string;
-        icon: LucideIcon;
-        component: LazyExoticComponent<() => React.ReactNode>;
-    }[];
-}[];
-
-export type SettingNaviItemValue = (typeof SettingsNavItems)[number]['items'][number]['value'];
+    {
+        value: 'shortcuts',
+        name: 'Raccourcis',
+        icon: KeyboardIcon,
+        component: (
+            <Suspense fallback="Chargement...">
+                <ShortcutsSettings />
+            </Suspense>
+        ),
+        group: 'Bureau',
+    },
+    {
+        value: 'models',
+        name: 'Modèles',
+        icon: BrainIcon,
+        component: (
+            <Suspense fallback="Chargement...">
+                <ModelsSettings />
+            </Suspense>
+        ),
+        group: 'Serveur',
+    },
+];
 
 
 type SettingsContextType = {
     isOpen: boolean;
-    open: (targetTab?: SettingNaviItemValue) => void;
-    targetTab: SettingNaviItemValue | undefined;
+    open: (targetTab?: SmallSidebarNavItemValue) => void;
+    targetTab: SmallSidebarNavItemValue | undefined;
     close: () => void;
-    setTab: (tab: SettingNaviItemValue) => void;
+    setTab: (tab: SmallSidebarNavItemValue) => void;
 };
 
 
@@ -85,9 +93,9 @@ const SettingsContext = createContext<SettingsContextType>({
 const SettingsProvider = ({ children } : { children: React.ReactNode }) => {
 
     const [open_, setOpen_] = useState(false);
-    const [targetTab, setTargetTab] = useState<SettingNaviItemValue | undefined>(undefined);
+    const [targetTab, setTargetTab] = useState<SmallSidebarNavItemValue | undefined>(undefined);
 
-    const toggle = useCallback((tab?: SettingNaviItemValue) => {
+    const toggle = useCallback((tab?: SmallSidebarNavItemValue) => {
         setOpen_(prev => !prev);
         setTargetTab(prev => tab || prev);
     }, [])
@@ -97,7 +105,7 @@ const SettingsProvider = ({ children } : { children: React.ReactNode }) => {
     }, { preventDefault: true, useKey: true, delimiter: "|" });
 
 
-    const setTab = useCallback((tab: SettingNaviItemValue) => {
+    const setTab = useCallback((tab: SmallSidebarNavItemValue) => {
         setTargetTab(tab);
     }, []);
 

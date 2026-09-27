@@ -15,7 +15,7 @@ import { createCallable } from 'react-call';
 import { EmptyState } from '@/components/empty-state';
 import Button from '@/components/form/button';
 import Input from '@/components/form/input';
-import Modal from '@/components/modal';
+import Modal from '@/components/modals/modal';
 import ModelItem from '@/components/settings/model-item';
 import ModelModalHeader from '@/components/settings/model-modal-header';
 import type { Provider } from '@/types/models/provider';

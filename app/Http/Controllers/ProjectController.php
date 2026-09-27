@@ -5,13 +5,13 @@ namespace App\Http\Controllers;
 use App\Database\Drivers\BaseDriver;
 use App\Http\Requests\DriverConfigRequest;
 use App\Http\Requests\Project\ProjectInfoRequest;
-use App\Http\Requests\Project\ProjectRequest;
+use App\Http\Requests\Project\SaveTableInfosRequest;
 use App\Models\Project;
 use App\Repository\ProjectRepository;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
-use Inertia\Inertia;
+use Illuminate\Validation\ValidationException;
 
 class ProjectController extends Controller
 {
@@ -22,7 +22,7 @@ class ProjectController extends Controller
         return response()->json($projectRepository->storeInfo($data));
     }
 
-    public function storeDriverConfig(Project $project, DriverConfigRequest $request, ProjectRepository $projectRepository): RedirectResponse
+    public function storeDriverConfig(Project $project, DriverConfigRequest $request, ProjectRepository $projectRepository): JsonResponse
     {
         $data = $request->validated();
 
@@ -31,37 +31,27 @@ class ProjectController extends Controller
         try {
             $driver->testConnection();
         } catch (Exception $e) {
-            return back()->withErrors(['connectionFailed' => $e->getMessage()]);
+            throw ValidationException::withMessages(['connectionFailed' => $e->getMessage()]);
         }
 
-        Inertia::flash([
+        return response()->json([
             'driverConfig' => $projectRepository
                 ->storeDriverConfig($project, $data)
                 ->setAppends(['tables_info'])
                 ->setHidden(['disabled_tables']),
         ]);
-
-        return back();
     }
 
-    public function store(ProjectRequest $request, ProjectRepository $projectRepository): RedirectResponse
+    public function saveWithDisabledTables(Project $project, SaveTableInfosRequest $request, ProjectRepository $projectRepository): JsonResponse
     {
         $data = $request->validated();
 
-        $driver = BaseDriver::for($data['driver_config']);
+        $project = $projectRepository->saveTableInfos($project, $data);
 
-        try {
-            $driver->testConnection();
-        } catch (Exception $e) {
-            return back()->withErrors(['connectionFailed' => $e->getMessage()]);
-        }
-
-        $project = $projectRepository->create($data);
-
-        return redirect()->action([ConversationController::class, 'home'], $project);
+        return response()->json($project);
     }
 
-    public function update(Project $project, ProjectRequest $request, ProjectRepository $projectRepository): RedirectResponse
+    public function update(Project $project, ProjectInfoRequest $request, ProjectRepository $projectRepository): RedirectResponse
     {
         $data = $request->validated();
 

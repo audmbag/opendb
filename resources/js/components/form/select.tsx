@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import React from 'react';
+import type { ButtonProps } from '@/components/form/button';
 import Tooltip from '@/components/tooltip';
 import type { TooltipProps } from '@/components/tooltip';
 import { buttonVariants } from '@/components/ui/button';
@@ -13,12 +14,11 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { ButtonProps } from '@/components/form/button';
 
 
-export interface SelectItemInterface {
+export interface SelectItemInterface<T = string> {
     label: string;
-    value: string;
+    value: T;
     icon?: LucideIcon;
     description?: string;
     descriptionTooltip?: boolean;
@@ -32,18 +32,18 @@ type Props = {
     tooltip?: TooltipProps['value'];
     align?: React.ComponentProps<typeof SelectContent>['align'];
     size?: ButtonProps['size'];
+    position?: React.ComponentProps<typeof SelectContent>['position'];
 } & React.ComponentProps<typeof UISelect>;
 
 
-export default function Select({ label, items, button, tooltip, align = "center", size = 'sm', ...props }: Props) {
+export default function Select({ label, items, button, tooltip, align = "center", size = 'sm', position = 'popper', ...props }: Props) {
     return (
         <UISelect {...props}>
             <Tooltip value={tooltip}>
                 <SelectTrigger
                     className={cn(
                         '[&_.description]:hidden!',
-                        button &&
-                            buttonVariants({ variant: 'ghost', size }),
+                        button && buttonVariants({ variant: 'ghost', size }),
                         button && 'justify-between shadow-none',
                     )}
                 >
@@ -52,7 +52,7 @@ export default function Select({ label, items, button, tooltip, align = "center"
                     />
                 </SelectTrigger>
             </Tooltip>
-            <SelectContent position="popper" align={align}>
+            <SelectContent position={position} align={align}>
                 <SelectGroup>
                     {label && <SelectLabel>{label}</SelectLabel>}
                     {items.map((item) => (

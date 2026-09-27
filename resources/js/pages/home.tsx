@@ -5,6 +5,7 @@ import {
 import Button from '@/components/form/button';
 import { RecentProjects } from '@/components/recent-projects';
 import { useCommandModal } from '@/hooks/use-command-modal';
+import { ProjectModalProvider } from '@/hooks/use-project-modal';
 import { useSettingsDialog } from '@/hooks/use-settings-modal';
 
 export default function Home() {
@@ -12,11 +13,12 @@ export default function Home() {
     const { setOpen: openCommandModal } = useCommandModal();
     const { open: openSettings } = useSettingsDialog();
 
-
     return (
         <div className="mx-auto flex w-full flex-col items-center gap-4">
             <div className="w-full max-w-5xl pt-4">
-                <RecentProjects />
+                <ProjectModalProvider>
+                    <RecentProjects />
+                </ProjectModalProvider>
             </div>
 
             <div className="flex justify-center gap-2 pt-4">

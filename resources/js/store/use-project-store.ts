@@ -11,6 +11,11 @@ interface ProjectStoreState {
     fill: (project: ProjectInfo) => void;
     setDriverConfig: (config: DriverConfig) => void;
     clear: () => void;
+
+    cloningData: {
+        driver_config: DriverConfig | null;
+        anonymizedData: any[],
+    }
 }
 
 const useTempProjectStore = createSelectors(
@@ -18,6 +23,10 @@ const useTempProjectStore = createSelectors(
         devtools(
             (set) => ({
                 tmpProject: null,
+                cloningData: {
+                    driver_config: null,
+                    anonymizedData: [],
+                },
                 fill: (projectInfo: ProjectInfo) => set(state => ({
                     tmpProject: { ...state.tmpProject, ...projectInfo }
                 })),

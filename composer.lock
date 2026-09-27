@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "5e92f2482b6bf0855c809412712919da",
+    "content-hash": "431f5867adcb7d3db576d2c51cac5725",
     "packages": [
         {
             "name": "albertoarena/laravel-truss",
@@ -1462,71 +1462,6 @@
                 "source": "https://github.com/inertiajs/inertia-laravel/tree/v3.3.1"
             },
             "time": "2026-08-04T21:58:51+00:00"
-        },
-        {
-            "name": "jordandalton/laravel-tackle",
-            "version": "v1.27.3",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/JordanDalton/laravel-tackle.git",
-                "reference": "eccdc35a92a3712ecfebf10c307f4d48d0fcb805"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/JordanDalton/laravel-tackle/zipball/eccdc35a92a3712ecfebf10c307f4d48d0fcb805",
-                "reference": "eccdc35a92a3712ecfebf10c307f4d48d0fcb805",
-                "shasum": ""
-            },
-            "require": {
-                "laravel/ai": ">=0.1 <0.11",
-                "laravel/framework": "^12.0 || ^13.0",
-                "php": "^8.3",
-                "spatie/laravel-package-tools": "^1.16"
-            },
-            "require-dev": {
-                "laravel/pint": "^1.0",
-                "orchestra/testbench": "^10.0",
-                "pestphp/pest": "^3.0",
-                "pestphp/pest-plugin-laravel": "^3.0"
-            },
-            "type": "library",
-            "extra": {
-                "laravel": {
-                    "providers": [
-                        "Tackle\\TackleServiceProvider"
-                    ]
-                },
-                "branch-alias": {
-                    "dev-main": "1.x-dev"
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Tackle\\": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Jordan Dalton",
-                    "email": "jordan.dalton@ymail.com"
-                }
-            ],
-            "description": "An interactive, terminal-based AI coding assistant for Laravel — a Claude Code native to your Laravel app.",
-            "keywords": [
-                "ai",
-                "artisan",
-                "coding-assistant",
-                "laravel"
-            ],
-            "support": {
-                "issues": "https://github.com/JordanDalton/laravel-tackle/issues",
-                "source": "https://github.com/JordanDalton/laravel-tackle/tree/v1.27.3"
-            },
-            "time": "2026-08-16T16:40:03+00:00"
         },
         {
             "name": "laravel/ai",

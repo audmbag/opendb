@@ -41,7 +41,7 @@ import {
 } from '@/components/ui/command';
 import { useEffect } from 'react';
 import { useCommandModal } from '@/hooks/use-command-modal';
-import { Frame, FramePanel } from './reui/frame';
+import { Frame, FramePanel } from '../reui/frame';
 
 export default function CommandModal() {
 

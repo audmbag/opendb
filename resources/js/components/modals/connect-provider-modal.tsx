@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import Button from '@/components/form/button';
 import Input from '@/components/form/input';
 import KeyValue from '@/components/form/key-value';
-import Modal from '@/components/modal';
+import Modal from '@/components/modals/modal';
 import ModelModalHeader from '@/components/settings/model-modal-header';
 import type { Provider } from '@/types/models/provider';
 import ProviderController from '@/wayfinder/actions/App/Http/Controllers/ProviderController';

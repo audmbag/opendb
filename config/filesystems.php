@@ -29,6 +29,12 @@ return [
     */
 
     'disks' => [
+        'opendb' => [
+            'driver' => 'local',
+            'root' => base_path('opendb'),
+            'throw' => false,
+            'report' => false,
+        ],
 
         'local' => [
             'driver' => 'local',

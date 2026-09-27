@@ -1,0 +1,137 @@
+import { Form, Link } from '@inertiajs/react';
+import { PlugIcon, TrashIcon } from 'lucide-react';
+import React, { memo, useCallback, useRef } from 'react';
+import { toast } from 'sonner';
+import DatabaseIconHelper from '@/components/database-icon-helper';
+import Button from '@/components/form/button';
+import { FramePanel } from '@/components/reui/frame';
+import Tooltip from '@/components/tooltip';
+import { H6, Muted } from '@/components/typograpfy/typography';
+import { buttonVariants } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
+import type { Project } from '@/types/models/project';
+import ConversationController from '@/wayfinder/actions/App/Http/Controllers/ConversationController';
+import ProjectController from '@/wayfinder/actions/App/Http/Controllers/ProjectController';
+
+
+type Props = { project: Project } & React.ComponentProps<typeof FramePanel>;
+
+
+
+export const ProjectItemSkeleton = memo(({ count = 3 }: { count?: number }) => (
+    <>
+        {[...Array(Math.min(count, 3)).keys()].map((key) => (
+            <FramePanel
+                key={key}
+                className="flex flex-col flex-wrap justify-between gap-4 bg-card sm:flex-row"
+            >
+                <div>
+                    <div className="flex flex-wrap items-center gap-2 pb-2">
+                        <Skeleton className="h-8 w-8 rounded-lg" />
+                        <Skeleton className="h-4 w-30" />
+                        <Muted className="text-xs">•</Muted>
+                        <Skeleton className="h-4 w-90" />
+                    </div>
+                    <Skeleton className="h-4 w-full" />
+                    <div className="flex flex-wrap items-center gap-2 pt-2">
+                        <Skeleton className="h-4 w-15" />
+                        <Muted className="text-xs">•</Muted>
+                        <Skeleton className="h-4 w-50" />
+                    </div>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Skeleton className="h-8 w-30" />
+                </div>
+            </FramePanel>
+        ))}
+    </>
+));
+
+const ProjectItem = ({ project, className, ...props }: Props) => {
+    const formRef = useRef<React.ComponentRef<typeof Form>>(null);
+
+    const showToast = useCallback(() => {
+        toast.success(`Le projet ${project.name} a été supprimé avec succès.`, {
+            duration: 5000,
+        });
+    }, [project.name]);
+
+    const handleSubmit = useCallback(() => {
+        formRef.current?.submit();
+    }, []);
+
+    return (
+        <FramePanel
+            className={cn(
+                'flex flex-col justify-between gap-4 bg-card sm:flex-row',
+                className,
+            )}
+            {...props}
+        >
+            <div>
+                <div className="flex items-center gap-2 pb-2">
+                    <div className="flex items-center gap-2">
+                        <Tooltip value={project.driver_config?.driver?.name}>
+                            <DatabaseIconHelper
+                                icon={project.driver_config?.driver?.icon}
+                                fill
+                                className="size-8"
+                            />
+                        </Tooltip>
+                        <H6>{project.name}</H6>
+                    </div>
+                    <Muted className="text-xs">•</Muted>
+                    <Muted className="text-xs">{project.path}</Muted>
+                </div>
+                <Muted>{project.description}</Muted>
+                <div className="flex items-center gap-2 pt-2">
+                    <Muted className="text-xs">
+                        {project.created_at_diff_for_humans}
+                    </Muted>
+                    <Muted className="text-xs">•</Muted>
+                    <p className="text-xs">
+                        {project.driver_config?.connection_string}
+                    </p>
+                </div>
+            </div>
+            <div className="flex items-center gap-2">
+                <Link
+                    href={ConversationController.home(project.id as string)}
+                    className={buttonVariants({ variant: 'secondary' })}
+                >
+                    <PlugIcon />
+                    Se connecter
+                </Link>
+                <Form
+                    ref={formRef}
+                    onSuccess={showToast}
+                    method="DELETE"
+                    action={ProjectController.delete(project.id as string)}
+                >
+                    {({ processing }) => {
+                        return (
+                            <Button
+                                variant="destructive"
+                                size="icon"
+                                icon={TrashIcon}
+                                tooltip={'Supprimer le projet'}
+                                processing={processing}
+                                onClick={handleSubmit}
+                                confirmation={{
+                                    title: 'Suppression',
+                                    description: `Vous ête sur de vouloir supprimer le projet : ${project.name} ?`,
+                                    confirmText: 'Supprimer',
+                                    icon: TrashIcon,
+                                }}
+                            />
+                        );
+                    }}
+                </Form>
+            </div>
+        </FramePanel>
+    );
+};
+
+
+export default ProjectItem

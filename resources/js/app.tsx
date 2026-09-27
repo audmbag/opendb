@@ -1,8 +1,8 @@
 import { createInertiaApp } from '@inertiajs/react';
 import AlertDialog from '@/components/alert-dialog';
-import CommandModal from '@/components/command-modal';
-import SelectFileModal from '@/components/select-file-modal';
-import SettingsDialog from '@/components/settings-modal';
+import CommandModal from '@/components/modals/command-modal';
+import SelectFileModal from '@/components/modals/select-file-modal';
+import SettingsDialog from '@/components/modals/settings-modal';
 import Toaster from '@/components/toaster';
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { initializeTheme } from '@/hooks/use-apparence';

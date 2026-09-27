@@ -1,13 +1,14 @@
 import type { FormComponentRef } from '@inertiajs/core';
-import { useHttp } from '@inertiajs/react';
-import { useCallback, useImperativeHandle, useRef, useState } from 'react';
-import { toast } from 'sonner';
+import { useHttp, usePage } from '@inertiajs/react';
+import { useCallback, useRef, useState } from 'react';
 import type { ProjectConfigFormProps } from '@/components/project/driver-config-form';
 import { useDriverConfigTestConnection } from '@/hooks/use-driver-config';
 import { useTempProjectStore } from '@/store/use-project-store';
 import type { DriverConfig } from '@/types/databases';
 import type { Project } from '@/types/models/project';
 import ProjectController from '@/wayfinder/actions/App/Http/Controllers/ProjectController';
+import type { TablesSelectorFormRef } from '@/components/project/tables-selector';
+import { toast } from 'sonner';
 
 
 export type ProjectInfo = Pick<Project, 'name' | 'path' | 'description' | 'id'>;
@@ -15,8 +16,6 @@ export type ProjectInfo = Pick<Project, 'name' | 'path' | 'description' | 'id'>;
 export type ProjectPartFromRef<T> = {
     submit: () => T;
 };
-
-export type ProjectInfoFormRef = ProjectPartFromRef<Promise<Partial<Project>>>;
 
 export const isDirtyObject = function (
     oldValues: Record<string, any>,
@@ -38,12 +37,6 @@ type ProjectInfoProps = {
     onFinish?: () => void;
 };
 
-
-const CONNECTION_TEST_DEFAULT = {
-    state: false,
-    triggered: false,
-    message: '',
-};
 
 const useProjectInfo = ({ defaults, onFinish, onStart }: ProjectInfoProps) => {
     const tempProject = useTempProjectStore(d => d.tmpProject);
@@ -92,7 +85,23 @@ const useProjectInfo = ({ defaults, onFinish, onStart }: ProjectInfoProps) => {
     };
 };
 
-const useProjectDriverConfig = ({ onFinish, onStart, onSuccess }: ProjectInfoProps & { onSuccess?: () => void}) => {
+
+
+
+export type ConnectionTestState = {
+    state: boolean;
+    triggered: boolean;
+    message?: string;
+};
+
+const CONNECTION_TEST_DEFAULT: ConnectionTestState = {
+    state: false,
+    triggered: false,
+    message: '',
+};
+
+
+const useProjectDriverConfig = ({ onSuccess, onStart, onFinish }: ProjectInfoProps & { onSuccess?: () => void}) => {
 
     const tempProject = useTempProjectStore((d) => d.tmpProject);
     const setDriverConfig = useTempProjectStore((d) => d.setDriverConfig);
@@ -103,10 +112,16 @@ const useProjectDriverConfig = ({ onFinish, onStart, onSuccess }: ProjectInfoPro
 
     const [testConnectionState, setTestConnectionState] = useState(CONNECTION_TEST_DEFAULT);
 
-    const submit = useCallback(() => {
+    const { props: { project }, } = usePage<{ project: Project }>();
+
+    const { post, optimistic, errors } = useHttp<ProjectConfigFormProps | null, { driverConfig: DriverConfig }>(null);
+
+    const submit = useCallback(async () => {
         if (!formRef.current) {
             return;
         }
+
+        const formData = formRef.current.getData();
 
         const oldData = {
             database: tempProject?.driver_config?.database,
@@ -119,8 +134,8 @@ const useProjectDriverConfig = ({ onFinish, onStart, onSuccess }: ProjectInfoPro
             ssh: tempProject?.driver_config?.ssh,
         };
         const newData = {
-            ...formRef.current?.getData(),
-            ssh: formRef.current?.getData().ssh || null,
+            ...formData,
+            ssh: formData.ssh || null,
         };
 
         if (tempProject?.driver_config?.id && !isDirtyObject(oldData, newData)) {
@@ -129,8 +144,31 @@ const useProjectDriverConfig = ({ onFinish, onStart, onSuccess }: ProjectInfoPro
             return;
         }
 
-        formRef.current.submit();
-    }, [onSuccess, tempProject?.driver_config]);
+        optimistic(() => formData);
+
+        await post(
+            ProjectController.storeDriverConfig(tempProject?.id || project?.id).url,
+            {
+                onStart: onStart,
+                onFinish: onFinish,
+                onSuccess: ({ driverConfig }) => {
+                    setDriverConfig(driverConfig);
+                    onSuccess?.();
+                },
+                onError: errors => {
+                    if (errors.connectionFailed) {
+                        setTestConnectionState({
+                            state: false,
+                            triggered: true,
+                            message: errors.connectionFailed,
+                        });
+                        toast.error(errors.connectionFailed);
+                    }
+                }
+            },
+        );
+
+    }, [onFinish, onStart, onSuccess, optimistic, project?.id, setDriverConfig, tempProject?.driver_config?.database, tempProject?.driver_config?.driver_id, tempProject?.driver_config?.host, tempProject?.driver_config?.id, tempProject?.driver_config?.password, tempProject?.driver_config?.port, tempProject?.driver_config?.ssh, tempProject?.driver_config?.username, tempProject?.id]);
 
     const handleTestConnection = useCallback(async () => {
         if (!formRef.current) {
@@ -139,13 +177,19 @@ const useProjectDriverConfig = ({ onFinish, onStart, onSuccess }: ProjectInfoPro
 
         setTestConnectionState(CONNECTION_TEST_DEFAULT);
 
-        await testConnection(
+        onStart?.();
+
+        const result = await testConnection(
             formRef.current.getData() as DriverConfig,
             ({ success, message }) => {
                 setTestConnectionState({ state: success, triggered: true, message });
             },
         );
-    }, [testConnection]);
+
+        onFinish?.();
+
+        return result;
+    }, [onFinish, onStart, testConnection]);
 
     const resetData = useCallback(() => {
         formRef.current?.clearErrors();
@@ -155,7 +199,9 @@ const useProjectDriverConfig = ({ onFinish, onStart, onSuccess }: ProjectInfoPro
 
 
     return {
+        project,
         tempProject,
+        errors: { ...testErrors, ...errors },
         formRef,
         setDriverConfig,
         setTestConnectionState,
@@ -169,4 +215,49 @@ const useProjectDriverConfig = ({ onFinish, onStart, onSuccess }: ProjectInfoPro
 };
 
 
-export { useProjectInfo, useProjectDriverConfig };
+const useSaveProject = () => {
+    const tempProject = useTempProjectStore((d) => d.tmpProject);
+    const clearTempProject = useTempProjectStore((d) => d.clear);
+
+    const project = usePage<{ project: Project }>().props.project;
+
+    const tablesSelectorRef = useRef<TablesSelectorFormRef>(null);
+
+    const { post, processing, optimistic } = useHttp<{tables: string[]}, Project>({
+        tables: []
+    });
+
+    const saveWithDisabledTables = useCallback(async (onSuccess?: (project: Project) => void) => {
+        if (!tablesSelectorRef.current) {
+            return;
+        }
+
+        const disabledTables = tablesSelectorRef.current.submit();
+
+        if(!disabledTables) {
+            return;
+        }
+
+        optimistic(() => ({ tables: disabledTables }));
+
+        await post(
+            ProjectController.saveWithDisabledTables.url({
+                project: tempProject?.id || project?.id,
+            }),
+            {
+                onSuccess: response => {
+                    clearTempProject();
+                    onSuccess?.(response);
+                },
+            },
+        );
+    }, [clearTempProject, optimistic, project?.id, tempProject?.id]);
+
+    return {
+        processing,
+        saveWithDisabledTables,
+        tablesSelectorRef,
+    };
+};
+
+export { useProjectInfo, useProjectDriverConfig, useSaveProject };

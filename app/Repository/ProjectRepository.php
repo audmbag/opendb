@@ -2,12 +2,12 @@
 
 namespace App\Repository;
 
+use App\Enums\ProjectStatusEnum;
 use App\Models\DriverConfig;
 use App\Models\Project;
 use App\Models\User;
 use Illuminate\Container\Attributes\CurrentUser;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 
 readonly class ProjectRepository
 {
@@ -41,16 +41,15 @@ readonly class ProjectRepository
         return $config;
     }
 
-    public function create(array $projectData): Project
+    public function saveTableInfos(Project $project, array $data): Project
     {
-        $project = new Project;
+        $project->update([
+            'status' => ProjectStatusEnum::ACTIVE,
+        ]);
 
-        DB::transaction(function () use ($projectData, &$project) {
-
-            $project = $this->user->projects()->create($projectData);
-
-            $project->driver_config()->create($projectData['driver_config']);
-        });
+        $project->driver_config->update([
+            'disabled_tables' => $data['tables'],
+        ]);
 
         return $project;
     }

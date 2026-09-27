@@ -1,170 +1,154 @@
-import { Form, usePage } from '@inertiajs/react';
+import { Form } from '@inertiajs/react';
 import {
-    ChevronDownIcon,
     ComputerIcon,
     DatabaseIcon,
     EthernetPortIcon,
-    FlaskConicalIcon,
-    KeyIcon,
-    KeyRoundIcon,
-    UsbIcon,
     UserIcon,
     UserKeyIcon,
 } from 'lucide-react';
 import React, { useImperativeHandle, useState } from 'react';
-import { toast } from 'sonner';
 import Collapsible from '@/components/collapsible';
-import Button from '@/components/form/button';
 import Input from '@/components/form/input';
 import InputFile from '@/components/form/input-file';
 import DatabaseDriverSelector from '@/components/project/database-driver-selector';
 import SSHConfigForm from '@/components/project/ssh-config-form';
+import TestConnectionButton from '@/components/project/test-connection-button';
+import type { TestResultProps } from '@/hooks/use-driver-config';
 import type { ProjectPartFromRef} from '@/hooks/use-project';
 import { useProjectDriverConfig } from '@/hooks/use-project';
+import { useProjectModal } from '@/hooks/use-project-modal';
 import type { DriverConfig } from '@/types/databases';
 import { DefaultDrivers } from '@/types/databases';
-import type { Project } from '@/types/models/project';
-import ProjectController from '@/wayfinder/actions/App/Http/Controllers/ProjectController';
 
 export type ProjectConfigFormProps = Omit<DriverConfig, 'driver' | 'id'>;
 
-export type DriverConfigFormProps = ProjectPartFromRef<void>;
+export type DriverConfigFormProps = ProjectPartFromRef<void> & {
+    initializeCloning: () => Promise<TestResultProps | undefined>;
+};
 
 type Props = {
     ref?: React.Ref<DriverConfigFormProps>;
     onStart?: () => void;
     onFinish?: () => void;
     onSuccess?: () => void;
+    sshEnabled?: boolean;
 };
-const DriverConfigForm = ({ ref, onStart, onFinish, onSuccess }: Props) => {
+
+
+const DriverConfigForm = ({ ref, onStart, onFinish, onSuccess, sshEnabled = true }: Props) => {
 
     const {
         tempProject,
         formRef,
-        setDriverConfig,
         testConnectionState,
-        setTestConnectionState,
         handleTestConnection,
         submit,
         processingTest,
-        testErrors,
         resetData,
+        project,
+        errors,
     } = useProjectDriverConfig({ onStart, onFinish, onSuccess });
-
-    const { props: { project } } = usePage<{ project: Project }>();
 
     const defaults = { ...tempProject?.driver_config, ...project?.driver_config };
 
-    const [selectedDatabase, setSelectedDatabase] = useState(defaults?.driver_id || tempProject?.driver_config?.driver_id || DefaultDrivers.MYSQL,);
+    const [selectedDatabase, setSelectedDatabase] = useState(defaults?.driver_id || tempProject?.driver_config?.driver_id || DefaultDrivers.MYSQL);
 
-    useImperativeHandle(ref, () => ({ submit }));
+    const { setOpen, setCloningOpen } = useProjectModal();
+
+    const initializeCloning = async () => {
+        // const result = await handleTestConnection();
+
+        setOpen(false);
+
+        // if (result && result.success) {
+        setCloningOpen(true);
+
+        //     return result;
+        // }
+    };
+
+    useImperativeHandle(ref, () => ({
+        submit,
+        initializeCloning,
+    }));
 
     return (
-        <Form
-            ref={formRef}
-            method="POST"
-            action={ProjectController.storeDriverConfig(
-                tempProject?.id || project?.id,
-            )}
-            onStart={onStart}
-            onFinish={onFinish}
-            onSuccess={(response) => {
-                setDriverConfig(response.flash.driverConfig as DriverConfig);
-                onSuccess?.();
-            }}
-            onError={(errors) => {
-                if (errors.connectionFailed) {
-                    setTestConnectionState({
-                        state: false,
-                        triggered: true,
-                        message: errors.connectionFailed,
-                    });
-                    toast.error(errors.connectionFailed);
-                }
-            }}
-            cancelOnUnmount
-        >
-            {({ errors: formErrors }) => {
-                const errors = { ...testErrors, ...formErrors };
-
-                return (
-                    <div className="flex flex-col gap-4">
-                        <DatabaseDriverSelector
-                            selectedDriver={selectedDatabase}
-                            onDriverChange={(e) => {
-                                setSelectedDatabase(e.id);
-                                resetData();
-                            }}
+        <Form ref={formRef}>
+            {() => (
+                <div className="flex flex-col gap-4">
+                    <DatabaseDriverSelector
+                        selectedDriver={selectedDatabase}
+                        onDriverChange={(e) => {
+                            setSelectedDatabase(e.id);
+                            resetData();
+                        }}
+                    />
+                    {(tempProject?.driver_config?.id || defaults.driver_id) && (
+                        <input
+                            type="hidden"
+                            name="id"
+                            defaultValue={
+                                tempProject?.driver_config?.id ||
+                                defaults.driver_id
+                            }
+                            key={`config-${tempProject?.driver_config?.id || defaults.driver_id}`}
                         />
-                        {(tempProject?.driver_config?.id ||
-                            defaults.driver_id) && (
-                            <input
-                                type="hidden"
-                                name="id"
-                                defaultValue={
-                                    tempProject?.driver_config?.id ||
-                                    defaults.driver_id
-                                }
-                                key={`config-${tempProject?.driver_config?.id || defaults.driver_id}`}
-                            />
-                        )}
-                        {selectedDatabase !== DefaultDrivers.SQLITE && (
-                            <>
-                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                    <div className="col-span-1 flex flex-col gap-4 sm:col-span-2 sm:flex-row">
-                                        <Input
-                                            label="Hôte"
-                                            placeholder="Ex: localhost"
-                                            className="flex-2"
-                                            name="host"
-                                            error={errors?.host}
-                                            defaultValue={defaults?.host}
-                                            icon={ComputerIcon}
-                                        />
-                                        <Input
-                                            label="Port"
-                                            placeholder={'Ex: 3306'}
-                                            className="flex-1"
-                                            name="port"
-                                            type="number"
-                                            defaultValue={defaults?.port}
-                                            error={errors?.port}
-                                            icon={EthernetPortIcon}
-                                        />
-                                    </div>
+                    )}
+                    {selectedDatabase !== DefaultDrivers.SQLITE && (
+                        <>
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                <div className="col-span-1 flex flex-col gap-4 sm:col-span-2 sm:flex-row">
                                     <Input
-                                        label="Nom d'utilisateur"
-                                        placeholder="Ex: root"
-                                        name="username"
-                                        defaultValue={defaults?.username}
-                                        error={errors?.username}
-                                        icon={UserIcon}
+                                        label="Hôte"
+                                        placeholder="Ex: localhost"
+                                        className="flex-2"
+                                        name="host"
+                                        error={errors?.host}
+                                        defaultValue={defaults?.host}
+                                        icon={ComputerIcon}
                                     />
                                     <Input
-                                        label="Mot de passe"
-                                        placeholder="Ex: motdepasse"
-                                        type="password"
-                                        name="password"
-                                        defaultValue={defaults?.password}
-                                        error={errors?.password}
-                                        icon={UserKeyIcon}
+                                        label="Port"
+                                        placeholder={'Ex: 3306'}
+                                        className="flex-1"
+                                        name="port"
+                                        type="number"
+                                        defaultValue={defaults?.port}
+                                        error={errors?.port}
+                                        icon={EthernetPortIcon}
                                     />
-                                    <div className="flex items-end gap-2 sm:col-span-2">
-                                        <Input
-                                            label="Nom de la base de données"
-                                            placeholder="Ex: ma_base_de_donnees"
-                                            className="flex-1"
-                                            name="database"
-                                            defaultValue={defaults?.database}
-                                            error={errors?.database}
-                                            icon={DatabaseIcon}
-                                        />
-                                        <Button
-                                            icon={ChevronDownIcon}
-                                            variant="outline"
-                                        />
-                                    </div>
                                 </div>
+                                <Input
+                                    label="Nom d'utilisateur"
+                                    placeholder="Ex: root"
+                                    name="username"
+                                    defaultValue={defaults?.username}
+                                    error={errors?.username}
+                                    icon={UserIcon}
+                                />
+                                <Input
+                                    label="Mot de passe"
+                                    placeholder="Ex: motdepasse"
+                                    type="password"
+                                    name="password"
+                                    defaultValue={defaults?.password}
+                                    error={errors?.password}
+                                    icon={UserKeyIcon}
+                                />
+                                <div className="flex items-end gap-2 sm:col-span-2">
+                                    <Input
+                                        label="Nom de la base de données"
+                                        placeholder="Ex: ma_base_de_donnees"
+                                        className="flex-1"
+                                        name="database"
+                                        defaultValue={defaults?.database}
+                                        error={errors?.database}
+                                        icon={DatabaseIcon}
+                                    />
+                                </div>
+                            </div>
+                            {
+                                sshEnabled &&
                                 <Collapsible
                                     label={'Utiliser un tunnel SSH'}
                                     defaultOpen={!!defaults?.ssh}
@@ -175,53 +159,29 @@ const DriverConfigForm = ({ ref, onStart, onFinish, onSuccess }: Props) => {
                                         defaults={defaults?.ssh}
                                     />
                                 </Collapsible>
-                            </>
-                        )}
+                            }
+                        </>
+                    )}
 
-                        {selectedDatabase === DefaultDrivers.SQLITE && (
-                            <div>
-                                <InputFile
-                                    name="database"
-                                    error={errors?.database}
-                                    targetFileExtensions={['sqlite', 'db']}
-                                    defaultValue={defaults?.database || ''}
-                                    icon={DatabaseIcon}
-                                />
-                            </div>
-                        )}
-
+                    {selectedDatabase === DefaultDrivers.SQLITE && (
                         <div>
-                            <Button
-                                variant="secondary"
-                                icon={FlaskConicalIcon}
-                                onClick={handleTestConnection}
-                                processing={processingTest}
-                                tooltipColor={
-                                    testConnectionState.triggered
-                                        ? testConnectionState.state
-                                            ? 'success'
-                                            : 'destructive'
-                                        : 'default'
-                                }
-                                stateAppearance={
-                                    testConnectionState.triggered
-                                        ? testConnectionState.state
-                                            ? 'success'
-                                            : 'destructive'
-                                        : undefined
-                                }
-                                tooltip={
-                                    testConnectionState.triggered
-                                        ? testConnectionState.message
-                                        : undefined
-                                }
-                            >
-                                Tester la connexion
-                            </Button>
+                            <InputFile
+                                name="database"
+                                error={errors?.database}
+                                targetFileExtensions={['sqlite', 'db']}
+                                defaultValue={defaults?.database || ''}
+                                icon={DatabaseIcon}
+                            />
                         </div>
-                    </div>
-                );
-            }}
+                    )}
+
+                    <TestConnectionButton
+                        state={testConnectionState}
+                        processing={processingTest}
+                        onTrigger={handleTestConnection}
+                    />
+                </div>
+            )}
         </Form>
     );
 };

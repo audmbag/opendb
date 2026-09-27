@@ -1,62 +1,90 @@
+import { router } from '@inertiajs/react';
 import {
+    BrainCircuitIcon,
     CheckCircle2Icon,
     ChevronLeftIcon,
     ChevronRightIcon,
     CopyIcon,
+    DatabaseIcon,
+    FolderIcon,
 } from 'lucide-react';
 import React, {
-    lazy,
-    Suspense,
     useCallback,
     useMemo,
     useRef,
     useState,
 } from 'react';
+import { toast } from 'sonner';
 import Button from '@/components/form/button';
+import type { WizardStep } from '@/components/form/wizard';
 import Wizard from '@/components/form/wizard';
 import type { DriverConfigFormProps } from '@/components/project/driver-config-form';
-import type  { ProjectInfoFormRef } from '@/hooks/use-project';
-
-const ProjectInfoForm = lazy(() => import('./project-info-form'));
-const DriverConfigForm = lazy(() => import('./driver-config-form'));
-const TablesSelector = lazy(() => import('./tables-selector'));
-
+import DriverConfigForm from '@/components/project/driver-config-form';
+import type { ProjectInfoFormRef } from '@/components/project/project-info-form';
+import ProjectInfoForm from '@/components/project/project-info-form';
+import TablesSelector from '@/components/project/tables-selector';
+import { useSaveProject } from '@/hooks/use-project';
+import { useProjectModal } from '@/hooks/use-project-modal';
+import ConversationController from '@/wayfinder/actions/App/Http/Controllers/ConversationController';
 
 const ProjectForm = () => {
-
-    const [currentStep, setCurrentStep] = useState(1);
+    const [currentStep, setCurrentStep] = useState(2);
     const [processing, setProcessing] = useState(false);
 
     const projectInfoFormRef = useRef<ProjectInfoFormRef>(null);
     const driverConfigRef = useRef<DriverConfigFormProps>(null);
 
+    const { setOpen: setIsProjectModalOpen } = useProjectModal();
+
+    const { saveWithDisabledTables, tablesSelectorRef, processing: processingSave } = useSaveProject();
+
+    const [triggeredButton, setTriggeredButton] = useState<'nextStep' | 'cloning' | null>(null);
+
     const handleNextStep = useCallback(async () => {
+
+        setTriggeredButton('nextStep');
+
         if (projectInfoFormRef.current && currentStep === 1) {
-            await projectInfoFormRef.current.submit();
-            setCurrentStep(c => c + 1);
+            const response = await projectInfoFormRef.current.submit();
+
+            if (response) {
+                setCurrentStep((c) => c + 1);
+            }
         }
 
-        if(currentStep === 2 && driverConfigRef.current) {
+        if (currentStep === 2 && driverConfigRef.current) {
             driverConfigRef.current.submit();
         }
     }, [currentStep]);
 
+    const saveProject = useCallback(async () => {
+        await saveWithDisabledTables(project => {
+            setIsProjectModalOpen(false);
+            toast.success('Project créé avec succès');
+            router.visit(ConversationController.home.url({ project: project.id }))
+        });
+    }, [saveWithDisabledTables, setIsProjectModalOpen]);
 
-    const steps = useMemo(() => [
+
+    const initializeCloning = useCallback(async () => {
+        setTriggeredButton('cloning');
+        await driverConfigRef.current?.initializeCloning();
+    }, []);
+
+    const steps = useMemo<WizardStep[]>(() => [
             {
                 id: 'info',
                 header: {
                     title: 'Project',
                     description: 'Informations du projet',
+                    icon: FolderIcon,
                 },
                 content: (
-                    <Suspense fallback={'Chargement...'}>
-                        <ProjectInfoForm
-                            ref={projectInfoFormRef}
-                            onStart={() => setProcessing(true)}
-                            onFinish={() => setProcessing(false)}
-                        />
-                    </Suspense>
+                    <ProjectInfoForm
+                        ref={projectInfoFormRef}
+                        onStart={() => setProcessing(true)}
+                        onFinish={() => setProcessing(false)}
+                    />
                 ),
             },
             {
@@ -64,16 +92,15 @@ const ProjectForm = () => {
                 header: {
                     title: 'Base de données',
                     description: 'Informations de la base de données',
+                    icon: DatabaseIcon,
                 },
                 content: (
-                    <Suspense fallback={'Chargement...'}>
-                        <DriverConfigForm
-                            ref={driverConfigRef}
-                            onStart={() => setProcessing(true)}
-                            onFinish={() => setProcessing(false)}
-                            onSuccess={() => setCurrentStep(c => c + 1)}
-                        />
-                    </Suspense>
+                    <DriverConfigForm
+                        ref={driverConfigRef}
+                        onStart={() => setProcessing(true)}
+                        onFinish={() => setProcessing(false)}
+                        onSuccess={() => setCurrentStep((c) => c + 1)}
+                    />
                 ),
             },
             {
@@ -81,15 +108,12 @@ const ProjectForm = () => {
                 header: {
                     title: 'Tables',
                     description: "Accès de l'agent IA",
+                    icon: BrainCircuitIcon,
                 },
-                content: (
-                    <Suspense fallback={'Chargement...'}>
-                        <TablesSelector />
-                    </Suspense>
-                ),
+                content: <TablesSelector ref={tablesSelectorRef} />,
             },
         ],
-        [],
+        [tablesSelectorRef],
     );
 
     return (
@@ -103,40 +127,51 @@ const ProjectForm = () => {
             <div className="flex items-center justify-between gap-2.5">
                 <Button
                     variant="outline"
-                    disabled={processing || currentStep === 1}
+                    disabled={processing || processingSave || currentStep === 1}
                     onClick={() => setCurrentStep((c) => c - 1)}
                     icon={ChevronLeftIcon}
                 >
                     Précédent
                 </Button>
                 {currentStep < steps.length ? (
-                    <Button
-                        variant="outline"
-                        onClick={handleNextStep}
-                        processing={processing}
-                        icon={ChevronRightIcon}
-                        className={'flex-row-reverse'}
-                    >
-                        Suivant
-                    </Button>
-                ) : (
                     <div className="flex items-center gap-2">
+                        {currentStep === 2 && (
+                            <Button
+                                variant="outline"
+                                icon={CopyIcon}
+                                processing={processing && triggeredButton === 'cloning'}
+                                disabled={processing && triggeredButton !== 'cloning'}
+                                tooltip="
+                                    Cloner et anonymiser la base de données plutôt que d'utiliser votre base de données originale
+                                "
+                                onClick={initializeCloning}
+                            >
+                                Cloner et anonymiser
+                            </Button>
+                        )}
                         <Button
                             variant="outline"
-                            icon={CopyIcon}
-                            tooltip="
-                                Cloner et anonymiser la base de données plutôt que d'utiliser votre base de données originale
-                            "
-                        >
-                            Cloner et anonymiser
-                        </Button>
-                        <Button
-                            icon={CheckCircle2Icon}
+                            onClick={handleNextStep}
+                            processing={
+                                processing && triggeredButton === 'nextStep'
+                            }
+                            disabled={
+                                processing && triggeredButton !== 'nextStep'
+                            }
+                            icon={ChevronRightIcon}
                             className={'flex-row-reverse'}
                         >
-                            Créer le projet
+                            Suivant
                         </Button>
                     </div>
+                ) : (
+                    <Button
+                        icon={CheckCircle2Icon}
+                        onClick={saveProject}
+                        processing={processingSave}
+                    >
+                        Créer le projet
+                    </Button>
                 )}
             </div>
         </div>

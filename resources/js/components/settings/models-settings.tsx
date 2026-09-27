@@ -3,7 +3,7 @@ import {
     LoaderIcon,
 } from 'lucide-react';
 import { Fragment, useCallback, useEffect } from 'react';
-import ConnectProviderModal from '@/components/connect-provider-modal';
+import ConnectProviderModal from '@/components/modals/connect-provider-modal';
 import { EmptyState } from '@/components/empty-state';
 import ProviderItem from '@/components/settings/provider-item';
 import { ProviderModelsModal } from '@/components/settings/provider-models-modal';

@@ -2,15 +2,17 @@ import React, { useImperativeHandle } from 'react';
 import InputFile from '@/components/form/input-file';
 import type {
     ProjectInfo,
-    ProjectInfoFormRef} from '@/hooks/use-project';
+    ProjectPartFromRef,
+} from '@/hooks/use-project';
 import {
     useProjectInfo,
 } from '@/hooks/use-project';
+import type { Project } from '@/types/models/project';
 import Input from '../form/input';
 import Textarea from '../form/textarea';
 
 
-
+export type ProjectInfoFormRef = ProjectPartFromRef<Promise<Partial<Project>>>;
 
 type Props = {
     ref?: React.Ref<ProjectInfoFormRef>;
@@ -18,8 +20,6 @@ type Props = {
     onStart?: () => void;
     onFinish?: () => void;
 };
-
-
 
 
 const ProjectInfoForm = ({

@@ -1,7 +1,7 @@
 import { FolderIcon } from 'lucide-react';
 import React, { useCallback, useState } from 'react';
 import Input from '@/components/form/input';
-import SelectFileModal from '@/components/select-file-modal';
+import SelectFileModal from '@/components/modals/select-file-modal';
 
 type Props = {
     onlyFolders?: boolean;

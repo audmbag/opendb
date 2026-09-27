@@ -33,11 +33,11 @@ Route::middleware(['auth'])->group(function () {
     });
 
     Route::prefix('/projects')->group(function () {
-        Route::post('/', [ProjectController::class, 'store']);
         Route::patch('/{project}', [ProjectController::class, 'update']);
         Route::delete('/{project}', [ProjectController::class, 'delete']);
         Route::post('/store-infos', [ProjectController::class, 'storeInfos']);
         Route::post('/{project}/store-driver-config', [ProjectController::class, 'storeDriverConfig']);
+        Route::post('/{project}/save-table-infos', [ProjectController::class, 'saveWithDisabledTables']);
     });
 
     Route::patch('/driver-config/{config}', [DriverConfigController::class, 'update']);

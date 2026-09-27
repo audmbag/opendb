@@ -1,14 +1,15 @@
+import type {
+    LucideIcon} from 'lucide-react';
 import {
     EyeClosedIcon,
     EyeIcon,
-    LucideIcon,
     TriangleAlertIcon,
 } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
+import Tooltip from '@/components/tooltip';
 import {
     Field,
     FieldDescription,
-    FieldError,
     FieldLabel,
 } from '@/components/ui/field';
 
@@ -17,7 +18,6 @@ import { ButtonGroup } from '../ui/button-group';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../ui/input-group';
 import type { ButtonProps } from './button';
 import Button from './button';
-import Tooltip from '@/components/tooltip';
 
 export type InputPropsType = {
     label?: string;
@@ -90,14 +90,6 @@ export default function Input({
                 {button && <Button type="button" {...button} />}
             </ButtonGroup>
             {description && <FieldDescription>{description}</FieldDescription>}
-            {/*{error && (*/}
-            {/*    <FieldError>*/}
-            {/*        <TriangleAlertIcon*/}
-            {/*            className={'-mt-1.5 inline-block size-4'}*/}
-            {/*        />*/}
-            {/*        <span className="pl-1">{error}</span>*/}
-            {/*    </FieldError>*/}
-            {/*)}*/}
         </Field>
     );
 }

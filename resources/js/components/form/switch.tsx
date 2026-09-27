@@ -14,12 +14,12 @@ type Props = {
     orientation?: React.ComponentProps<typeof Field>['orientation'];
 } & React.ComponentProps<typeof UISwitch>;
 
-export default function Switch({ label, error, description, className, orientation, ...props }: Props) {
+export default function Switch({ label, error, description, className, orientation, name, id, ...props }: Props) {
     return (
         <Field className={className} data-invalid={!!error} orientation={orientation}>
             <FieldContent>
                 {label && (
-                    <FieldLabel htmlFor={props.name || props.id}>
+                    <FieldLabel htmlFor={name || id}>
                         {label}
                     </FieldLabel>
                 )}
@@ -27,7 +27,7 @@ export default function Switch({ label, error, description, className, orientati
                     <FieldDescription>{description}</FieldDescription>
                 )}
             </FieldContent>
-            <UISwitch id={props.name || props.id} {...props} />
+            <UISwitch id={name || id} name={name} {...props} />
         </Field>
     );
 }

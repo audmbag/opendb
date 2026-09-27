@@ -8,7 +8,7 @@ import type { APIData } from '@/types/global';
 import DriverConfigController from '@/wayfinder/actions/App/Http/Controllers/API/DriverConfigController';
 
 
-type TestResultProps = { success: boolean; message: string }
+export type TestResultProps = { success: boolean; message: string }
 
 const purgeConfig = (driverConfig: DriverConfig): Omit<DriverConfig, "id"> => {
     if (driverConfig.driver_id === DefaultDrivers.SQLITE) {
@@ -72,7 +72,7 @@ const useDriverConfigTestConnection = () => {
 
             optimistic(() => purgeConfig(driverConfig));
 
-            await post(DriverConfigController.testConnection.url(), {
+            return await post(DriverConfigController.testConnection.url(), {
                 onSuccess: (result) => {
                     successCallback?.(result);
                     toast[result.success ? 'success' : 'error'](result.message);
