@@ -517,7 +517,7 @@ Server-side patterns (Inertia::render, props, middleware) are covered in inertia
 
 - Using traditional `<a>` links instead of Inertia's `<Link>` component (breaks SPA behavior)
 - Forgetting to add loading states (skeleton screens) when using deferred props
-- Not handling the `undefined` state of deferred props before data loads
+- Not handling the `undefined` success of deferred props before data loads
 - Using `<form>` without preventing default submission (use `<Form>` component or `e.preventDefault()`)
 - Forgetting to check if `<Form>` component is available in your Inertia version
 - Using `router.cancel()` instead of `router.cancelAll()` (v3 breaking change)

@@ -3,6 +3,7 @@
 namespace App\Database\Drivers;
 
 use App\Database\Contracts\DriverContract;
+use Illuminate\Database\Connection;
 use Throwable;
 
 class PostgresSQLDriver extends BaseDriver implements DriverContract
@@ -19,6 +20,33 @@ class PostgresSQLDriver extends BaseDriver implements DriverContract
         $password = $escapePassword ? '[password]' : $config['password'];
 
         return "pgsql://{$config['username']}:{$password}@{$config['host']}:{$config['port']}/{$config['database']}";
+    }
+
+    /**
+     * PostgreSQL impose de se connecter à une base : on passe par les bases de maintenance.
+     *
+     * @return array<int, string>
+     */
+    protected function serverDatabases(): array
+    {
+        return ['postgres', 'template1'];
+    }
+
+    protected function databaseExists(Connection $server): bool
+    {
+        return $server->selectOne(
+            'SELECT 1 AS found FROM pg_database WHERE datname = ?',
+            [$this->databaseName()]
+        ) !== null;
+    }
+
+    protected function canCreateDatabase(Connection $server): bool
+    {
+        $role = $server->selectOne(
+            'SELECT (rolcreatedb OR rolsuper) AS allowed FROM pg_roles WHERE rolname = current_user'
+        );
+
+        return (bool) ($role->allowed ?? false);
     }
 
     public function describeDatabase(): array

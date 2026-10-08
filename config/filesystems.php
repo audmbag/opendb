@@ -31,8 +31,10 @@ return [
     'disks' => [
         'opendb' => [
             'driver' => 'local',
-            'root' => base_path('opendb'),
-            'throw' => false,
+            // Resolved at boot by AppServiceProvider: ~/.opendb in the user's home directory.
+            'root' => null,
+            'visibility' => 'private',
+            'throw' => true,
             'report' => false,
         ],
 

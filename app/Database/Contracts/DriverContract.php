@@ -4,7 +4,6 @@ namespace App\Database\Contracts;
 
 use Exception;
 use Illuminate\Database\Connection;
-use Throwable;
 
 interface DriverContract
 {
@@ -15,7 +14,21 @@ interface DriverContract
      *
      * @throws Exception
      */
-    public function testConnection(): void;
+    public function testConnection(bool $expectedException = true): bool;
+
+    public function shouldCreateDatabase(): bool;
+
+    /**
+     * Indique si la dernière vérification a conclu que la base n'existe pas encore.
+     */
+    public function willCreateDatabase(): bool;
+
+    /**
+     * @return bool `true` si la base a été créée, `false` si elle existait déjà.
+     *
+     * @throws Exception
+     */
+    public function createDatabaseIfNotExists(): bool;
 
     public function getConnectionString(): string;
 
@@ -32,7 +45,6 @@ interface DriverContract
     public function getSchema(): array;
 
     public function exportSchema(string $format): string;
-
 
     public function executeReadOnly(string $sql, array $bindings = []): array;
 

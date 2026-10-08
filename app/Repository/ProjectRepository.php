@@ -48,7 +48,7 @@ readonly class ProjectRepository
         ]);
 
         $project->driver_config->update([
-            'disabled_tables' => $data['tables'],
+            'disabled_tables' => $data['tables'] ?? [],
         ]);
 
         return $project;

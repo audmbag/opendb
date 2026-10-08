@@ -12,8 +12,12 @@ class FileExplorerService
 
     protected array $targetFileExtensions;
 
-    public function __construct(?array $allowedBasePaths = null, bool $onlyFolders = false, array $targetFileExtensions = [])
-    {
+    public function __construct(
+        ?array $allowedBasePaths = null,
+        bool $onlyFolders = false,
+        array $targetFileExtensions = [],
+        protected SystemInfoService $systemInfo = new SystemInfoService,
+    ) {
         $this->allowedBasePaths = $allowedBasePaths ?? [$this->getUserHomeDirectory()];
 
         $this->onlyFolders = $onlyFolders;
@@ -126,30 +130,6 @@ class FileExplorerService
 
     public function getUserHomeDirectory(): string
     {
-        if (function_exists('posix_getpwuid') && function_exists('posix_getuid')) {
-            $info = posix_getpwuid(posix_getuid());
-            if (! empty($info['dir'])) {
-                return $info['dir'];
-            }
-        }
-
-        $home = getenv('HOME');
-        if ($home !== false && $home !== '') {
-            return $home;
-        }
-
-        $home = getenv('USERPROFILE');
-        if ($home !== false && $home !== '') {
-            return $home;
-        }
-
-        $homeDrive = getenv('HOMEDRIVE');
-        $homePath = getenv('HOMEPATH');
-
-        if ($homeDrive !== false && $homePath !== false) {
-            return $homeDrive.$homePath;
-        }
-
-        throw new RuntimeException('Unable to determine the user\'s home directory.');
+        return $this->systemInfo->homeDirectory();
     }
 }

@@ -1,10 +1,12 @@
+import type { LucideIcon} from 'lucide-react';
 import { XIcon } from 'lucide-react';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import * as React from 'react';
+import Button from '@/components/form/button';
 import { Frame, FrameDescription, FrameHeader, FramePanel, FrameTitle } from "@/components/reui/frame";
-import { Button } from '@/components/ui/button';
 import { Dialog, DialogDescription, DialogOverlay, DialogPortal, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import IconStackGlow from '@/components/icon-stack-glow';
 
 
 type Props = {
@@ -16,17 +18,16 @@ type Props = {
     showHeader?: boolean;
     className?: string;
     scrollable?: boolean;
+    icon?: LucideIcon;
+    showCloseButton?: boolean;
 };
 
 
 const CustomDialogContent = ({
     className,
     children,
-    showCloseButton = true,
     ...props
-}: React.ComponentProps<typeof DialogPrimitive.Content> & {
-    showCloseButton?: boolean;
-}) => {
+}: React.ComponentProps<typeof DialogPrimitive.Content>) => {
     return (
         <DialogPrimitive.Content
             data-slot="dialog-content"
@@ -37,26 +38,24 @@ const CustomDialogContent = ({
             {...props}
         >
             {children}
-            {showCloseButton && (
-                <DialogPrimitive.Close data-slot="dialog-close" asChild>
-                    <Button
-                        variant="ghost"
-                        className="absolute top-2 right-2"
-                        size="icon-sm"
-                    >
-                        <XIcon />
-                        <span className="sr-only">Close</span>
-                    </Button>
-                </DialogPrimitive.Close>
-            )}
         </DialogPrimitive.Content>
     );
 };
 
 
 
-export default function Modal({ title, description, open, onOpenChange, children, showHeader, className, scrollable }: Props) {
-
+export default function Modal({
+    title,
+    description,
+    open,
+    onOpenChange,
+    children,
+    showHeader,
+    className,
+    scrollable,
+    icon: Icon,
+    showCloseButton = true,
+}: Props) {
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogPortal>
@@ -74,7 +73,6 @@ export default function Modal({ title, description, open, onOpenChange, children
                             },
                             className,
                         )}
-                        showCloseButton={false}
                     >
                         <DialogTitle className="sr-only">
                             {title || 'Modal title'}
@@ -82,13 +80,28 @@ export default function Modal({ title, description, open, onOpenChange, children
                         <DialogDescription className="sr-only">
                             {description || 'Modal description'}
                         </DialogDescription>
-                        <Frame className="w-full overflow-hidden p-2 h-full">
+                        <Frame className="h-full w-full overflow-hidden p-2">
                             {showHeader && (
-                                <FrameHeader>
-                                    <FrameTitle>{title}</FrameTitle>
-                                    <FrameDescription>
-                                        {description}
-                                    </FrameDescription>
+                                <FrameHeader className="flex flex-row items-center gap-4 px-2">
+                                    {Icon && <IconStackGlow icon={Icon} />}
+                                    <div className="flex-col gap-2">
+                                        <FrameTitle>{title}</FrameTitle>
+                                        <FrameDescription>
+                                            {description}
+                                        </FrameDescription>
+                                    </div>
+                                    {showCloseButton &&
+                                        <div className="ml-auto">
+                                            <Button
+                                                variant="secondary"
+                                                size="icon"
+                                                onClick={() =>
+                                                    onOpenChange?.(false)
+                                                }
+                                                icon={XIcon}
+                                            />
+                                        </div>
+                                    }
                                 </FrameHeader>
                             )}
                             <FramePanel className="h-full w-full p-0">

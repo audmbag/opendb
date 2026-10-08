@@ -7,6 +7,7 @@ use App\Models\Driver;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\InputBag;
 
@@ -30,17 +31,41 @@ class DriverConfigRequest extends FormRequest
         return self::getValidationRules($this->request);
     }
 
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'create_database_if_not_exists' => $this->boolean('create_database_if_not_exists'),
+        ]);
+    }
+
+    /**
+     * Données de connexion à persister (sans les options qui ne concernent que la vérification).
+     *
+     * @return array<string, mixed>
+     */
+    public function driverData(): array
+    {
+        return Arr::except($this->validated(), ['create_database_if_not_exists']);
+    }
+
     public static function getValidationRules(InputBag $input): array
     {
         $unless_sqlite = 'required_unless:driver_id,'.DriverLabEnum::SQLITE->value;
+        $create_database = filter_var($input->get('create_database_if_not_exists'), FILTER_VALIDATE_BOOLEAN);
 
         return [
             'id' => ['nullable', 'string'],
+            'from_id' => ['nullable', 'string'],
             'driver_id' => ['required', 'string', Rule::exists(Driver::class, 'id')],
             'host' => [$unless_sqlite, 'string'],
             'port' => [$unless_sqlite, 'numeric'],
-            'database' => ['required', 'string', function (string $attribute, mixed $value, Closure $fail) use ($input) {
-                if ($input->get('driver_id') === DriverLabEnum::SQLITE->value && ! is_file($value) && ! is_writable($value)) {
+            'create_database_if_not_exists' => ['nullable', 'boolean'],
+            'database' => ['required', 'string', function (string $attribute, mixed $value, Closure $fail) use ($input, $create_database) {
+                if ($input->get('driver_id') !== DriverLabEnum::SQLITE->value || is_file($value)) {
+                    return;
+                }
+
+                if ($create_database ? ! is_writable(dirname($value)) : ! is_writable($value)) {
                     return $fail("The {$attribute} must be a valid file path and writable.");
                 }
             }],

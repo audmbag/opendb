@@ -1,11 +1,11 @@
-import Input from '@/components/form/input';
-import type { SSHConfiguration } from '@/types/databases';
 import {
     ComputerIcon,
     EthernetPortIcon,
     FileKeyIcon,
     UserIcon,
 } from 'lucide-react';
+import Input from '@/components/form/input';
+import type { SSHConfiguration } from '@/types/databases';
 
 
 type Props = {

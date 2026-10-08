@@ -102,7 +102,7 @@ For intentionally irreversible migrations (e.g., destructive data backfills), le
 
 One concern per migration. Never mix DDL (schema changes) and DML (data manipulation).
 
-Incorrect (partial failure creates unrecoverable state):
+Incorrect (partial failure creates unrecoverable success):
 ```php
 public function up(): void
 {

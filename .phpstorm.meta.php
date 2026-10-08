@@ -2287,7 +2287,7 @@ namespace PHPSTORM_META {
     override(\optional(0), type(0));
 
             registerArgumentsSet('auth', );
-        registerArgumentsSet('configs', 
+        registerArgumentsSet('configs',
 'view.paths','view.compiled','broadcasting.default','broadcasting.connections.reverb.driver','broadcasting.connections.reverb.key',
 'broadcasting.connections.reverb.secret','broadcasting.connections.reverb.app_id','broadcasting.connections.reverb.options.host','broadcasting.connections.reverb.options.port','broadcasting.connections.reverb.options.scheme',
 'broadcasting.connections.reverb.options.useTLS','broadcasting.connections.reverb.client_options','broadcasting.connections.pusher.driver','broadcasting.connections.pusher.key','broadcasting.connections.pusher.secret',
@@ -2387,15 +2387,15 @@ namespace PHPSTORM_META {
 'ide-helper.force_fqn','ide-helper.use_generics_annotations','ide-helper.macro_default_return_types.Illuminate\\Http\\Client\\Factory','ide-helper.additional_relation_types','ide-helper.additional_relation_return_types',
 'ide-helper.enforce_nullable_relationships','ide-helper.soft_deletes_force_nullable','ide-helper.post_migrate','tinker.commands','tinker.alias',
 'tinker.dont_alias','tinker.trust_project',);
-        registerArgumentsSet('middleware', 
+        registerArgumentsSet('middleware',
 'web','api','auth','auth.basic','auth.session',
 'cache.headers','can','guest','password.confirm','precognitive',
 'signed','throttle','verified',);
-        registerArgumentsSet('routes', 
+        registerArgumentsSet('routes',
 'boost.browser-logs','home',
 'storage.local','storage.local.upload',);
-        registerArgumentsSet('views', 
-'app','laravel-exceptions-renderer::components.badge','laravel-exceptions-renderer::components.empty-state','laravel-exceptions-renderer::components.file-with-line','laravel-exceptions-renderer::components.formatted-source',
+        registerArgumentsSet('views',
+'app','laravel-exceptions-renderer::components.badge','laravel-exceptions-renderer::components.empty-success','laravel-exceptions-renderer::components.file-with-line','laravel-exceptions-renderer::components.formatted-source',
 'laravel-exceptions-renderer::components.frame','laravel-exceptions-renderer::components.frame-code','laravel-exceptions-renderer::components.header','laravel-exceptions-renderer::components.http-method','laravel-exceptions-renderer::components.icons.alert',
 'laravel-exceptions-renderer::components.icons.check','laravel-exceptions-renderer::components.icons.chevron-left','laravel-exceptions-renderer::components.icons.chevron-right','laravel-exceptions-renderer::components.icons.chevrons-down-up','laravel-exceptions-renderer::components.icons.chevrons-left',
 'laravel-exceptions-renderer::components.icons.chevrons-right','laravel-exceptions-renderer::components.icons.chevrons-up-down','laravel-exceptions-renderer::components.icons.copy','laravel-exceptions-renderer::components.icons.database','laravel-exceptions-renderer::components.icons.folder',
@@ -2408,7 +2408,7 @@ namespace PHPSTORM_META {
 'laravel-exceptions::layout','laravel-exceptions::minimal','mcp::authorize','mcp::components.app','notifications::email',
 'pagination::bootstrap-3','pagination::bootstrap-4','pagination::bootstrap-5','pagination::semantic-ui','pagination::simple-bootstrap-3',
 'pagination::simple-bootstrap-4','pagination::simple-bootstrap-5','pagination::simple-tailwind','pagination::tailwind',);
-        registerArgumentsSet('translations', 
+        registerArgumentsSet('translations',
 'auth.failed','auth.password','auth.throttle','pagination.previous','pagination.next',
 'passwords.reset','passwords.sent','passwords.throttled','passwords.token','passwords.user',
 'validation.accepted','validation.accepted_if','validation.active_url','validation.after','validation.after_or_equal',
@@ -2439,7 +2439,7 @@ namespace PHPSTORM_META {
 'validation.size.numeric','validation.size.string','validation.starts_with','validation.string','validation.timezone',
 'validation.unique','validation.uploaded','validation.uppercase','validation.url','validation.ulid',
 'validation.uuid','validation.custom.attribute-name.rule-name',);
-        registerArgumentsSet('env', 
+        registerArgumentsSet('env',
 'APP_NAME','APP_ENV','APP_KEY','APP_DEBUG','APP_URL',
 'APP_LOCALE','APP_FALLBACK_LOCALE','APP_FAKER_LOCALE','APP_MAINTENANCE_DRIVER','BCRYPT_ROUNDS',
 'LOG_CHANNEL','LOG_STACK','LOG_DEPRECATIONS_CHANNEL','LOG_LEVEL','DB_CONNECTION',
@@ -2449,7 +2449,7 @@ namespace PHPSTORM_META {
 'MAIL_SCHEME','MAIL_HOST','MAIL_PORT','MAIL_USERNAME','MAIL_PASSWORD',
 'MAIL_FROM_ADDRESS','MAIL_FROM_NAME','AWS_ACCESS_KEY_ID','AWS_SECRET_ACCESS_KEY','AWS_DEFAULT_REGION',
 'AWS_BUCKET','AWS_USE_PATH_STYLE_ENDPOINT','VITE_APP_NAME',);
-        
+
                 expectedArguments(\Illuminate\Support\Facades\Gate::has(), 0, argumentsSet('auth'));
     expectedArguments(\Illuminate\Support\Facades\Gate::allows(), 0, argumentsSet('auth'));
     expectedArguments(\Illuminate\Support\Facades\Gate::denies(), 0, argumentsSet('auth'));
@@ -2513,5 +2513,5 @@ namespace PHPSTORM_META {
                 expectedArguments(\Illuminate\Contracts\Translation\Translator::get(), 0, argumentsSet('translations'));
                 expectedArguments(\env(), 0, argumentsSet('env'));
                 expectedArguments(\Illuminate\Support\Env::get(), 0, argumentsSet('env'));
-            
+
 }

@@ -26,17 +26,19 @@ import TablesSelector from '@/components/project/tables-selector';
 import { useSaveProject } from '@/hooks/use-project';
 import { useProjectModal } from '@/hooks/use-project-modal';
 import ConversationController from '@/wayfinder/actions/App/Http/Controllers/ConversationController';
+import { useTempProjectStore } from '@/store/use-project-store';
 
 const ProjectForm = () => {
-    const [currentStep, setCurrentStep] = useState(2);
+
+    const { setOpen: setIsProjectModalOpen, step: currentStep, setStep: setCurrentStep } = useProjectModal();
+
     const [processing, setProcessing] = useState(false);
 
     const projectInfoFormRef = useRef<ProjectInfoFormRef>(null);
     const driverConfigRef = useRef<DriverConfigFormProps>(null);
 
-    const { setOpen: setIsProjectModalOpen } = useProjectModal();
-
     const { saveWithDisabledTables, tablesSelectorRef, processing: processingSave } = useSaveProject();
+    const setDriverConfig = useTempProjectStore((d) => d.setDriverConfig);
 
     const [triggeredButton, setTriggeredButton] = useState<'nextStep' | 'cloning' | null>(null);
 
@@ -53,11 +55,17 @@ const ProjectForm = () => {
         }
 
         if (currentStep === 2 && driverConfigRef.current) {
-            driverConfigRef.current.submit();
+            const response = await driverConfigRef.current.submit();
+
+            if(response && response.driverConfig) {
+                setDriverConfig(response.driverConfig);
+                setCurrentStep((c) => c + 1);
+            }
         }
-    }, [currentStep]);
+    }, [currentStep, setCurrentStep, setDriverConfig]);
 
     const saveProject = useCallback(async () => {
+        setTriggeredButton(null);
         await saveWithDisabledTables(project => {
             setIsProjectModalOpen(false);
             toast.success('Project créé avec succès');
@@ -99,7 +107,6 @@ const ProjectForm = () => {
                         ref={driverConfigRef}
                         onStart={() => setProcessing(true)}
                         onFinish={() => setProcessing(false)}
-                        onSuccess={() => setCurrentStep((c) => c + 1)}
                     />
                 ),
             },
@@ -113,7 +120,7 @@ const ProjectForm = () => {
                 content: <TablesSelector ref={tablesSelectorRef} />,
             },
         ],
-        [tablesSelectorRef],
+        [setCurrentStep, tablesSelectorRef, triggeredButton],
     );
 
     return (
@@ -139,8 +146,12 @@ const ProjectForm = () => {
                             <Button
                                 variant="outline"
                                 icon={CopyIcon}
-                                processing={processing && triggeredButton === 'cloning'}
-                                disabled={processing && triggeredButton !== 'cloning'}
+                                processing={
+                                    processing && triggeredButton === 'cloning'
+                                }
+                                disabled={
+                                    processing && triggeredButton !== 'cloning'
+                                }
                                 tooltip="
                                     Cloner et anonymiser la base de données plutôt que d'utiliser votre base de données originale
                                 "

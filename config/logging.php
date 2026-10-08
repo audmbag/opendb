@@ -51,9 +51,10 @@ return [
     */
 
     'channels' => [
-        'opendb' => [
+        'agent-logs' => [
             'driver' => 'daily',
-            'path' => storage_path('logs/opendb.log'),
+            // Configured in AppServiceProvider::configureApp() to point to the log directory of the current user (~/.opendb/logs/agent.log).
+            'path' => null,
             'level' => 'info',
             'days' => 14,
             'replace_placeholders' => true,

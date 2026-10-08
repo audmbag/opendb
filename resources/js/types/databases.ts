@@ -10,9 +10,6 @@ export enum DefaultDrivers {
 export type Driver = {
     id: DefaultDrivers;
     name: string;
-    default_host?: string;
-    default_port?: number;
-    default_username?: string;
     icon?: string;
 };
 
@@ -42,5 +39,6 @@ export interface DriverConfig extends BaseModel<number> {
     password?: string;
     connection_string?: string;
     ssh?: SSHConfiguration;
+    create_database_if_not_exists?: boolean;
     tables_info?: Table[];
 }

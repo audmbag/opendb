@@ -34,7 +34,7 @@ class SQLDatabaseAgent implements Agent, Conversational, HasMiddleware, HasTools
 {
     use Promptable, RemembersConversations;
 
-    const string FILE_DISK = 'open-db';
+    const string FILE_DISK = 'current-project';
 
     public readonly DriverContract $driver;
 

@@ -1,12 +1,21 @@
-import type { LucideIcon } from 'lucide-react';
+import type { LucideIcon} from 'lucide-react';
+import  { TriangleAlertIcon } from 'lucide-react';
 import React from 'react';
 import type { ButtonProps } from '@/components/form/button';
+import type { InputPropsType } from '@/components/form/input';
 import Tooltip from '@/components/tooltip';
 import type { TooltipProps } from '@/components/tooltip';
 import { buttonVariants } from '@/components/ui/button';
+import { ButtonGroup } from '@/components/ui/button-group';
+import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
+import { InputGroup, InputGroupAddon } from '@/components/ui/input-group';
+import {
+    NativeSelect,
+    NativeSelectOption,
+} from '@/components/ui/native-select';
 import {
     Select as UISelect,
-    SelectContent,
+    SelectContent as UISelectContent,
     SelectGroup,
     SelectItem,
     SelectLabel,
@@ -14,7 +23,6 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-
 
 export interface SelectItemInterface<T = string> {
     label: string;
@@ -29,30 +37,62 @@ type Props = {
     label?: string;
     items: SelectItemInterface[];
     button?: boolean;
+    native?: boolean;
     tooltip?: TooltipProps['value'];
-    align?: React.ComponentProps<typeof SelectContent>['align'];
+    align?: React.ComponentProps<typeof UISelectContent>['align'];
     size?: ButtonProps['size'];
-    position?: React.ComponentProps<typeof SelectContent>['position'];
-} & React.ComponentProps<typeof UISelect>;
+    position?: React.ComponentProps<typeof UISelectContent>['position'];
+} & React.ComponentProps<typeof UISelect> & React.ComponentProps<typeof NativeSelect>;
 
 
-export default function Select({ label, items, button, tooltip, align = "center", size = 'sm', position = 'popper', ...props }: Props) {
+
+const SelectContent = ({ label, items, button = false, native = false, tooltip, align = "center", size = 'sm', position = 'popper', onValueChange, ...props }: Props) => {
+    if (native) {
+        return (
+            <Tooltip value={tooltip}>
+                <NativeSelect
+                    {...props}
+                    size={size === 'sm' ? 'sm' : 'default'}
+                    onChange={(event) => onValueChange?.(event.target.value)}
+                    className={'w-full [&_select]:bg-transparent! [&_select]:border-0!'}
+                >
+                    {label && (
+                        <NativeSelectOption value="" disabled>
+                            {label}
+                        </NativeSelectOption>
+                    )}
+                    {items.map((item) => (
+                        <NativeSelectOption
+                            key={item.value}
+                            value={String(item.value)}
+                        >
+                            {item.label}
+                        </NativeSelectOption>
+                    ))}
+                </NativeSelect>
+            </Tooltip>
+        );
+    }
+
     return (
-        <UISelect {...props}>
+        <UISelect {...props} onValueChange={onValueChange}>
             <Tooltip value={tooltip}>
                 <SelectTrigger
                     className={cn(
-                        '[&_.description]:hidden!',
+                        'w-full [&_.description]:hidden!',
                         button && buttonVariants({ variant: 'ghost', size }),
                         button && 'justify-between shadow-none',
+                        {
+                            'bg-transparent! border-0!': !button,
+                        },
                     )}
                 >
                     <SelectValue
-                        placeholder={label || 'Séléctionner une option'}
+                        placeholder={label || 'Sélectionner une option'}
                     />
                 </SelectTrigger>
             </Tooltip>
-            <SelectContent position={position} align={align}>
+            <UISelectContent position={position} align={align}>
                 <SelectGroup>
                     {label && <SelectLabel>{label}</SelectLabel>}
                     {items.map((item) => (
@@ -83,7 +123,45 @@ export default function Select({ label, items, button, tooltip, align = "center"
                         </Tooltip>
                     ))}
                 </SelectGroup>
-            </SelectContent>
+            </UISelectContent>
         </UISelect>
+    );
+}
+
+
+export default function Select({
+    label,
+    error,
+    description,
+    className,
+    icon: Icon,
+    optionsLabel,
+    ...props
+}: Omit<InputPropsType, 'button'> & Props & { optionsLabel?: string }) {
+    return (
+        <Field className={cn('gap-2', className)}>
+            {label && (
+                <FieldLabel htmlFor={props.name || props.id}>
+                    {label}
+                </FieldLabel>
+            )}
+
+            <InputGroup>
+                {Icon && !error && (
+                    <InputGroupAddon>
+                        <Icon className={'size-4'} />
+                    </InputGroupAddon>
+                )}
+                {error && (
+                    <Tooltip value={error} variant="destructive">
+                        <InputGroupAddon className="cursor-auto text-destructive">
+                            <TriangleAlertIcon className={'size-4'} />
+                        </InputGroupAddon>
+                    </Tooltip>
+                )}
+                <SelectContent label={optionsLabel} {...props} />
+            </InputGroup>
+            {description && <FieldDescription>{description}</FieldDescription>}
+        </Field>
     );
 }

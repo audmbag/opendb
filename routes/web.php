@@ -41,6 +41,7 @@ Route::middleware(['auth'])->group(function () {
     });
 
     Route::patch('/driver-config/{config}', [DriverConfigController::class, 'update']);
+    Route::get('/driver-config/{config}/cloning/client-payload', [DriverConfigController::class, 'cloningClientPayload']);
 
     Route::prefix('/{project}')->group(function () {
         Route::get('/', [ConversationController::class, 'home']);

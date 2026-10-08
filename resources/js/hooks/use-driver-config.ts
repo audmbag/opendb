@@ -6,15 +6,19 @@ import type { Driver, DriverConfig } from '@/types/databases';
 import  { DefaultDrivers } from '@/types/databases';
 import type { APIData } from '@/types/global';
 import DriverConfigController from '@/wayfinder/actions/App/Http/Controllers/API/DriverConfigController';
+import { CloningDriverConfig } from '@/components/cloning/cloning.types';
 
 
-export type TestResultProps = { success: boolean; message: string }
+export type ConnectionTestResult = { success: boolean; message: string, willCreateDatabase?: boolean };
 
-const purgeConfig = (driverConfig: DriverConfig): Omit<DriverConfig, "id"> => {
+const purgeConfig = (driverConfig: DriverConfig & Pick<CloningDriverConfig, 'from_id'>): Omit<DriverConfig, "id"> & {id?: number, from_id?: number} => {
     if (driverConfig.driver_id === DefaultDrivers.SQLITE) {
         return {
             database: driverConfig.database,
             driver_id: driverConfig.driver_id,
+            create_database_if_not_exists: driverConfig.create_database_if_not_exists,
+            id: driverConfig.id,
+            from_id: driverConfig.from_id
         };
     }
 
@@ -26,6 +30,9 @@ const purgeConfig = (driverConfig: DriverConfig): Omit<DriverConfig, "id"> => {
         password: driverConfig.password,
         database: driverConfig.database,
         ssh: driverConfig.ssh,
+        create_database_if_not_exists: driverConfig.create_database_if_not_exists,
+        id: driverConfig.id,
+        from_id: driverConfig.from_id
     };
 };
 
@@ -64,10 +71,14 @@ const useDriverConfig = () => {
 
 const useDriverConfigTestConnection = () => {
 
-    const { post, errors, processing, resetAndClearErrors, optimistic } = useHttp<Omit<DriverConfig, "id">, TestResultProps>();
+    const { post, errors, processing, resetAndClearErrors, optimistic } = useHttp<Omit<DriverConfig, "id">, ConnectionTestResult>();
 
-    const testConnection = useCallback(async (driverConfig: DriverConfig, successCallback?: (result: TestResultProps) => void, errorCallback?: () => void) => {
-
+    const testConnection = useCallback(
+        async (
+            driverConfig: DriverConfig & Pick<CloningDriverConfig, 'from_id'>,
+            successCallback?: (result: ConnectionTestResult) => void,
+            errorCallback?: () => void,
+        ) => {
             resetAndClearErrors();
 
             optimistic(() => purgeConfig(driverConfig));
@@ -84,6 +95,7 @@ const useDriverConfigTestConnection = () => {
 
                     errorCallback?.();
                 },
+                onHttpException: () => errorCallback?.(),
             });
         },
         [optimistic, resetAndClearErrors],

@@ -1,5 +1,6 @@
-import { BrainCircuitIcon, CheckCircle2Icon, ChevronLeftIcon, ChevronRightIcon, CopyIcon, DatabaseIcon, HatGlassesIcon } from 'lucide-react';
+import { BrainCircuitIcon, CheckCircle2Icon, ChevronLeftIcon, ChevronRightIcon, DatabaseIcon, HatGlassesIcon } from 'lucide-react';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
+import TablesAnonymisation from '@/components/cloning/tables-anonymisation';
 import { DatabaseStatusBar } from '@/components/database-status-bar';
 import Button from '@/components/form/button';
 import type { WizardStep } from '@/components/form/wizard';
@@ -10,7 +11,7 @@ import TablesSelector from '@/components/project/tables-selector';
 import { useSaveProject } from '@/hooks/use-project';
 import { useProjectModal } from '@/hooks/use-project-modal';
 import type { DriverConfig } from '@/types/databases';
-import TablesAnonymisation from '@/components/cloning/tables-anonymisation';
+import { useTempProjectStore } from '@/store/use-project-store';
 
 const FAKE_DRIVER_CONFIG = {
     id: 28,
@@ -26,9 +27,6 @@ const FAKE_DRIVER_CONFIG = {
     driver: {
         id: 'mysql',
         name: 'MySQL',
-        default_host: 'localhost',
-        default_port: 3306,
-        default_username: 'root',
         icon: 'https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/mysql/mysql-original.svg',
     },
 } as DriverConfig;
@@ -38,19 +36,27 @@ const FAKE_DRIVER_CONFIG = {
 const CloningConnectionForm = () => {
 
     const { setCloningOpen, setOpen } = useProjectModal();
-    const [currentStep, setCurrentStep] = useState(2);
+    const [currentStep, setCurrentStep] = useState(1);
 
     const driverConfigRef = useRef<DriverConfigFormProps>(null);
     const { tablesSelectorRef } = useSaveProject();
     const [processing, setProcessing] = useState(false);
 
+    const setCloningDriverConfig = useTempProjectStore((state) => state.setCloningDriverConfig);
+
     const handleNextStep = useCallback(async () => {
         if (currentStep === 1 && driverConfigRef.current) {
-            driverConfigRef.current.submit();
-        }
-    }, [currentStep]);
+            const response = await driverConfigRef.current.testConnection();
 
-    const steps = useMemo<WizardStep[]>(() => [
+            if(response && response.success) {
+                setCloningDriverConfig(driverConfigRef.current.getCloningData());
+                setCurrentStep((c) => c + 1);
+            }
+        }
+    }, [currentStep, setCloningDriverConfig]);
+
+    const steps = useMemo<WizardStep[]>(
+        () => [
             {
                 id: 'database',
                 header: {
@@ -58,7 +64,16 @@ const CloningConnectionForm = () => {
                     description: 'Informations de la base de données cible',
                     icon: DatabaseIcon,
                 },
-                content: <DriverConfigForm ref={driverConfigRef} sshEnabled={false} />,
+                content: (
+                    <DriverConfigForm
+                        ref={driverConfigRef}
+                        sshEnabled={false}
+                        createDatabaseIfNotExists={true}
+                        onStart={() => setProcessing(true)}
+                        onFinish={() => setProcessing(false)}
+                        cloning
+                    />
+                ),
             },
             {
                 id: 'anonymisation',
@@ -67,7 +82,7 @@ const CloningConnectionForm = () => {
                     description: 'Anonymisation des colonnes de chaque table.',
                     icon: HatGlassesIcon,
                 },
-                content: <TablesAnonymisation />
+                content: <TablesAnonymisation />,
             },
             {
                 id: 'tables',
@@ -101,7 +116,7 @@ const CloningConnectionForm = () => {
                         disabled={processing}
                         onClick={() => {
                             setCloningOpen(false);
-                            setOpen(true);
+                            setOpen(true, 2);
                         }}
                         tooltip="Annuler le clonage et garder la connexion existante"
                     >

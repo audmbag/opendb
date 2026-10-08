@@ -3,7 +3,8 @@
 namespace App\Database\Drivers;
 
 use App\Database\Contracts\DriverContract;
-use Illuminate\Support\Collection;
+use App\Database\Exceptions\DatabaseCheckException;
+use Illuminate\Support\Facades\File;
 
 class SQLiteDriver extends BaseDriver implements DriverContract
 {
@@ -12,6 +13,36 @@ class SQLiteDriver extends BaseDriver implements DriverContract
         $config = $this->getConfig();
 
         return "sqlite://{$config['database']}";
+    }
+
+    /**
+     * Pas de serveur avec SQLite : la base peut être créée si le dossier parent est accessible en écriture.
+     */
+    protected function checkDatabaseAvailability(): void
+    {
+        $path = $this->databaseName();
+
+        $this->database_missing = $path !== ':memory:' && ! is_file($path);
+
+        if (! $this->database_missing) {
+            $this->connect();
+            $this->getConnection()->getPdo();
+
+            return;
+        }
+
+        $directory = dirname($path);
+
+        if (! is_dir($directory) || ! is_writable($directory)) {
+            throw DatabaseCheckException::cannotCreate($path, "le dossier [{$directory}] n'est pas accessible en écriture");
+        }
+    }
+
+    protected function performCreateDatabase(): void
+    {
+        if (File::put($this->databaseName(), '') === false) {
+            throw DatabaseCheckException::creationFailed($this->databaseName());
+        }
     }
 
     public function describeDatabase(): array

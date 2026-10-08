@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Cloning;
+namespace App\Services\Cloning\Pii;
 
 final class PiiMatcherDefinition
 {

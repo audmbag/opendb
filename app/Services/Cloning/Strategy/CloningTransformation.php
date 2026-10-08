@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Cloning;
+namespace App\Services\Cloning\Strategy;
 
 final readonly class CloningTransformation
 {
@@ -43,7 +43,7 @@ final readonly class CloningTransformation
         }
 
         return new self(
-            strategy: $data['strategy'],
+            strategy: $data['strategy'] ?? 'null',
             fakerMethod: $data['faker_method'] ?? null,
             fakerArguments: $data['faker_arguments'] ?? [],
             value: $data['value'] ?? null,

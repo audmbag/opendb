@@ -37,7 +37,7 @@
 - Use all Inertia features from v1, v2, and v3. Check the documentation before making changes to ensure the correct approach.
 - New v3 features: standalone HTTP requests (`useHttp` hook), optimistic updates with automatic rollback, layout props (`useLayoutProps` hook), instant visits, simplified SSR via `@inertiajs/vite` plugin, custom exception handling for error pages.
 - Carried over from v2: deferred props, infinite scroll, merging props, polling, prefetching, once props, flash data.
-- When using deferred props, add an empty state with a pulsing or animated skeleton.
+- When using deferred props, add an empty success with a pulsing or animated skeleton.
 - Axios has been removed. Use the built-in XHR client with interceptors, or install Axios separately if needed.
 - `Inertia::lazy()` / `LazyProp` has been removed. Use `Inertia::optional()` instead.
 - Prop types (`Inertia::optional()`, `Inertia::defer()`, `Inertia::merge()`) work inside nested arrays with dot-notation paths.

@@ -2,10 +2,11 @@ Sujet : 1. Conception et implémentation d'un agent IA conversationnel privacy-f
 
 Features :
 1. create-project-form
-- [ ] Clone Database
+- [x] Clone Database
 - [ ] Load databases to select
 - [ ] In memory sqlite connexion
 - [ ] Add start prompt input when creating a new project(Qui sert à demander à l'utilisateur de fournir un prompt détaillé(avec ou pas d'image de chema de la base de données) pour que l'agent puisse créer une BDD et les tables à partir des données de connexion)
+- [ ] Add create_database_if_not_exists option to create a new database if it does not exist on cloning
 
 2. Prompt input
 - [ ] Add file mention to prompt input by typing @

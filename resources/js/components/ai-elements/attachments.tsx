@@ -404,7 +404,7 @@ export const AttachmentHoverCardContent = ({
 );
 
 // ============================================================================
-// AttachmentEmpty - Empty state
+// AttachmentEmpty - Empty success
 // ============================================================================
 
 export type AttachmentEmptyProps = HTMLAttributes<HTMLDivElement>;

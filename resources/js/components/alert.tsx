@@ -4,6 +4,8 @@ import {
     TriangleAlertIcon,
 } from 'lucide-react';
 import React, { useMemo } from 'react';
+import type { ButtonProps } from '@/components/form/button';
+import Button from '@/components/form/button';
 import {
     Alert as UiAlert,
     AlertAction,
@@ -11,7 +13,6 @@ import {
     AlertTitle,
 } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
-import Button, { ButtonProps } from '@/components/form/button';
 
 type Props = {
     variant?: 'default' | 'destructive' | 'success' | 'warning';

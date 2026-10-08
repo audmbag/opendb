@@ -1,0 +1,576 @@
+# yaml-language-server: $schema=https://schema.clonio.dev/pii-matchers/v1.json
+version: '1'
+groups:
+  government_ids:
+    name: 'Government-Issued Identifiers'
+    matchers:
+      national_id:
+        name: 'National ID / SSN'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(ssn|social[-_]?security([-_]?(number|no|num))?|national[-_]?id([-_]?(number|no|num))?|personal[-_]?id([-_]?(number|no|num))?|nir|numero[-_]?secu)$/i']
+        transformation: { strategy: fake, faker_method: numerify, faker_arguments: ['###-##-####'] }
+      passport_number:
+        name: 'Passport Number'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(passport([-_]?(number|no|num))?)$/i']
+        transformation: { strategy: fake, faker_method: regexify, faker_arguments: ['[A-Z][0-9]{8}'] }
+      drivers_license:
+        name: "Driver's License"
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^((drivers?|driving)[-_]?licen[sc]e([-_]?(number|no|num))?|dl[-_]?number)$/i']
+        transformation: { strategy: fake, faker_method: bothify, faker_arguments: ['DL-#########'] }
+      tax_id:
+        name: 'Tax ID / VAT Number'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(tax[-_]?id([-_]?(number|no|num))?|tax[-_]?number|tin|vat[-_]?number|vat[-_]?id|fiscal[-_]?id)$/i']
+        transformation: { strategy: fake, faker_method: numerify, faker_arguments: ['##-#######'] }
+      voter_id:
+        name: 'Voter ID / Electoral Registration Number'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(voter[-_]?id|voter[-_]?number|electoral[-_]?id|electoral[-_]?roll[-_]?number)$/i']
+        transformation: { strategy: fake, faker_method: bothify, faker_arguments: ['VOT-#######'] }
+      immigration_document:
+        name: 'Visa / Immigration / Residence Permit Number'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(visa[-_]?number|immigration[-_]?number|residence[-_]?permit|green[-_]?card[-_]?number|work[-_]?permit[-_]?number)$/i']
+        transformation: { strategy: fake, faker_method: bothify, faker_arguments: ['IMM-########'] }
+  personal_identity:
+    name: 'Personal Identity'
+    matchers:
+      first_name:
+        name: 'First Name'
+        sensitivity: high
+        enabled: true
+        patterns: ['/^(first[-_]?name|f[-_]?name|forename|given[-_]?names?|vorname|prenom)$/i']
+        transformation: { strategy: fake, faker_method: firstName, faker_arguments: {} }
+      last_name:
+        name: 'Last Name'
+        sensitivity: high
+        enabled: true
+        patterns: ['/^(last[-_]?name|l[-_]?name|sur[-_]?name|family[-_]?name|nachname|nom|nom[-_]?(de[-_]?)?famille)$/i']
+        transformation: { strategy: fake, faker_method: lastName, faker_arguments: {} }
+      full_name:
+        name: 'Person Name'
+        sensitivity: high
+        enabled: true
+        patterns: ['/^(full[-_]?name|display[-_]?name|name|nick[-_]?name)$/i']
+        transformation: { strategy: fake, faker_method: name, faker_arguments: {} }
+      date_of_birth:
+        name: 'Date of Birth'
+        sensitivity: high
+        enabled: true
+        patterns: ['/^(birth[-_]?(date|day)|date[-_]?of[-_]?birth|dob|geburtsdatum|date[-_]?(de[-_]?)?naissance)$/i']
+        transformation: { strategy: fake, faker_method: date, faker_arguments: [Y-m-d, '-18 years'] }
+      gender:
+        name: Gender
+        sensitivity: medium
+        enabled: true
+        patterns: ['/^(gender|sex|sexe|geschlecht|civilite)$/i']
+        transformation: { strategy: '"null"' }
+      place_of_birth:
+        name: 'Place of Birth'
+        sensitivity: medium
+        enabled: true
+        patterns: ['/^(birth[-_]?place|place[-_]?of[-_]?birth|birth[-_]?city|hometown|lieu[-_]?(de[-_]?)?naissance)$/i']
+        transformation: { strategy: fake, faker_method: city, faker_arguments: {} }
+      nationality:
+        name: 'Nationality / Citizenship'
+        sensitivity: medium
+        enabled: true
+        patterns: ['/^(nationality|nationalite|citizenship|national[-_]?origin|staatsangehoerigkeit)$/i']
+        transformation: { strategy: fake, faker_method: countryCode, faker_arguments: {} }
+      race_ethnicity:
+        name: 'Race / Ethnicity'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(race|ethnicity|ethnic[-_]?group|ethnic[-_]?origin)$/i']
+        transformation: { strategy: '"null"' }
+      religion:
+        name: 'Religion / Faith'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(religion|faith|religious[-_]?affiliation|creed)$/i']
+        transformation: { strategy: '"null"' }
+      middle_name:
+        name: 'Middle Name'
+        sensitivity: high
+        enabled: true
+        patterns: ['/^(middle[-_]?name|second[-_]?name)$/i']
+        transformation: { strategy: fake, faker_method: firstName, faker_arguments: {} }
+      maiden_name:
+        name: 'Maiden Name'
+        sensitivity: high
+        enabled: true
+        patterns: ['/^(maiden[-_]?name|birth[-_]?name|mothers?[-_]?maiden[-_]?name)$/i']
+        transformation: { strategy: fake, faker_method: lastName, faker_arguments: {} }
+      marital_status:
+        name: 'Marital Status'
+        sensitivity: medium
+        enabled: true
+        patterns: ['/^(marital[-_]?status|civil[-_]?status|relationship[-_]?status)$/i']
+        transformation: { strategy: '"null"' }
+      age:
+        name: Age
+        sensitivity: medium
+        enabled: true
+        patterns: [/^age$/i]
+        transformation: { strategy: fake, faker_method: numberBetween, faker_arguments: [18, 90] }
+      sexual_orientation:
+        name: 'Sexual Orientation'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(sexual[-_]?orientation|sexuality)$/i']
+        transformation: { strategy: '"null"' }
+      political_opinion:
+        name: 'Political Opinion / Affiliation'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(political[-_]?(opinion|affiliation|party|views?))$/i']
+        transformation: { strategy: '"null"' }
+      union_membership:
+        name: 'Trade Union Membership'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^((trade[-_]?)?union[-_]?(membership|member|name)|trade[-_]?union)$/i']
+        transformation: { strategy: '"null"' }
+      profile_photo:
+        name: 'Profile Photo / Avatar'
+        sensitivity: medium
+        enabled: true
+        patterns: ['/^(avatar([-_]?(url|path))?|profile[-_]?(photo|picture|image|pic)([-_]?(url|path))?)$/i']
+        transformation: { strategy: '"null"' }
+  contact:
+    name: 'Contact Information'
+    matchers:
+      email_address:
+        name: 'Email Address'
+        sensitivity: high
+        enabled: true
+        patterns: ['/^(e[-_]?mail[-_]?\d?|mail|courriel|email[-_]?addr(ess)?|user[-_]?email|contact[-_]?email)$/i', reply_to, '*_email']
+        transformation: { strategy: fake, faker_method: regexify, faker_arguments: ['[a-z]{12}@example\.org'] }
+      phone_number:
+        name: 'Phone Number'
+        sensitivity: high
+        enabled: true
+        patterns: ['/^(phone|tel(ephone)?|mobile|cell|fax|portable|msisdn)([-_]?(number|no|num))?$/i', '/^(home|work|office|mobile|cell|business|primary|secondary|contact|customer|user)[-_]?(phone|tel(ephone)?)([-_]?(number|no|num))?$/i']
+        transformation: { strategy: fake, faker_method: e164PhoneNumber, faker_arguments: {} }
+      username:
+        name: 'Username / Login'
+        sensitivity: medium
+        enabled: true
+        patterns: ['/^(username|user[-_]?name|login|benutzername|handle)$/i']
+        transformation: { strategy: fake, faker_method: regexify, faker_arguments: ['[a-z]{8}[0-9]{4}'] }
+      whatsapp_number:
+        name: 'WhatsApp Number'
+        sensitivity: high
+        enabled: true
+        patterns: ['/^(whatsapp|whatsapp[-_]?number)$/i']
+        transformation: { strategy: fake, faker_method: e164PhoneNumber, faker_arguments: {} }
+  location:
+    name: Location
+    matchers:
+      street_address:
+        name: 'Street Address'
+        sensitivity: high
+        enabled: true
+        patterns: ['/^(address|adresse|street|rue|street[-_]?(address|name)|addr(ess)?[-_]?(line[-_]?)?\d?)$/i']
+        transformation: { strategy: fake, faker_method: streetAddress, faker_arguments: {} }
+      city:
+        name: City
+        sensitivity: low
+        enabled: true
+        patterns: ['/^(city|town|ort|stadt|ville|commune|locality)$/i']
+        transformation: { strategy: fake, faker_method: city, faker_arguments: {} }
+      postal_code:
+        name: 'Postal Code'
+        sensitivity: medium
+        enabled: true
+        patterns: ['/^(zip|zip[-_]?code|postal[-_]?code|post[-_]?code|code[-_]?postal|plz)$/i']
+        transformation: { strategy: fake, faker_method: postcode, faker_arguments: {} }
+      country:
+        name: Country
+        sensitivity: low
+        enabled: true
+        patterns: ['/^(country|land|country[-_]?code|pays)$/i']
+        transformation: { strategy: fake, faker_method: countryCode, faker_arguments: {} }
+      latitude:
+        name: Latitude
+        sensitivity: medium
+        enabled: true
+        patterns: ['/^(lat|latitude|geo[-_]?lat)$/i']
+        transformation: { strategy: fake, faker_method: latitude, faker_arguments: {} }
+      longitude:
+        name: Longitude
+        sensitivity: medium
+        enabled: true
+        patterns: ['/^(lon|lng|longitude|geo[-_]?lon|geo[-_]?lng)$/i']
+        transformation: { strategy: fake, faker_method: longitude, faker_arguments: {} }
+      building_number:
+        name: 'Building / Apartment Number'
+        sensitivity: low
+        enabled: true
+        patterns: ['/^(building[-_]?number|house[-_]?number|flat|apartment[-_]?number|unit[-_]?number)$/i']
+        transformation: { strategy: fake, faker_method: buildingNumber, faker_arguments: {} }
+      state_province:
+        name: 'State / Province / Region'
+        sensitivity: low
+        enabled: true
+        patterns: ['/^(province|bundesland|state[-_]?(name|province)|(billing|shipping|address|home|mailing)[-_]?(state|province|region))$/i']
+        transformation: { strategy: fake, faker_method: city, faker_arguments: {} }
+      state_abbreviation:
+        name: 'State / Province Abbreviation'
+        sensitivity: low
+        enabled: true
+        patterns: ['/^((state|province)[-_]?(abbr(eviation)?|code))$/i']
+        transformation: { strategy: fake, faker_method: regexify, faker_arguments: ['[A-Z]{2}'] }
+      shipping_billing_address:
+        name: 'Billing / Shipping / Home Address'
+        sensitivity: high
+        enabled: true
+        patterns: ['/^((billing|shipping|delivery|mailing|invoice|home|postal|residential)[-_]?address)$/i']
+        transformation: { strategy: fake, faker_method: address, faker_arguments: {} }
+  financial:
+    name: 'Financial Data'
+    matchers:
+      credit_card:
+        name: 'Credit Card Number'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(credit[-_]?card([-_]?(number|no|num))?|card[-_]?(number|no|num)|cc[-_]?(number|no|num)|payment[-_]?card|pan)$/i']
+        transformation: { strategy: fake, faker_method: creditCardNumber, faker_arguments: {} }
+      card_holder_name:
+        name: 'Card Holder Name'
+        sensitivity: high
+        enabled: true
+        patterns: ['/^(card[-_]?holder([-_]?name)?|name[-_]?on[-_]?card)$/i']
+        transformation: { strategy: fake, faker_method: name, faker_arguments: {} }
+      iban:
+        name: 'IBAN / Bank Account'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(iban|bank[-_]?account|kontonummer)$/i']
+        transformation: { strategy: fake, faker_method: iban, faker_arguments: {} }
+      bank_routing_number:
+        name: 'Bank Routing Number'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(routing[-_]?number|aba[-_]?number|bank[-_]?code)$/i']
+        transformation: { strategy: fake, faker_method: numerify, faker_arguments: ['#########'] }
+      sort_code:
+        name: 'Bank Sort Code'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(sort[-_]?code)$/i']
+        transformation: { strategy: fake, faker_method: numerify, faker_arguments: ['######'] }
+      swift_bic:
+        name: 'SWIFT / BIC Code'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(bic|bic[-_]?code|swift|swift[-_]?(code|bic))$/i']
+        transformation: { strategy: fake, faker_method: swiftBicNumber, faker_arguments: {} }
+      crypto_wallet:
+        name: 'Crypto Wallet Address'
+        sensitivity: high
+        enabled: true
+        patterns: ['/^(wallet[-_]?address|crypto[-_]?wallet|bitcoin[-_]?address|eth[-_]?address|blockchain[-_]?address)$/i']
+        transformation: { strategy: fake, faker_method: regexify, faker_arguments: ['0x[a-f0-9]{40}'] }
+      salary:
+        name: 'Salary / Wage'
+        sensitivity: high
+        enabled: true
+        patterns: ['/^(salary|salaire|wage|income|compensation|annual[-_]?pay)$/i']
+        transformation: { strategy: fake, faker_method: numberBetween, faker_arguments: [20000, 150000] }
+      cvv_security_code:
+        name: 'CVV / Card Security Code'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(cvv|cvc|cvv2|card[-_]?(cvv|cvc)|card[-_]?security[-_]?code|security[-_]?code)$/i']
+        transformation: { strategy: fake, faker_method: numerify, faker_arguments: ['###'] }
+      card_expiry:
+        name: 'Card Expiration Date'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^((card|cc)[-_]?exp(ir(y|ation))?([-_]?date)?)$/i']
+        transformation: { strategy: fake, faker_method: date, faker_arguments: [Y-m-d, '+5 years'] }
+      card_expiry_month:
+        name: 'Card Expiration Month'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(((card|cc)[-_]?)?exp(ir(y|ation))?[-_]?month)$/i']
+        transformation: { strategy: fake, faker_method: numberBetween, faker_arguments: [1, 12] }
+      card_expiry_year:
+        name: 'Card Expiration Year'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(((card|cc)[-_]?)?exp(ir(y|ation))?[-_]?year)$/i']
+        transformation: { strategy: fake, faker_method: numberBetween, faker_arguments: [2027, 2032] }
+      bank_account_number:
+        name: 'Bank Account Number'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(account[-_]?number|bank[-_]?account[-_]?number|acct[-_]?no)$/i']
+        transformation: { strategy: fake, faker_method: numerify, faker_arguments: ['##########'] }
+      credit_score:
+        name: 'Credit Score'
+        sensitivity: high
+        enabled: true
+        patterns: ['/^(credit[-_]?score|fico[-_]?score|credit[-_]?rating)$/i']
+        transformation: { strategy: fake, faker_method: numberBetween, faker_arguments: [300, 850] }
+      payment_provider_id:
+        name: 'Payment Provider Customer ID'
+        sensitivity: medium
+        enabled: true
+        patterns: ['/^((stripe|paypal|braintree|paddle)[-_]?(id|customer[-_]?id|payer[-_]?id))$/i']
+        transformation: { strategy: '"null"' }
+  medical:
+    name: 'Medical & Health'
+    matchers:
+      medical_record_id:
+        name: 'Medical Record Number'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(medical[-_]?record|mrn|medical[-_]?record[-_]?number|chart[-_]?number)$/i']
+        transformation: { strategy: fake, faker_method: bothify, faker_arguments: ['MRN-######'] }
+      health_insurance_id:
+        name: 'Health Insurance ID'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(insurance[-_]?id|insurance[-_]?number|policy[-_]?number)$/i']
+        transformation: { strategy: fake, faker_method: bothify, faker_arguments: ['INS-#########'] }
+      patient_id:
+        name: 'Patient ID'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(patient[-_]?id|patient[-_]?number|patient[-_]?reference)$/i']
+        transformation: { strategy: fake, faker_method: numerify, faker_arguments: ['######'] }
+      diagnosis:
+        name: 'Diagnosis / Medical Condition'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(diagnosis|diagnose|icd[-_]?code|medical[-_]?condition|symptom)$/i']
+        transformation: { strategy: '"null"' }
+      blood_type:
+        name: 'Blood Type'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(blood[-_]?type|blood[-_]?group|blutgruppe)$/i']
+        transformation: { strategy: '"null"' }
+      allergies:
+        name: 'Allergies'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(allergy|allergies|allergic[-_]?reactions?)$/i']
+        transformation: { strategy: '"null"' }
+      medication:
+        name: 'Medication / Prescription'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(medication|prescription|current[-_]?medication|drug[-_]?name)$/i']
+        transformation: { strategy: '"null"' }
+      disability_status:
+        name: 'Disability Status'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(disability|disability[-_]?status|handicap)$/i']
+        transformation: { strategy: '"null"' }
+  biometric:
+    name: 'Biometric Data'
+    matchers:
+      biometric_data:
+        name: 'Biometric Identifier'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(fingerprint|face[-_]?(id|encoding|hash|vector)|voice[-_]?print|biometric|retina[-_]?scan)$/i']
+        transformation: { strategy: '"null"' }
+      dna_profile:
+        name: 'DNA / Genetic Data'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(dna|dna[-_]?profile|genetic[-_]?data|genome)$/i']
+        transformation: { strategy: '"null"' }
+  professional:
+    name: 'Professional & Employment'
+    matchers:
+      company_name:
+        name: 'Company Name'
+        sensitivity: low
+        enabled: true
+        patterns: ['/^(company|company[-_]?name|employer|organization|organisation|org[-_]?name|firma|societe|entreprise)$/i']
+        transformation: { strategy: fake, faker_method: company, faker_arguments: {} }
+      job_title:
+        name: 'Job Title'
+        sensitivity: low
+        enabled: true
+        patterns: ['/^(job[-_]?(title|position)|occupation|profession|poste|beruf|fonction)$/i']
+        transformation: { strategy: fake, faker_method: jobTitle, faker_arguments: {} }
+      manager_name:
+        name: 'Manager / Supervisor Name'
+        sensitivity: low
+        enabled: true
+        patterns: ['/^(manager[-_]?name|supervisor[-_]?name|reports?[-_]?to[-_]?name)$/i']
+        transformation: { strategy: fake, faker_method: name, faker_arguments: {} }
+      siren_number:
+        name: 'SIREN Number (France)'
+        sensitivity: low
+        enabled: true
+        patterns: ['/^(siren|numero[-_]?siren|siren[-_]?number)$/i']
+        transformation: { strategy: fake, faker_method: numerify, faker_arguments: ['#########'] }
+      siret_number:
+        name: 'SIRET Number (France)'
+        sensitivity: low
+        enabled: true
+        patterns: ['/^(siret|numero[-_]?siret|siret[-_]?number)$/i']
+        transformation: { strategy: fake, faker_method: numerify, faker_arguments: ['##############'] }
+  digital_identity:
+    name: 'Digital Identity'
+    matchers:
+      ip_address:
+        name: 'IP Address'
+        sensitivity: medium
+        enabled: true
+        patterns: ['/^(ip|ip[-_]?addr(ess)?|client[-_]?ip|remote[-_]?ip|user[-_]?ip)$/i', '*_ip', '*_ip_address']
+        transformation: { strategy: fake, faker_method: ipv4, faker_arguments: {} }
+      device_id:
+        name: 'Device ID / UDID'
+        sensitivity: medium
+        enabled: true
+        patterns: ['/^(device[-_]?id|device[-_]?identifier|udid|device[-_]?token)$/i']
+        transformation: { strategy: fake, faker_method: uuid, faker_arguments: {} }
+      imei:
+        name: 'IMEI'
+        sensitivity: medium
+        enabled: true
+        patterns: ['/^(imei([-_]?(number|no))?)$/i']
+        transformation: { strategy: fake, faker_method: numerify, faker_arguments: ['###############'] }
+      session_id:
+        name: 'Session ID'
+        sensitivity: high
+        enabled: true
+        patterns: ['/^(session[-_]?id|session[-_]?token|session[-_]?key)$/i']
+        transformation: { strategy: '"null"' }
+      mac_address:
+        name: 'MAC Address'
+        sensitivity: medium
+        enabled: true
+        patterns: ['/^(mac[-_]?address|mac[-_]?addr|hardware[-_]?address)$/i']
+        transformation: { strategy: fake, faker_method: macAddress, faker_arguments: {} }
+      user_agent:
+        name: 'User Agent'
+        sensitivity: low
+        enabled: true
+        patterns: ['/^((http[-_]?)?user[-_]?agent)$/i']
+        transformation: { strategy: fake, faker_method: userAgent, faker_arguments: {} }
+      advertising_id:
+        name: 'Advertising ID (IDFA / GAID)'
+        sensitivity: medium
+        enabled: true
+        patterns: ['/^(advertising[-_]?id|idfa|gaid)$/i']
+        transformation: { strategy: fake, faker_method: uuid, faker_arguments: {} }
+      cookie_id:
+        name: 'Cookie ID'
+        sensitivity: medium
+        enabled: true
+        patterns: ['/^(cookie[-_]?id)$/i']
+        transformation: { strategy: fake, faker_method: uuid, faker_arguments: {} }
+  authentication:
+    name: 'Authentication & Secrets'
+    matchers:
+      password:
+        name: 'Password'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(password|passwd|pwd|passwort|mot[-_]?de[-_]?passe|mdp|(hashed|encrypted)[-_]?password|password[-_]?(hash|digest))$/i']
+        transformation: { strategy: static, value: '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi' }
+      oauth_token:
+        name: 'OAuth / Access Token'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(oauth[-_]?token|access[-_]?token|refresh[-_]?token|bearer[-_]?token|auth[-_]?token)$/i']
+        transformation: { strategy: fake, faker_method: regexify, faker_arguments: ['[a-f0-9]{32}'] }
+      api_token:
+        name: 'API Token / Key'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(api[-_]?(key|token|secret)|client[-_]?secret|remember[-_]?token|personal[-_]?access[-_]?token)$/i']
+        transformation: { strategy: fake, faker_method: regexify, faker_arguments: ['[a-f0-9]{32}'] }
+      private_key:
+        name: 'Private / Encryption Key / Secret'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(private[-_]?key|secret[-_]?key|signing[-_]?key|encryption[-_]?key|secret)$/i']
+        transformation: { strategy: static, value: REDACTED }
+      pin_code:
+        name: 'PIN Code'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(pin|pin[-_]?code|pin[-_]?number)$/i']
+        transformation: { strategy: fake, faker_method: numerify, faker_arguments: ['####'] }
+      two_factor_secret:
+        name: 'Two-Factor / TOTP Secret / Recovery Codes'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^((totp|otp|two[-_]?factor|2fa|mfa)[-_]?secret|(two[-_]?factor[-_]?)?recovery[-_]?codes|backup[-_]?codes)$/i']
+        transformation: { strategy: static, value: REDACTED }
+      security_answer:
+        name: 'Security Question Answer'
+        sensitivity: critical
+        enabled: true
+        patterns: ['/^(security[-_]?answer|secret[-_]?answer|security[-_]?question[-_]?answer)$/i']
+        transformation: { strategy: static, value: REDACTED }
+  relationships:
+    name: 'Relationships & Emergency Contacts'
+    matchers:
+      emergency_contact_name:
+        name: 'Emergency Contact Name'
+        sensitivity: high
+        enabled: true
+        patterns: ['/^(emergency[-_]?contact[-_]?name|emergency[-_]?contact)$/i']
+        transformation: { strategy: fake, faker_method: name, faker_arguments: {} }
+      emergency_contact_phone:
+        name: 'Emergency Contact Phone'
+        sensitivity: high
+        enabled: true
+        patterns: ['/^(emergency[-_]?contact[-_]?phone|emergency[-_]?phone)$/i']
+        transformation: { strategy: fake, faker_method: e164PhoneNumber, faker_arguments: {} }
+      next_of_kin:
+        name: 'Next of Kin / Spouse Name'
+        sensitivity: high
+        enabled: true
+        patterns: ['/^(next[-_]?of[-_]?kin|spouse[-_]?name|spouse[-_]?full[-_]?name)$/i']
+        transformation: { strategy: fake, faker_method: name, faker_arguments: {} }
+  social_media:
+    name: 'Social Media'
+    matchers:
+      social_handle:
+        name: 'Social Media Handle'
+        sensitivity: medium
+        enabled: true
+        patterns: ['/^((twitter|instagram|telegram|tiktok|github|linkedin|facebook|snapchat|mastodon)([-_]?(handle|username))?|skype([-_]?id)?|discord([-_]?(tag|handle|username))?|social[-_]?handle)$/i']
+        transformation: { strategy: fake, faker_method: userName, faker_arguments: {} }
+      social_profile_url:
+        name: 'Social Profile URL / Website'
+        sensitivity: medium
+        enabled: true
+        patterns: ['/^((linkedin|facebook|twitter|github|instagram|social[-_]?profile|profile)[-_]?url|website|web[-_]?site|homepage)$/i']
+        transformation: { strategy: fake, faker_method: url, faker_arguments: {} }
+  vehicle:
+    name: 'Vehicle Information'
+    matchers:
+      license_plate:
+        name: 'License Plate'
+        sensitivity: high
+        enabled: true
+        patterns: ['/^(license[-_]?plate|plate[-_]?number|registration[-_]?plate|vehicle[-_]?plate|immatriculation|plaque[-_]?immatriculation)$/i']
+        transformation: { strategy: fake, faker_method: regexify, faker_arguments: ['[A-Z]{3}-[0-9]{4}'] }
+      vin_number:
+        name: 'Vehicle Identification Number (VIN)'
+        sensitivity: high
+        enabled: true
+        patterns: ['/^(vin|vin[-_]?number|vehicle[-_]?identification[-_]?number)$/i']
+        transformation: { strategy: fake, faker_method: regexify, faker_arguments: ['[A-HJ-NPR-Z0-9]{17}'] }

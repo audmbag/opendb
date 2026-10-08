@@ -93,7 +93,7 @@ class ConversationRepository
                     $parts[] = [
                         'type' => 'tool-'.$call['name'],
                         'toolCallId' => $call['id'],
-                        'state' => 'approval-requested',
+                        'success' => 'approval-requested',
                         'input' => $call['arguments'] ?? [],
                         'approval' => [
                             'id' => $call['id'],
@@ -109,7 +109,7 @@ class ConversationRepository
                 $parts[] = [
                     'type' => 'tool-'.$call['name'],
                     'toolCallId' => $call['id'],
-                    'state' => $result ? 'output-available' : 'input-available',
+                    'success' => $result ? 'output-available' : 'input-available',
                     'input' => $call['arguments'] ?? [],
                     'output' => $result['output'] ?? $result['result'] ?? null,
                     'errorText' => $result['error'] ?? null,

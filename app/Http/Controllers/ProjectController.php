@@ -29,14 +29,18 @@ class ProjectController extends Controller
         $driver = BaseDriver::for($data);
 
         try {
-            $driver->testConnection();
+            if ($driver->shouldCreateDatabase()) {
+                $driver->createDatabaseIfNotExists();
+            } else {
+                $driver->testConnection();
+            }
         } catch (Exception $e) {
             throw ValidationException::withMessages(['connectionFailed' => $e->getMessage()]);
         }
 
         return response()->json([
             'driverConfig' => $projectRepository
-                ->storeDriverConfig($project, $data)
+                ->storeDriverConfig($project, $request->driverData())
                 ->setAppends(['tables_info'])
                 ->setHidden(['disabled_tables']),
         ]);

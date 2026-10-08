@@ -16,13 +16,13 @@ class LogAgentActivity
 
     public function handle(AgentPrompt $prompt, Closure $next)
     {
-        Log::channel('opendb')->info('Prompt agent', [
+        Log::channel('agent-logs')->info('Prompt agent', [
             'mode' => $this->accessMode->value,
             'prompt' => $prompt->prompt,
         ]);
 
         return $next($prompt)->then(function (AgentResponse $response) {
-            Log::channel('opendb')->info('Réponse agent', [
+            Log::channel('agent-logs')->info('Réponse agent', [
                 'mode' => $this->accessMode->value,
                 'text' => $response->text ?? null,
                 'pending_approvals' => method_exists($response, 'hasPendingApprovals')

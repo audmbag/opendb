@@ -1,5 +1,5 @@
 import React from 'react';
-import CloningConnectionModal from '@/components/modals/cloning-project-modal';
+import CloningConnectionModal from '@/components/modals/cloning-database-modal';
 import Modal from '@/components/modals/modal';
 import ProjectForm from '@/components/project/project-form';
 import { useProjectModal } from '@/hooks/use-project-modal';

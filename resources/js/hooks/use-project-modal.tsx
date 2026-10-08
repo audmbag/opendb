@@ -2,9 +2,11 @@ import React, { createContext, useContext, useState } from 'react';
 
 type ProjectModalContextType = {
     open: boolean;
-    setOpen: (open: boolean) => void;
+    setOpen: (open: boolean, step?: number) => void;
     cloningOpen: boolean;
     setCloningOpen: (open: boolean) => void;
+    step: number;
+    setStep: (step: number | ((prev: number) => number)) => void;
 };
 
 const ProjectModalContext = createContext<ProjectModalContextType>({
@@ -12,6 +14,8 @@ const ProjectModalContext = createContext<ProjectModalContextType>({
     setOpen: () => null,
     cloningOpen: false,
     setCloningOpen: () => null,
+    setStep: () => null,
+    step: 1,
 });
 
 export const useProjectModal = () => {
@@ -29,12 +33,18 @@ export const ProjectModalProvider = ({
 }: {
     children: React.ReactNode;
 }) => {
-    const [open, setOpen] = useState(false);
+    const [open, _setOpen_] = useState(false);
     const [cloningOpen, setCloningOpen] = useState(false);
+    const [step, setStep] = useState(1);
+
+    const setOpen = (open: boolean, step: number = 1) => {
+        _setOpen_(open);
+        setStep(step);
+    }
 
     return (
         <ProjectModalContext.Provider
-            value={{ open, setOpen, cloningOpen, setCloningOpen }}
+            value={{ open, setOpen, cloningOpen, setCloningOpen, step, setStep }}
         >
             {children}
         </ProjectModalContext.Provider>

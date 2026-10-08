@@ -22,7 +22,7 @@ export type ButtonProps = React.ComponentProps<typeof UIButton> &
         tooltipColor?: TooltipProps['variant'];
         processing?: boolean;
         kbd?: string[];
-        stateAppearance?: 'success' | 'destructive';
+        stateAppearance?: 'success' | 'destructive' | 'warning';
         confirmation?: Omit<AlertDialogProps, 'variant'>;
     };
 
@@ -58,6 +58,7 @@ export default function Button ({asChild, icon: Icon, tooltip, tooltipColor, pro
                 className={cn({
                     'bg-green-50 text-green-700 hover:bg-green-50 hover:text-green-700 dark:bg-green-950 dark:text-green-300 dark:hover:bg-green-950 dark:hover:text-green-300' : stateAppearance == 'success',
                     'bg-red-50 text-red-700 hover:bg-red-50 hover:text-red-700 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-950 dark:hover:text-red-300' : stateAppearance == 'destructive',
+                    'bg-yellow-50 text-yellow-700 hover:bg-yellow-50 hover:text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300 dark:hover:bg-yellow-950 dark:hover:text-yellow-300' : stateAppearance == 'warning',
                 }, className)}
                 onClick={handleClick}
                 {...props}

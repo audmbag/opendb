@@ -2,8 +2,6 @@
 
 namespace App\Http\Requests\Project;
 
-use App\Http\Requests\DriverConfigRequest;
-use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -25,7 +23,7 @@ class SaveTableInfosRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'tables' => ['required', 'array'],
+            'tables' => ['nullable', 'array'],
             'tables.*' => ['required', 'string'],
         ];
     }

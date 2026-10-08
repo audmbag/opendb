@@ -6,6 +6,7 @@ use AlbertoArena\Truss\Export\ExportBuilder;
 use AlbertoArena\Truss\TrussManager;
 use App\Database\Contracts\DriverContract;
 use App\Database\Enums\DriverLabEnum;
+use App\Database\Exceptions\DatabaseCheckException;
 use App\Services\SSH\Remote;
 use App\Services\SSH\SshTunnel;
 use Closure;
@@ -29,13 +30,31 @@ class BaseDriver
 
     public ?string $connection_name = null;
 
+    protected bool $database_missing = false;
+
+    public readonly string $driver_id;
+
+    public readonly ?string $host;
+
+    public readonly ?string $port;
+
+    public readonly ?string $username;
+
+    public readonly ?string $password;
+
+    public readonly string $database;
+
     public function __construct(private array $databaseConfig)
     {
+        $this->fill();
+
         $this->connection_name = $this->createConnectionName();
 
         $this->has_ssh_tunnel = isset($this->databaseConfig['ssh']) && ! empty($this->databaseConfig['ssh']);
 
-        $this->databaseConfig['host'] = $this->cleanHost($this->databaseConfig['host']);
+        if (! $this->isSQLite()) {
+            $this->databaseConfig['host'] = self::cleanHost($this->databaseConfig['host']);
+        }
 
         if ($this->has_ssh_tunnel) {
             $this->startSSHTunnel();
@@ -46,9 +65,25 @@ class BaseDriver
         $this->connection = $this->getConnection();
     }
 
+    private function fill(): void
+    {
+        $this->driver_id = $this->databaseConfig['driver_id'];
+        $this->host = $this->databaseConfig['host'] ? self::cleanHost($this->databaseConfig['host']) : null;
+        $this->port = $this->databaseConfig['port'] ?? null;
+        $this->username = $this->databaseConfig['username'] ?? null;
+        $this->password = $this->databaseConfig['password'] ?? null;
+        $this->database = $this->databaseConfig['database'];
+    }
+
     protected function createConnectionName(): string
     {
-        return strtolower(config('app.name')).'_'.str_replace(['.', ':'], '_', $this->databaseConfig['host']).'_'.$this->databaseConfig['port'].'_'.$this->databaseConfig['database'];
+        if ($this->isSQLite()) {
+            $database_key = str_replace(['/', '\\', '.'], '_', $this->databaseName());
+        } else {
+            $database_key = str_replace(['.', ':'], '_', $this->host.'_'.$this->port.'_'.$this->database);
+        }
+
+        return strtolower(config('app.name')).'_'.$database_key;
     }
 
     protected function startSSHTunnel(): void
@@ -66,11 +101,11 @@ class BaseDriver
         $tunnel = new SshTunnel(
             sshHost: $sshConfig['host'],
             remote: Remote::tcp(
-                remotePort: $this->databaseConfig['port'],
-                remoteHost: $this->databaseConfig['host']
+                remotePort: $this->port,
+                remoteHost: $this->host
             ),
-            sshUser: $sshConfig['user'],
-            sshPort: $sshConfig['port'],
+            sshUser: $sshConfig->user,
+            sshPort: $sshConfig->port,
             identityFile: $sshConfig['id_file'],
             autoDisconnectTimeout: '15m'
         );
@@ -112,11 +147,177 @@ class BaseDriver
     }
 
     /**
+     * Teste la connexion. Si `create_database_if_not_exists` est actif, seule la connexion au serveur est
+     * validée, puis on vérifie que la base existe ou que l'utilisateur a le droit de la créer.
+     *
      * @throws Exception
      */
-    public function testConnection(): void
+    public function testConnection(bool $expectedException = true): bool
     {
-        $this->getConnection()->getPdo();
+        try {
+            if ($this->shouldCreateDatabase()) {
+                $this->checkDatabaseAvailability();
+            } else {
+                $this->getConnection()->getPdo();
+            }
+
+            return true;
+        } catch (Exception $e) {
+            if ($expectedException) {
+                throw $e;
+            }
+
+            return false;
+        } finally {
+            $this->disconnect();
+        }
+    }
+
+    public function shouldCreateDatabase(): bool
+    {
+        return (bool) ($this->databaseConfig['create_database_if_not_exists'] ?? false);
+    }
+
+    /**
+     * Indique si la dernière vérification a conclu que la base n'existe pas encore.
+     */
+    public function willCreateDatabase(): bool
+    {
+        return $this->shouldCreateDatabase() && $this->database_missing;
+    }
+
+    /**
+     * Crée la base de données si elle n'existe pas.
+     *
+     * @return bool `true` si la base a été créée, `false` si elle existait déjà.
+     *
+     * @throws Exception
+     */
+    public function createDatabaseIfNotExists(): bool
+    {
+        try {
+            $this->checkDatabaseAvailability();
+
+            if (! $this->database_missing) {
+                return false;
+            }
+
+            $this->performCreateDatabase();
+
+            $this->connect();
+            $this->getConnection()->getPdo();
+
+            return true;
+        } finally {
+            $this->disconnect();
+        }
+    }
+
+    /**
+     * Vérifie que la base est utilisable ou, à défaut, qu'elle peut être créée par l'utilisateur.
+     *
+     * @throws Exception
+     */
+    protected function checkDatabaseAvailability(): void
+    {
+        $server = $this->connectToServer();
+
+        try {
+            $this->database_missing = ! $this->databaseExists($server);
+
+            if (! $this->database_missing) {
+                $this->connect();
+                $this->getConnection()->getPdo();
+
+                return;
+            }
+
+            if (! $this->canCreateDatabase($server)) {
+                throw DatabaseCheckException::cannotCreate($this->databaseName());
+            }
+        } finally {
+            $this->disconnectFromServer();
+        }
+    }
+
+    /**
+     * @throws Exception
+     */
+    protected function performCreateDatabase(): void
+    {
+        $server = $this->connectToServer();
+
+        try {
+            if (! $server->getSchemaBuilder()->createDatabase($this->databaseName())) {
+                throw DatabaseCheckException::creationFailed($this->databaseName());
+            }
+        } finally {
+            $this->disconnectFromServer();
+        }
+    }
+
+    /**
+     * Bases sur lesquelles tenter la connexion « niveau serveur » (sans la base cible), dans l'ordre.
+     *
+     * @return array<int, string|null>
+     */
+    protected function serverDatabases(): array
+    {
+        return [null];
+    }
+
+    protected function serverConnectionName(): string
+    {
+        return $this->connection_name.'_server';
+    }
+
+    /**
+     * Ouvre une connexion au serveur sans passer par la base cible, ce qui valide uniquement
+     * l'hôte, le port et les identifiants.
+     *
+     * @throws Exception
+     */
+    protected function connectToServer(): Connection
+    {
+        $name = $this->serverConnectionName();
+        $firstError = null;
+
+        foreach ($this->serverDatabases() as $database) {
+            Config::set('database.connections.'.$name, [...$this->getConfig(), 'database' => $database]);
+
+            DB::purge($name);
+
+            try {
+                $connection = DB::connection($name);
+                $connection->getPdo();
+
+                return $connection;
+            } catch (Exception $e) {
+                $firstError ??= $e;
+                $this->disconnectFromServer();
+            }
+        }
+
+        throw $firstError;
+    }
+
+    protected function disconnectFromServer(): void
+    {
+        $name = $this->serverConnectionName();
+
+        DB::purge($name);
+
+        config(['database.connections.'.$name => null]);
+    }
+
+    protected function databaseExists(Connection $server): bool
+    {
+        throw DatabaseCheckException::unsupported('databaseExists', $this->label());
+    }
+
+    protected function canCreateDatabase(Connection $server): bool
+    {
+        throw DatabaseCheckException::unsupported('canCreateDatabase', $this->label());
     }
 
     public function getConnection(): Connection
@@ -139,10 +340,11 @@ class BaseDriver
 
         $driver = $config['driver_id'] ?? $this->label();
 
-        $config['port'] = $this->has_ssh_tunnel ? $this->ssh_tunnel_forward_port : $config['port'];
+        if (! $this->isSQLite()) {
+            $config['port'] = $this->has_ssh_tunnel ? $this->ssh_tunnel_forward_port : $config['port'];
+        }
 
-        unset($config['driver_id']);
-        unset($config['ssh']);
+        unset($config['driver_id'], $config['ssh'], $config['create_database_if_not_exists']);
 
         return match ($driver) {
             DriverLabEnum::MYSQL->value => [
@@ -165,14 +367,19 @@ class BaseDriver
         };
     }
 
-    protected function cleanHost(string $host): string
+    protected function databaseName(): string
+    {
+        return $this->databaseConfig['database'];
+    }
+
+    public static function cleanHost(string $host): string
     {
         return $host === 'localhost' ? '127.0.0.1' : $host;
     }
 
     protected function remember(string $suffix, Closure $callback): mixed
     {
-        $host = $this->cleanHost($this->getConfig()['host']);
+        $host = self::cleanHost($this->getConfig()['host']);
 
         $database = $this->connection->getDatabaseName();
 
@@ -237,5 +444,10 @@ class BaseDriver
         }
 
         return $this->getExportBuilder()->render($format);
+    }
+
+    private function isSQLite(): bool
+    {
+        return $this->databaseConfig['driver_id'] === DriverLabEnum::SQLITE->value;
     }
 }

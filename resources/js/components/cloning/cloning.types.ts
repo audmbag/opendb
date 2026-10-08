@@ -1,13 +1,11 @@
+import type { Project } from '@/types/models/project';
+import type { ProjectInfo } from '@/hooks/use-project';
+import type { DriverConfig } from '@/types/databases';
+
 export type Sensitivity = 'low' | 'medium' | 'high' | 'critical';
 
-export type AvailableStrategy =
-    | 'keep'
-    | 'fake'
-    | 'hash'
-    | 'mask'
-    | 'null'
-    | 'static'
-    | 'remapping';
+
+export type AvailableStrategy = 'keep' | 'fake' | 'hash' | 'mask' | 'null' | 'static' | 'remapping';
 
 export interface ForeignKeyRef {
     table: string;
@@ -25,7 +23,6 @@ export type ColumnTransformation =
     | { strategy: 'mask'; visibleChars: number; maskChar: string; preserveFormat: boolean }
     | { strategy: 'remapping'; remappingUse: string | null; foreignKeys: ForeignKeyRef[] };
 
-
 export interface DetectedMatcher {
     key: string;
     group: string;
@@ -36,11 +33,37 @@ export interface DetectedMatcher {
     suggestedTransformation: ColumnTransformation;
 }
 
+export type FakerParameterType = 'integer' | 'float' | 'string' | 'boolean' | 'enum' | 'date-expression';
+
+export interface FakerParameter {
+    name: string;
+    type: FakerParameterType;
+    default: unknown;
+    nullable: boolean;
+    editable: boolean;
+    min: number | null;
+    max: number | null;
+    options: string[] | null;
+}
+
+
+export interface FakerMethodOption {
+    fakerMethod: string;
+    fakerArguments: unknown[];
+    group: string;
+    parameters: FakerParameter[];
+}
+
+
+export type FakerCatalog = FakerMethodOption[];
+
 interface CloningColumnBase {
     name: string;
     type: string | null;
     detectedMatcher: DetectedMatcher | null;
     options: AvailableStrategy[];
+    fakerCatalogKey: string | null;
+    suggestedFakerMethod: FakerMethodOption | null;
 }
 
 export interface CloningColumnKeep extends CloningColumnBase {
@@ -97,3 +120,30 @@ export interface CloningTable {
     rowsClear: string | null;
     columns: CloningColumn[];
 }
+
+export interface CloningLabels {
+    strategies: Record<string, string>;
+    fakerMethods: Record<string, string>;
+    fakerParameters: Record<string, string>;
+    fakerParameterOptions: Record<string, string>;
+}
+
+export interface CloningClientPayload {
+    fakerCatalogs: Record<string, FakerCatalog>;
+    tables: CloningTable[];
+    labels?: CloningLabels;
+    cloningId: string
+}
+
+export interface CloningDriverConfigOptions {
+    create_database_if_not_exists?: boolean;
+    from_id?: number;
+}
+
+
+export type CloningDriverConfig = Pick<
+    DriverConfig,
+    'host' | 'port' | 'database' | 'username' | 'password' | 'driver_id'
+> &
+    CloningDriverConfigOptions;
+

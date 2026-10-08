@@ -1,14 +1,16 @@
 import type { FormComponentRef } from '@inertiajs/core';
 import { useHttp, usePage } from '@inertiajs/react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
+import type { CloningDriverConfig } from '@/components/cloning/cloning.types';
 import type { ProjectConfigFormProps } from '@/components/project/driver-config-form';
+import type { TablesSelectorFormRef } from '@/components/project/tables-selector';
+import type { ConnectionTestResult} from '@/hooks/use-driver-config';
 import { useDriverConfigTestConnection } from '@/hooks/use-driver-config';
 import { useTempProjectStore } from '@/store/use-project-store';
 import type { DriverConfig } from '@/types/databases';
 import type { Project } from '@/types/models/project';
 import ProjectController from '@/wayfinder/actions/App/Http/Controllers/ProjectController';
-import type { TablesSelectorFormRef } from '@/components/project/tables-selector';
-import { toast } from 'sonner';
 
 
 export type ProjectInfo = Pick<Project, 'name' | 'path' | 'description' | 'id'>;
@@ -85,26 +87,23 @@ const useProjectInfo = ({ defaults, onFinish, onStart }: ProjectInfoProps) => {
     };
 };
 
-
-
-
-export type ConnectionTestState = {
-    state: boolean;
+export type ConnectionTestState = ConnectionTestResult & {
     triggered: boolean;
-    message?: string;
 };
 
 const CONNECTION_TEST_DEFAULT: ConnectionTestState = {
-    state: false,
+    success: false,
     triggered: false,
     message: '',
+    willCreateDatabase: false,
 };
 
 
-const useProjectDriverConfig = ({ onSuccess, onStart, onFinish }: ProjectInfoProps & { onSuccess?: () => void}) => {
+const useProjectDriverConfig = ({ onStart, onFinish }: ProjectInfoProps) => {
 
     const tempProject = useTempProjectStore((d) => d.tmpProject);
-    const setDriverConfig = useTempProjectStore((d) => d.setDriverConfig);
+    const cloningDriverConfig = useTempProjectStore((state) => state.cloningDriverConfig,);
+
 
     const formRef = useRef<FormComponentRef<ProjectConfigFormProps>>(null);
 
@@ -115,6 +114,10 @@ const useProjectDriverConfig = ({ onSuccess, onStart, onFinish }: ProjectInfoPro
     const { props: { project }, } = usePage<{ project: Project }>();
 
     const { post, optimistic, errors } = useHttp<ProjectConfigFormProps | null, { driverConfig: DriverConfig }>(null);
+
+    const defaults = useMemo(() => {
+        return { ...tempProject?.driver_config, ...cloningDriverConfig, ...project?.driver_config };
+    }, [cloningDriverConfig, tempProject?.driver_config, project?.driver_config]);
 
     const submit = useCallback(async () => {
         if (!formRef.current) {
@@ -139,28 +142,25 @@ const useProjectDriverConfig = ({ onSuccess, onStart, onFinish }: ProjectInfoPro
         };
 
         if (tempProject?.driver_config?.id && !isDirtyObject(oldData, newData)) {
-            onSuccess?.();
-
-            return;
+            return Promise.resolve({
+                driverConfig: tempProject?.driver_config,
+            });
         }
 
         optimistic(() => formData);
 
-        await post(
+        return await post(
             ProjectController.storeDriverConfig(tempProject?.id || project?.id).url,
             {
                 onStart: onStart,
                 onFinish: onFinish,
-                onSuccess: ({ driverConfig }) => {
-                    setDriverConfig(driverConfig);
-                    onSuccess?.();
-                },
                 onError: errors => {
                     if (errors.connectionFailed) {
                         setTestConnectionState({
-                            state: false,
+                            success: false,
                             triggered: true,
                             message: errors.connectionFailed,
+                            willCreateDatabase: false,
                         });
                         toast.error(errors.connectionFailed);
                     }
@@ -168,7 +168,7 @@ const useProjectDriverConfig = ({ onSuccess, onStart, onFinish }: ProjectInfoPro
             },
         );
 
-    }, [onFinish, onStart, onSuccess, optimistic, project?.id, setDriverConfig, tempProject?.driver_config?.database, tempProject?.driver_config?.driver_id, tempProject?.driver_config?.host, tempProject?.driver_config?.id, tempProject?.driver_config?.password, tempProject?.driver_config?.port, tempProject?.driver_config?.ssh, tempProject?.driver_config?.username, tempProject?.id]);
+    }, [onFinish, onStart, optimistic, project?.id, tempProject?.driver_config, tempProject?.id]);
 
     const handleTestConnection = useCallback(async () => {
         if (!formRef.current) {
@@ -179,16 +179,19 @@ const useProjectDriverConfig = ({ onSuccess, onStart, onFinish }: ProjectInfoPro
 
         onStart?.();
 
-        const result = await testConnection(
-            formRef.current.getData() as DriverConfig,
-            ({ success, message }) => {
-                setTestConnectionState({ state: success, triggered: true, message });
+        return await testConnection(
+            formRef.current.getData() as DriverConfig & Pick<CloningDriverConfig, 'from_id'>,
+            ({ success, message, willCreateDatabase }) => {
+                setTestConnectionState({
+                    success: success,
+                    triggered: true,
+                    message,
+                    willCreateDatabase,
+                });
+                onFinish?.();
             },
+            () => onFinish?.(),
         );
-
-        onFinish?.();
-
-        return result;
     }, [onFinish, onStart, testConnection]);
 
     const resetData = useCallback(() => {
@@ -199,11 +202,8 @@ const useProjectDriverConfig = ({ onSuccess, onStart, onFinish }: ProjectInfoPro
 
 
     return {
-        project,
-        tempProject,
         errors: { ...testErrors, ...errors },
         formRef,
-        setDriverConfig,
         setTestConnectionState,
         testConnectionState,
         handleTestConnection,
@@ -211,6 +211,7 @@ const useProjectDriverConfig = ({ onSuccess, onStart, onFinish }: ProjectInfoPro
         processingTest,
         testErrors,
         resetData,
+        defaults,
     };
 };
 

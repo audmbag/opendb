@@ -1,7 +1,6 @@
 <?php
 
 declare(strict_types=1);
-use App\Database\Drivers\BaseDriver;
 
 // Configuration for albertoarena/laravel-truss.
 // This is the single source of truth for Truss's behaviour. Authorization is a
@@ -249,7 +248,7 @@ return [
     |
     | `disk`: the filesystem disk the baseline is written to, `local` by default.
     | The path is always `truss/baselines/{connection}`. This deliberately does not
-    | follow the application's default disk: the baseline is derived tooling state,
+    | follow the application's default disk: the baseline is derived tooling success,
     | not application data, so it should not land in a production bucket, cost
     | money, or have several instances racing on one object. A failure to read or
     | write it is never fatal; the diff is simply unavailable until it recovers.

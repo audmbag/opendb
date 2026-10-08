@@ -36,34 +36,32 @@ const ProjectInfoForm = ({
     }));
 
     return (
-        <>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Input
-                    label="Nom du projet"
-                    name="name"
-                    placeholder="Ex: Mon super projet"
-                    value={data.name}
-                    onChange={(e) => setData('name', e.target.value)}
-                    error={errors?.name}
-                />
-                <InputFile
-                    name={'path'}
-                    error={errors?.path}
-                    onlyFolders
-                    value={data.path}
-                    onChange={(e) => setData('path', e)}
-                />
-                <Textarea
-                    label="Description du projet"
-                    name="description"
-                    placeholder="Ex: Un projet pour gérer mes tâches"
-                    className="max-h-52 sm:col-span-2"
-                    error={errors?.description}
-                    value={data.description}
-                    onChange={(e) => setData('description', e.target.value)}
-                />
-            </div>
-        </>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Input
+                label="Nom du projet"
+                name="name"
+                placeholder="Ex: Mon super projet"
+                value={data.name}
+                onChange={(e) => setData('name', e.target.value)}
+                error={errors?.name}
+            />
+            <InputFile
+                name={'path'}
+                error={errors?.path}
+                onlyFolders
+                value={data.path}
+                onChange={(e) => setData('path', e)}
+            />
+            <Textarea
+                label="Description du projet"
+                name="description"
+                placeholder="Ex: Un projet pour gérer mes tâches"
+                className="max-h-52 sm:col-span-2"
+                error={errors?.description}
+                value={data.description}
+                onChange={(e) => setData('description', e.target.value)}
+            />
+        </div>
     );
 };
 

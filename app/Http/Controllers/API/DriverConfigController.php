@@ -7,6 +7,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\DriverConfigRequest;
 use App\Models\Driver;
 use App\Models\DriverConfig;
+use App\Services\Cloning\CloningManager;
+use App\Services\Cloning\Exception\CloningPreparationException;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -27,20 +29,31 @@ class DriverConfigController extends Controller
 
         $driver = BaseDriver::for($data);
 
+        if ($data['from_id'] ?? false) {
+            $config = DriverConfig::findOrFail($data['from_id']);
+
+            if ($config->database == $driver->database && $config->host == $driver->host && $config->port == $driver->port) {
+                return Response::json([
+                    'success' => false,
+                    'message' => "La base de données ne peut pas être la même que celle déjà configurée sur \"{$driver->host}:{$driver->port}\".",
+                ]);
+            }
+        }
+
         try {
             $driver->testConnection();
         } catch (Exception $e) {
             return Response::json(['success' => false, 'message' => $e->getMessage()]);
         }
 
-        return Response::json(['success' => true, 'message' => 'Connexion réussie : '.$driver->getConnectionString()]);
+        $message = 'Connexion réussie : '.$driver->getConnectionString();
+
+        return Response::json(['success' => true, 'message' => $message, 'willCreateDatabase' => $driver->willCreateDatabase()]);
     }
 
     public function update(DriverConfig $config, DriverConfigRequest $request): RedirectResponse
     {
-        $data = $request->validated();
-
-        $config->fill($data);
+        $config->fill($request->driverData());
 
         try {
             $config->getDriver()->testConnection();
@@ -51,5 +64,16 @@ class DriverConfigController extends Controller
         $config->save();
 
         return back();
+    }
+
+    public function cloningClientPayload(DriverConfig $config, CloningManager $cloningManager): JsonResponse
+    {
+        try {
+            return Response::json([
+                'data' => $cloningManager->from($config)->toClientPayload(),
+            ]);
+        } catch (CloningPreparationException $e) {
+            return Response::json(['error' => $e->getMessage()], 500);
+        }
     }
 }

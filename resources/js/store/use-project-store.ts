@@ -1,21 +1,18 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
+import type { CloningDriverConfig } from '@/components/cloning/cloning.types';
 import type { ProjectInfo } from '@/hooks/use-project';
 import { createSelectors } from '@/lib/utils';
 import type { DriverConfig } from '@/types/databases';
 import type { Project } from '@/types/models/project';
 
-
 interface ProjectStoreState {
     tmpProject: Partial<Project> | null;
     fill: (project: ProjectInfo) => void;
     setDriverConfig: (config: DriverConfig) => void;
+    cloningDriverConfig: CloningDriverConfig | null;
+    setCloningDriverConfig: (config: CloningDriverConfig | null) => void;
     clear: () => void;
-
-    cloningData: {
-        driver_config: DriverConfig | null;
-        anonymizedData: any[],
-    }
 }
 
 const useTempProjectStore = createSelectors(
@@ -23,13 +20,13 @@ const useTempProjectStore = createSelectors(
         devtools(
             (set) => ({
                 tmpProject: null,
-                cloningData: {
-                    driver_config: null,
-                    anonymizedData: [],
-                },
-                fill: (projectInfo: ProjectInfo) => set(state => ({
-                    tmpProject: { ...state.tmpProject, ...projectInfo }
-                })),
+                cloningDriverConfig: null,
+                setCloningDriverConfig: (config: CloningDriverConfig | null) =>
+                    set({ cloningDriverConfig: config }),
+                fill: (projectInfo: ProjectInfo) =>
+                    set((state) => ({
+                        tmpProject: { ...state.tmpProject, ...projectInfo },
+                    })),
                 setDriverConfig: (config: DriverConfig) =>
                     set((state) => {
                         if (!state.tmpProject) {

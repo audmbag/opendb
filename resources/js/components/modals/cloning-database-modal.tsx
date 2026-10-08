@@ -1,7 +1,8 @@
 import { useCallback } from 'react';
-import Modal from '@/components/modals/modal';
 import CloningConnectionForm from '@/components/cloning/cloning-connection-form';
+import Modal from '@/components/modals/modal';
 import { useProjectModal } from '@/hooks/use-project-modal';
+import { CopyIcon } from 'lucide-react';
 
 const CloningConnectionModal = () => {
     const { setCloningOpen, cloningOpen, setOpen } = useProjectModal();
@@ -11,7 +12,7 @@ const CloningConnectionModal = () => {
             setCloningOpen(open);
 
             if (!open) {
-                setOpen(true);
+                setOpen(true, 2);
             }
         },
         [setCloningOpen, setOpen],
@@ -26,6 +27,7 @@ const CloningConnectionModal = () => {
             onOpenChange={onOpenChange}
             title="Cloner la connection"
             description="Formulaire pour cloner la base de donnés connection existante"
+            icon={CopyIcon}
         >
             <CloningConnectionForm />
         </Modal>
