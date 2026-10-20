@@ -21,22 +21,22 @@ class Driver extends Model
             [
                 'id' => 'mysql',
                 'name' => 'MySQL',
-                'icon' => 'https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/mysql/mysql-original.svg',
+                'icon' => asset('assets/images/mysql.png'),
             ],
             [
                 'id' => 'mariadb',
                 'name' => 'MariaDB',
-                'icon' => 'https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/mariadb/mariadb-original.svg',
+                'icon' => asset('assets/images/mariadb.png'),
             ],
             [
                 'id' => 'pgsql',
                 'name' => 'PostgreSQL',
-                'icon' => 'https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/postgresql/postgresql-original.svg',
+                'icon' => asset('assets/images/pgsql.png'),
             ],
             [
                 'id' => 'sqlite',
                 'name' => 'SQLite',
-                'icon' => 'https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/sqlite/sqlite-original.svg',
+                'icon' => asset('assets/images/sqlite.png'),
             ],
         ];
     }

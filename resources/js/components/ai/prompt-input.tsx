@@ -1,3 +1,4 @@
+import { usePage } from '@inertiajs/react';
 import {
     ArrowUpIcon,
     BrainCircuitIcon,
@@ -6,7 +7,7 @@ import {
     PencilIcon,
     PencilOffIcon,
 } from 'lucide-react';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import AttachmentItem from '@/components/ai/attachment-item';
 import ModelSelector from '@/components/ai/model-selector';
@@ -29,13 +30,17 @@ import Button from '@/components/form/button';
 import Select from '@/components/form/select';
 import Presence from '@/components/presence';
 import PromptSuggestions from '@/components/prompt-suggestions';
+import { Kbd } from '@/components/ui/kbd';
 import {
     Mention,
     MentionContent,
     MentionInput,
     MentionItem,
 } from '@/components/ui/mention';
+import { getFileIcon } from '@/hooks/use-file-tree';
+import { getMentionQuery, searchProjectFiles, useProjectFiles } from '@/hooks/use-project-files';
 import { cn } from '@/lib/utils';
+import type { Project } from '@/types/models/project';
 
 
 
@@ -86,52 +91,52 @@ const AttachmentButton = (props: React.ComponentProps<typeof Button>) => {
     );
 }
 
-const users: any[] = [
-    // {
-    //     id: "1",
-    //     name: "OliviaMartin",
-    //     email: "olivia@email.com",
-    // },
-    // {
-    //     id: "2",
-    //     name: "IsabellaNguyen",
-    //     email: "isabella@email.com",
-    // },
-    // {
-    //     id: "3",
-    //     name: "EmmaWilson",
-    //     email: "emma@email.com",
-    // },
-    // {
-    //     id: "4",
-    //     name: "JacksonLee",
-    //     email: "jackson@email.com",
-    // },
-    // {
-    //     id: "5",
-    //     name: "WilliamKim",
-    //     email: "will@email.com",
-    // },
-];
+interface FileMentionProps extends React.ComponentProps<typeof Mention> {
+    query: string;
+    paths: string[] | null;
+    isLoading: boolean;
+}
 
-const MentionWrapper = ({ children, ...props }: React.ComponentProps<typeof Mention>) => {
+const FileMention = ({ children, query, paths, isLoading, ...props }: FileMentionProps) => {
+    const entries = useMemo(
+        () => searchProjectFiles(paths ?? [], query),
+        [paths, query],
+    );
+
     return (
-        <Mention {...props}>
-            <MentionInput className="shadow-none border-none focus-visible:ring-0" asChild>{children}</MentionInput>
-            {users.length > 0 && <MentionContent className="relative z-50 min-w-(--dice-anchor-width) overflow-hidden rounded-md border border-zinc-200 bg-white p-1 text-zinc-950 shadow-md data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50">
-                {users.map((user) => (
-                    <MentionItem
-                        key={user.id}
-                        value={user.name}
-                        className="relative flex w-full cursor-default flex-col rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-highlighted:bg-zinc-100 data-highlighted:text-zinc-900 dark:data-highlighted:bg-zinc-800 dark:data-highlighted:text-zinc-50 data-disabled:pointer-events-none data-disabled:opacity-50"
-                    >
-                        <span className="text-sm">{user.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                            {user.email}
-                        </span>
-                    </MentionItem>
-                ))}
-            </MentionContent>}
+        <Mention onFilter={(options) => options} {...props}>
+            <MentionInput className="border-none shadow-none focus-visible:ring-0" asChild>
+                {children}
+            </MentionInput>
+            <MentionContent className="flex max-h-80 w-96 max-w-[calc(100vw-2rem)] flex-col p-1">
+                <div className="flex items-center justify-between gap-2 px-2 pt-1 pb-1.5 text-xs text-muted-foreground">
+                    <span>Fichiers du projet</span>
+                    <span className="flex items-center gap-1">
+                        <Kbd>↑</Kbd>
+                        <Kbd>↓</Kbd>
+                        <Kbd>↵</Kbd>
+                    </span>
+                </div>
+                <div className="min-h-0 overflow-y-auto">
+                    {entries.length === 0 ? (
+                        <MentionItem value="__empty" disabled className="text-muted-foreground">
+                            {isLoading ? 'Chargement des fichiers...' : 'Aucun fichier correspondant'}
+                        </MentionItem>
+                    ) : (
+                        entries.map((entry) => (
+                            <MentionItem key={entry.path} value={entry.path} title={entry.path}>
+                                {getFileIcon(entry, false)}
+                                <span className="shrink-0">{entry.name}</span>
+                                {entry.directory && !query.endsWith('/') && (
+                                    <span className="min-w-0 truncate text-xs text-muted-foreground [direction:rtl]">
+                                        <bdi>{entry.directory}</bdi>
+                                    </span>
+                                )}
+                            </MentionItem>
+                        ))
+                    )}
+                </div>
+            </MentionContent>
         </Mention>
     );
 };
@@ -150,13 +155,39 @@ export default function PromptInput({
     loading?: boolean;
     variant?: 'primary' | 'secondary';
 } & Omit<React.ComponentProps<'div'>, 'children' | 'onSubmit'>) {
+    const { props: { project } } = usePage<{ project?: Project }>();
+
     const [mentions, setMentions] = useState<string[]>([]);
+    const [mentionQuery, setMentionQuery] = useState('');
+    const [mentionKey, setMentionKey] = useState(0);
     const [prompt, setPrompt] = useState('');
     const [isSubmitted, setIsSubmitted] = useState(false);
+
+    const { paths, load: loadProjectFiles, isLoading: isLoadingProjectFiles } = useProjectFiles(project?.id);
+
+    useEffect(() => {
+        loadProjectFiles();
+    }, [loadProjectFiles]);
+
+    const handleMentionQueryChange = useCallback(
+        (event: React.SyntheticEvent<HTMLTextAreaElement>) => {
+            const { value, selectionStart } = event.currentTarget;
+            const query = getMentionQuery(value, selectionStart);
+
+            if (query !== null) {
+                loadProjectFiles();
+            }
+
+            setMentionQuery(query ?? '');
+        },
+        [loadProjectFiles],
+    );
 
     const handleSubmitPromptMessage = useCallback(
         async (message: AIPromptInputMessage) => {
             setPrompt('');
+            setMentions([]);
+            setMentionKey((key) => key + 1);
             setIsSubmitted(true);
 
             onSubmit?.(message);
@@ -176,7 +207,7 @@ export default function PromptInput({
                     {
                         '*:data-[slot=input-group]:rounded-t-2xl':
                             variant === 'primary',
-                        '*:data-[slot=input-group]:rounded-t-4xl':
+                        '*:data-[slot=input-group]:rounded-t-xl *:data-[slot=input-group]:rounded-b-xl':
                             variant === 'secondary',
                     },
                 )}
@@ -200,19 +231,30 @@ export default function PromptInput({
             >
                 <PromptInputAttachmentsDisplay />
                 <PromptInputBody>
-                    <MentionWrapper
+                    <FileMention
+                        key={mentionKey}
                         className="w-full"
                         value={mentions}
                         onValueChange={setMentions}
+                        inputValue={prompt}
+                        onInputValueChange={setPrompt}
+                        query={mentionQuery}
+                        paths={paths}
+                        isLoading={isLoadingProjectFiles}
                     >
                         <PromptInputTextarea
                             className="min-h-15 py-4"
-                            placeholder="Démander n'importe quoi..."
+                            placeholder="Démander n'importe quoi... (@ pour mentionner un fichier)"
                             value={prompt}
-                            onChange={(e) => setPrompt(e.target.value)}
+                            onChange={(e) => {
+                                setPrompt(e.target.value);
+                                handleMentionQueryChange(e);
+                            }}
+                            onSelect={handleMentionQueryChange}
+                            onFocus={loadProjectFiles}
                             disabled={loading}
                         />
-                    </MentionWrapper>
+                    </FileMention>
                 </PromptInputBody>
                 <PromptInputFooter className="p-2 pt-0">
                     <PromptInputTools>
@@ -240,9 +282,9 @@ export default function PromptInput({
                 )}
             >
                 <Select
-                    label="Mode d'accès"
+                    optionsLabel="Mode d'accès"
                     defaultValue="read-only"
-                    align="start"
+                    position="item-aligned"
                     button
                     tooltip={["Choisir le mode d'action", ['Ctrl', '.']]}
                     items={[
@@ -261,9 +303,9 @@ export default function PromptInput({
                 <div className="flex items-center gap-2">
                     <ModelSelector />
                     <Select
-                        label="Effort de réflexion"
+                        optionsLabel="Effort de réflexion"
                         defaultValue="default"
-                        align="end"
+                        position="item-aligned"
                         button
                         tooltip={[
                             "Choisir l'effort de réflexion",

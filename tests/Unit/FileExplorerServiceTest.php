@@ -3,6 +3,7 @@
 use App\Enums\OperatingSystemEnum;
 use App\Services\FileExplorerService;
 use App\Services\SystemInfoService;
+use Illuminate\Filesystem\Filesystem;
 
 beforeEach(function () {
     $this->root = realpath(sys_get_temp_dir()).DIRECTORY_SEPARATOR.uniqid('file-explorer-');
@@ -20,11 +21,7 @@ beforeEach(function () {
 });
 
 afterEach(function () {
-    unlink($this->home.DIRECTORY_SEPARATOR.'notes.txt');
-    rmdir($this->home.DIRECTORY_SEPARATOR.'projects');
-    rmdir($this->home);
-    rmdir($this->outside);
-    rmdir($this->root);
+    (new Filesystem)->deleteDirectory($this->root);
 });
 
 it('resolves the home directory through the system info service', function () {
@@ -46,4 +43,39 @@ it('restricts access to the home directory by default', function () {
 
 it('falls back to the real system when no system info service is given', function () {
     expect((new FileExplorerService)->getUserHomeDirectory())->toBe((new SystemInfoService)->homeDirectory());
+});
+
+it('only preloads two levels of the tree by default', function () {
+    $database = implode(DIRECTORY_SEPARATOR, [$this->home, 'projects', 'app', 'database']);
+    mkdir($database, recursive: true);
+    touch($database.DIRECTORY_SEPARATOR.'data.sqlite');
+
+    $tree = (new FileExplorerService(systemInfo: $this->systemInfo))->getFolderTree();
+
+    expect($tree['children'][0]['children'][0]['name'])->toBe('app')
+        ->and($tree['children'][0]['children'][0]['children'])->toBe([]);
+});
+
+it('preloads every folder leading to the revealed path', function () {
+    $database = implode(DIRECTORY_SEPARATOR, [$this->home, 'projects', 'app', 'database']);
+    mkdir($database, recursive: true);
+    mkdir($this->home.DIRECTORY_SEPARATOR.'projects'.DIRECTORY_SEPARATOR.'other'.DIRECTORY_SEPARATOR.'nested', recursive: true);
+    touch($database.DIRECTORY_SEPARATOR.'data.sqlite');
+
+    $tree = (new FileExplorerService(systemInfo: $this->systemInfo))
+        ->getFolderTree(reveal: $database.DIRECTORY_SEPARATOR.'data.sqlite');
+
+    $projects = $tree['children'][0];
+    $app = $projects['children'][0];
+    $other = $projects['children'][1];
+
+    expect($app['children'][0]['name'])->toBe('database')
+        ->and(array_column($app['children'][0]['children'], 'id'))->toBe([$database.DIRECTORY_SEPARATOR.'data.sqlite'])
+        ->and($other['children'])->toBe([]);
+});
+
+it('ignores a revealed path outside of the explored folder', function () {
+    $tree = (new FileExplorerService(systemInfo: $this->systemInfo))->getFolderTree(reveal: $this->outside);
+
+    expect(array_column($tree['children'], 'name'))->toBe(['projects', 'notes.txt']);
 });

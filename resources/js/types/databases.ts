@@ -26,7 +26,8 @@ export interface SSHConfiguration {
 export interface Table {
     name: string;
     columns: number;
-    enabled: boolean;
+    agentAccessEnabled: boolean;
+    cloningIncludingEnabled: boolean;
 }
 
 export interface DriverConfig extends BaseModel<number> {

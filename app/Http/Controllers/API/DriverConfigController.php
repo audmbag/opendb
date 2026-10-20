@@ -8,7 +8,7 @@ use App\Http\Requests\DriverConfigRequest;
 use App\Models\Driver;
 use App\Models\DriverConfig;
 use App\Services\Cloning\CloningManager;
-use App\Services\Cloning\Exception\CloningPreparationException;
+use App\Services\Cloning\Exception\CloningException;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -33,9 +33,15 @@ class DriverConfigController extends Controller
             $config = DriverConfig::findOrFail($data['from_id']);
 
             if ($config->database == $driver->database && $config->host == $driver->host && $config->port == $driver->port) {
+                $host = "$driver->host:$driver->port";
+
+                if ($driver->isSQLite()) {
+                    $host = basename($driver->database);
+                }
+
                 return Response::json([
                     'success' => false,
-                    'message' => "La base de données ne peut pas être la même que celle déjà configurée sur \"{$driver->host}:{$driver->port}\".",
+                    'message' => "La base de données ne peut pas être la même que celle déjà configurée sur \"$host\".",
                 ]);
             }
         }
@@ -72,7 +78,7 @@ class DriverConfigController extends Controller
             return Response::json([
                 'data' => $cloningManager->from($config)->toClientPayload(),
             ]);
-        } catch (CloningPreparationException $e) {
+        } catch (CloningException $e) {
             return Response::json(['error' => $e->getMessage()], 500);
         }
     }

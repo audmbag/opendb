@@ -179,8 +179,8 @@ const useConversationMessage = (
         });
     }, []);
 
-    const pendingMessage = useConversationStore.use.pendingMessage();
-    const clearPendingMessage = useConversationStore.use.clearPendingMessage();
+    const pendingMessage = useConversationStore((state) => state.pendingMessage);
+    const clearPendingMessage = useConversationStore((state) => state.clearPendingMessage);
 
     const sentApprovalBatchesRef = useRef<Set<string>>(new Set());
 
@@ -270,11 +270,11 @@ const useConversation = () => {
         initialMessages: UIMessage[];
     }>();
 
-    const conversations = useConversationStore.use.conversations()
-    const fillConversations = useConversationStore.use.fill();
-    const addConversation = useConversationStore.use.add();
-    const removeConversation = useConversationStore.use.remove();
-    const setPendingMessage = useConversationStore.use.setPendingMessage();
+    const conversations = useConversationStore((state) => state.conversations)
+    const fillConversations = useConversationStore((state) => state.fill);
+    const addConversation = useConversationStore((state) => state.add);
+    const removeConversation = useConversationStore((state) => state.remove);
+    const setPendingMessage = useConversationStore((state) => state.setPendingMessage);
 
     const page = usePage<{project: Project}>()
 

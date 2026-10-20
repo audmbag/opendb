@@ -11,7 +11,8 @@ function Mention({
     <MentionPrimitive.Root
       data-slot="mention"
       className={cn(
-        "**:data-tag:rounded **:data-tag:bg-blue-200 **:data-tag:py-px **:data-tag:text-blue-950 dark:**:data-tag:bg-blue-800 dark:**:data-tag:text-blue-50",
+        // Le texte de l'input est masqué au profit du calque de surlignage, qui seul peut colorer les mentions.
+        "**:data-[slot=mention-input]:text-transparent **:data-[slot=mention-input]:caret-foreground [&_div:has(+[data-slot=mention-input])]:text-foreground! **:data-tag:text-blue-600 dark:**:data-tag:text-blue-400",
         className,
       )}
       {...props}

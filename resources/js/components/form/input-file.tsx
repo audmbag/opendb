@@ -36,7 +36,8 @@ export default function InputFile({
     const selectFile = async () => {
         const file = await SelectFileModal.call({
             targetFileExtensions,
-            onlyFolders
+            onlyFolders,
+            initialPath: value || undefined,
         });
 
         if (file) {

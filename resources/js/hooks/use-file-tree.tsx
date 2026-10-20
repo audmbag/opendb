@@ -1,6 +1,7 @@
 import {
     asyncDataLoaderFeature,
     hotkeysCoreFeature,
+    searchFeature,
     selectionFeature,
 } from '@headless-tree/core';
 import { useTree } from '@headless-tree/react';
@@ -77,13 +78,81 @@ function buildIndex(nodes: FileNode[], map = new Map<string, FileNode>()) {
     return map;
 }
 
+/**
+ * Indique si `path` est égal à `parent` ou se trouve à l'intérieur.
+ */
+function isSameOrParentPath(parent: string, path: string): boolean {
+    return (
+        path === parent ||
+        (path.startsWith(parent) && ['/', '\\'].includes(path[parent.length]))
+    );
+}
 
-const useFileFetch = (onlyFolders?: boolean, targetFileExtensions?: string[]) => {
+/**
+ * Retourne les nœuds menant de la racine au nœud le plus proche de `targetId`.
+ */
+function findPathToNode(root: FileNode, targetId: string): FileNode[] {
+    const path = [root];
+    let current = root;
+
+    while (current.id !== targetId) {
+        const next = current.children?.find((child) =>
+            isSameOrParentPath(child.id, targetId),
+        );
+
+        if (!next) {
+            break;
+        }
+
+        path.push(next);
+        current = next;
+    }
+
+    return path;
+}
+
+/**
+ * Affiche un chemin relativement au dossier racine (ex: `~/projects/opendb`).
+ */
+function getDisplayPath(rootId: string, path: string): string {
+    if (!isSameOrParentPath(rootId, path)) {
+        return path;
+    }
+
+    return `~${path.slice(rootId.length)}`;
+}
+
+const isSelectableNode = (node: Pick<FileNode, 'type'>, onlyFolders?: boolean) =>
+    onlyFolders ? node.type === 'folder' : node.type === 'file';
+
+const useFileFetch = (onlyFolders?: boolean, targetFileExtensions?: string[], initialPath?: string) => {
     const [rootFolder, setRootFolder] = useState<FileNode | null>(null);
+    const [hasError, setHasError] = useState(false);
     const hasFetchedRef = useRef(false);
 
     const { get, processing } = useHttp<null, FileNode>();
     const { get: getChild, processing: childProcessing } = useHttp<null, FileNode>();
+
+    const extensions = targetFileExtensions?.join(',');
+
+    const fetchRootFolder = useCallback(() => {
+        setHasError(false);
+
+        get(FileTreeController.url({ query: { onlyFolders, targetFileExtensions: extensions, reveal: initialPath || undefined } }), {
+            onHttpException: () => false,
+            onNetworkError: () => false,
+        })
+            .then((response) => {
+                if (!response) {
+                    setHasError(true);
+
+                    return;
+                }
+
+                setRootFolder(response);
+            })
+            .catch(() => setHasError(true));
+    }, [get, onlyFolders, extensions, initialPath]);
 
     useEffect(() => {
         if (hasFetchedRef.current) {
@@ -92,29 +161,26 @@ const useFileFetch = (onlyFolders?: boolean, targetFileExtensions?: string[]) =>
 
         hasFetchedRef.current = true;
 
-        get(FileTreeController.url({query: { onlyFolders, targetFileExtensions: targetFileExtensions?.join(',') }}), {
-            onSuccess: (response) => {
-                setRootFolder(response);
-            },
-            onError: (error) => {
-                console.log(error);
-            },
-        });
+        fetchRootFolder();
     });
 
     const fetchFolder = useCallback(
-        (path: string): Promise<FileNode> => {
-            return new Promise((resolve, reject) => {
-                getChild(FileTreeController.url({ query: { path, onlyFolders, targetFileExtensions:  targetFileExtensions?.join(',') } }), {
-                    onSuccess: (response) => resolve(response),
-                    onError: (error) => reject(error),
-                });
+        async (path: string): Promise<FileNode> => {
+            const response = await getChild(FileTreeController.url({ query: { path, onlyFolders, targetFileExtensions: extensions } }), {
+                onHttpException: () => false,
+                onNetworkError: () => false,
             });
+
+            if (!response) {
+                throw new Error(`Impossible de lire le dossier ${path}`);
+            }
+
+            return response;
         },
-        [getChild],
+        [getChild, onlyFolders, extensions],
     );
 
-    return { rootFolder, isFetching: processing, fetchFolder, childProcessing };
+    return { rootFolder, isFetching: processing, hasError, retry: fetchRootFolder, fetchFolder, childProcessing };
 };
 
 function mergeNode(root: FileNode, updated: FileNode): FileNode {
@@ -132,16 +198,44 @@ function mergeNode(root: FileNode, updated: FileNode): FileNode {
     };
 }
 
+interface UseFileTreeOptions {
+    onlyFolders?: boolean;
+    initialPath?: string;
+    onConfirm?: (node: FileNode) => void;
+    indent?: number;
+}
+
 const useFileTree = (
     initialRootFolder: FileNode,
     fetchFolder: (path: string) => Promise<FileNode>,
-    onlyFolders?: boolean,
-    indent: number = INDENT,
+    { onlyFolders, initialPath, onConfirm, indent = INDENT }: UseFileTreeOptions = {},
 ) => {
     const [rootFolder, setRootFolder] = useState<FileNode>(initialRootFolder);
-    const [selectedItemId, setSelectedItemId] = useState<string>(rootFolder.id);
+    const [failedItemIds, setFailedItemIds] = useState<Set<string>>(() => new Set());
 
-    const resolvedRef = useRef<Set<string>>(new Set([initialRootFolder.id]));
+    /**
+     * Chemin vers la valeur initiale, préchargé par le serveur via le paramètre `reveal`.
+     */
+    const [initialBranch] = useState(() =>
+        initialPath ? findPathToNode(initialRootFolder, initialPath) : [initialRootFolder],
+    );
+
+    const [selectedItemId, setSelectedItemId] = useState<string | null>(() => {
+        const target = initialBranch[initialBranch.length - 1];
+
+        if (initialPath && target.id === initialPath && isSelectableNode(target, onlyFolders)) {
+            return target.id;
+        }
+
+        return onlyFolders ? initialRootFolder.id : null;
+    });
+
+    const resolvedRef = useRef<Set<string>>(
+        new Set([
+            ...(initialRootFolder.children ?? []).map((child) => child.id),
+            ...initialBranch.filter((node) => node.type === 'folder').map((node) => node.id),
+        ]),
+    );
 
     const fileIndex = useMemo(() => buildIndex([rootFolder]), [rootFolder]);
 
@@ -161,7 +255,15 @@ const useFileTree = (
                 }));
             }
 
-            const fresh = await fetchFolder(itemId);
+            let fresh: FileNode;
+
+            try {
+                fresh = await fetchFolder(itemId);
+            } catch {
+                setFailedItemIds((prev) => new Set(prev).add(itemId));
+
+                return [];
+            }
 
             resolvedRef.current.add(itemId);
 
@@ -201,6 +303,13 @@ const useFileTree = (
             },
             getChildrenWithData: (itemId) => resolveChildren(itemId),
         },
+        initialState: {
+            expandedItems: initialBranch
+                .slice(1)
+                .filter((node) => node.type === 'folder' && node.id !== selectedItemId)
+                .map((node) => node.id),
+            focusedItem: selectedItemId,
+        },
         state: {
             selectedItems: selectedItemId ? [selectedItemId] : [],
         },
@@ -214,32 +323,60 @@ const useFileTree = (
             if (nextId) {
                 const data = fileIndex.get(nextId);
 
-                if (!data) {
-                    return;
-                }
-
-                if(!onlyFolders && data.type === 'folder') {
+                if (!data || !isSelectableNode(data, onlyFolders)) {
                     return;
                 }
             }
 
-
             setSelectedItemId(nextId);
+        },
+        hotkeys: {
+            customConfirmSelection: {
+                hotkey: 'Enter',
+                preventDefault: true,
+                isEnabled: (instance) => {
+                    const focused = instance.getFocusedItem()?.getItemData();
+
+                    return !instance.isSearchOpen() && !!focused && isSelectableNode(focused, onlyFolders);
+                },
+                handler: (_, instance) => onConfirm?.(instance.getFocusedItem().getItemData()),
+            },
         },
         features: [
             asyncDataLoaderFeature,
             selectionFeature,
             hotkeysCoreFeature,
+            searchFeature,
         ],
+    });
+
+    const hasRevealedRef = useRef(!selectedItemId || selectedItemId === initialRootFolder.id);
+
+    useEffect(() => {
+        if (hasRevealedRef.current || !selectedItemId) {
+            return;
+        }
+
+        const item = tree.getItems().find((candidate) => candidate.getId() === selectedItemId);
+
+        if (!item) {
+            return;
+        }
+
+        hasRevealedRef.current = true;
+        item.scrollTo({ block: 'center' });
     });
 
     return {
         tree,
         indent,
+        rootFolder,
         selectedItemId,
         setSelectedItemId,
         selectedFolder,
+        failedItemIds,
+        isSelectable: (node: Pick<FileNode, 'type'>) => isSelectableNode(node, onlyFolders),
     };
 };
 
-export { type FileNode, useFileFetch, useFileTree, getFileIcon };
+export { type FileNode, useFileFetch, useFileTree, getFileIcon, getDisplayPath };

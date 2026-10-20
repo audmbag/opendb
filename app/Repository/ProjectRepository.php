@@ -6,6 +6,7 @@ use App\Enums\ProjectStatusEnum;
 use App\Models\DriverConfig;
 use App\Models\Project;
 use App\Models\User;
+use DB;
 use Illuminate\Container\Attributes\CurrentUser;
 use Illuminate\Support\Collection;
 
@@ -43,13 +44,13 @@ readonly class ProjectRepository
 
     public function saveTableInfos(Project $project, array $data): Project
     {
-        $project->update([
-            'status' => ProjectStatusEnum::ACTIVE,
-        ]);
+        DB::transaction(function () use ($project, $data) {
+            $project->driver_config->update([
+                'disabled_tables' => $data['agentDisabled'] ?? [],
+            ]);
 
-        $project->driver_config->update([
-            'disabled_tables' => $data['tables'] ?? [],
-        ]);
+            $project->update(['status' => ProjectStatusEnum::ACTIVE]);
+        });
 
         return $project;
     }
@@ -76,5 +77,23 @@ readonly class ProjectRepository
     public function getProjectCount(): int
     {
         return Project::clearDrafts()->count();
+    }
+
+    public function switchDriverConfig(Project $project, mixed $cloningDriverConfig, mixed $agentDisabled): DriverConfig
+    {
+        $driverConfig = $project->driver_config;
+
+        DB::transaction(function () use ($project, $cloningDriverConfig, $agentDisabled, $driverConfig) {
+
+            $driverConfig->update([
+                ...$cloningDriverConfig,
+                'ssh' => $cloningDriverConfig['ssh'] ?? null,
+                'disabled_tables' => $agentDisabled,
+            ]);
+
+            $project->update(['status' => ProjectStatusEnum::ACTIVE]);
+        });
+
+        return $driverConfig;
     }
 }

@@ -3,11 +3,13 @@
 namespace App\Models;
 
 use App\Enums\ProjectStatusEnum;
+use Database\Factories\ProjectFactory;
 use Illuminate\Database\Eloquent\Attributes\Appends;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -18,7 +20,8 @@ use Laravel\Ai\Models\Conversation;
 #[Appends(['created_at_diff_for_humans'])]
 class Project extends Model
 {
-    use HasUlids;
+    /** @use HasFactory<ProjectFactory> */
+    use HasFactory, HasUlids;
 
     protected function casts(): array
     {
@@ -27,13 +30,11 @@ class Project extends Model
         ];
     }
 
-
     #[Scope]
     protected function clearDrafts(Builder $query): void
     {
         $query->where('status', '!=', ProjectStatusEnum::DRAFT);
     }
-
 
     public function driver_config(): HasOne
     {

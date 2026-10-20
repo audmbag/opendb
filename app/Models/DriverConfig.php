@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\WithoutTimestamps;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use function Adminer\count_rows;
 
 #[Fillable(['driver_id', 'host', 'port', 'database', 'username', 'password', 'ssh', 'disabled_tables'])]
 #[Appends(['connection_string'])]
@@ -57,7 +56,8 @@ class DriverConfig extends Model
         return $this->getDriver()->listTables(mapper: fn (array $table): array => [
             'name' => $table['name'],
             'columns' => count($table['columns']),
-            'enabled' => ! in_array($table['name'], $this->disabled_tables ?? []),
+            'agentAccessEnabled' => ! in_array($table['name'], $this->disabled_tables ?? []),
+            'cloningIncludingEnabled' => ! in_array($table['name'], $this->disabled_tables ?? []),
         ]);
     }
 }

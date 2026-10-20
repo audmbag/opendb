@@ -1,5 +1,9 @@
 import { usePage } from '@inertiajs/react';
-import { Table2Icon } from 'lucide-react';
+import {
+    CopyIcon,
+    SparklesIcon,
+    Table2Icon,
+} from 'lucide-react';
 import {
     memo,
     useCallback,
@@ -16,11 +20,15 @@ import { Frame, FramePanel } from '@/components/reui/frame';
 import { H5, Muted } from '@/components/typograpfy/typography';
 import { Separator } from '@/components/ui/separator';
 import type { ProjectPartFromRef } from '@/hooks/use-project';
+import { cn } from '@/lib/utils';
 import { useTempProjectStore } from '@/store/use-project-store';
 import type { Table } from '@/types/databases';
 import type { Project } from '@/types/models/project';
 
-export type TableFormProps = string[];
+export type TableFormProps = {
+    agentDisabled: string[];
+    cloningDisabled?: string[];
+};
 
 export type TablesSelectorFormRef = ProjectPartFromRef<
     TableFormProps | undefined
@@ -31,10 +39,17 @@ const plural = (count: number) => (count > 1 ? 's' : '');
 
 type TableItemProps = {
     table: Table;
-    onToggle: (tableName: string, enabled: boolean) => void;
+    showHiddenSwitch: boolean;
+    onToggleAgentAccess: (tableName: string, enabled: boolean) => void;
+    onToggleCloningIncluding: (tableName: string, enabled: boolean) => void;
 };
 
-const TableItem = memo(function TableItem({ table, onToggle }: TableItemProps) {
+const TableItem = memo(function TableItem({
+    table,
+    onToggleAgentAccess,
+    onToggleCloningIncluding,
+    showHiddenSwitch = false,
+}: TableItemProps) {
     return (
         <div className="flex flex-wrap items-center justify-between border-b border-border p-2 last:border-b-0">
             <div className="flex items-center gap-2">
@@ -47,21 +62,66 @@ const TableItem = memo(function TableItem({ table, onToggle }: TableItemProps) {
                     {`${table.columns} colonne${plural(table.columns)}`}
                 </Badge>
             </div>
-            <div className="flex items-center">
-                <Muted>Données et structure</Muted>
-                <Switch
-                    className="w-auto"
-                    orientation="horizontal"
-                    aria-label={`Rendre la table ${table.name} accessible`}
-                    checked={table.enabled}
-                    onCheckedChange={(checked) => onToggle(table.name, checked)}
-                />
+            <div className="flex items-center gap-2">
+                {showHiddenSwitch && (
+                    <div className="flex items-center">
+                        <span
+                            title={`Table ${table.name} sera ${table.cloningIncludingEnabled ? 'cloné' : 'ignoré au clonage'}`}
+                        >
+                            <CopyIcon
+                                className={cn(
+                                    'h-4 w-4',
+                                    table.cloningIncludingEnabled
+                                        ? 'text-primary'
+                                        : 'text-muted-foreground',
+                                )}
+                            />
+                        </span>
+                        <Switch
+                            className="w-auto"
+                            orientation="horizontal"
+                            aria-label={`Rendre la table ${table.name} accessible`}
+                            checked={table.cloningIncludingEnabled}
+                            onCheckedChange={(checked) =>
+                                onToggleCloningIncluding(table.name, checked)
+                            }
+                        />
+                    </div>
+                )}
+                {table.cloningIncludingEnabled &&
+                    <>
+                        <Separator orientation="vertical" />
+                        <div className="flex items-center">
+                            <span
+                                title={`Table ${table.name} sera ${table.agentAccessEnabled ? 'accessible' : 'inaccessible'}`}
+                            >
+                                <SparklesIcon
+                                    className={cn(
+                                        'h-4 w-4',
+                                        table.agentAccessEnabled
+                                            ? 'text-primary'
+                                            : 'text-muted-foreground',
+                                    )}
+                                />
+                            </span>
+                            <Switch
+                                className="w-auto"
+                                orientation="horizontal"
+                                aria-label={`Rendre la table ${table.name} accessible`}
+                                checked={table.agentAccessEnabled}
+                                onCheckedChange={(checked) =>
+                                    onToggleAgentAccess(table.name, checked)
+                                }
+                            />
+                        </div>
+                    </>
+                }
             </div>
         </div>
     );
 });
 
-const TablesSelector = ({ ref }: { ref?: Ref<TablesSelectorFormRef> }) => {
+const TablesSelector = ({ ref, showHiddenSwitch = false }: { ref?: Ref<TablesSelectorFormRef>, showHiddenSwitch?: boolean }) => {
     const [search, setSearch] = useState('');
     const project = usePage<{ project?: Project }>().props.project;
 
@@ -80,13 +140,18 @@ const TablesSelector = ({ ref }: { ref?: Ref<TablesSelectorFormRef> }) => {
         [tables, query],
     );
 
-    const enabledCount = useMemo(
-        () => tables.filter((t) => t.enabled).length,
+    const agentEnabledCount = useMemo(
+        () => tables.filter((t) => t.agentAccessEnabled).length,
+        [tables],
+    );
+
+    const cloningEnabledCount = useMemo(
+        () => tables.filter((t) => t.cloningIncludingEnabled).length,
         [tables],
     );
 
     const handleToggle = useCallback(
-        (tableName: string, enabled: boolean) => {
+        (tableName: string, enabled: boolean, type: 'cloning' | 'access') => {
             const { tmpProject, setDriverConfig } = useTempProjectStore.getState();
             const config = tmpProject?.driver_config ?? project?.driver_config;
 
@@ -96,8 +161,8 @@ const TablesSelector = ({ ref }: { ref?: Ref<TablesSelectorFormRef> }) => {
 
             setDriverConfig({
                 ...config,
-                tables_info: (config.tables_info ?? []).map((t) =>
-                    t.name === tableName ? { ...t, enabled } : t,
+                tables_info: (config.tables_info ?? []).map((t): Table =>
+                    t.name === tableName ? (type === 'cloning' ? {...t, cloningIncludingEnabled: enabled } : {...t, agentAccessEnabled: enabled}) : t,
                 ),
             });
         },
@@ -107,9 +172,18 @@ const TablesSelector = ({ ref }: { ref?: Ref<TablesSelectorFormRef> }) => {
     useImperativeHandle(
         ref,
         () => ({
-            submit: () => tables.filter((t) => !t.enabled).map((t) => t.name)
+            submit: () => ({
+                agentDisabled: tables
+                    .filter((t) => !t.agentAccessEnabled)
+                    .map((t) => t.name),
+                ...(showHiddenSwitch && {
+                    cloningDisabled: tables
+                        .filter((t) => !t.cloningIncludingEnabled)
+                        .map((t) => t.name)
+                })
+            }),
         }),
-        [tables],
+        [showHiddenSwitch, tables],
     );
 
     return (
@@ -125,8 +199,16 @@ const TablesSelector = ({ ref }: { ref?: Ref<TablesSelectorFormRef> }) => {
                     <Muted>{`${tables.length} table${plural(tables.length)}`}</Muted>
                     <Separator orientation="vertical" />
                     <Muted>
-                        {`${enabledCount} table${plural(enabledCount)} accessible${plural(enabledCount)}`}
+                        {`${agentEnabledCount} accessible${plural(agentEnabledCount)}`}
                     </Muted>
+                    {showHiddenSwitch && (
+                        <>
+                            <Separator orientation="vertical" />
+                            <Muted>
+                                {`${cloningEnabledCount} clonable${plural(cloningEnabledCount)}`}
+                            </Muted>
+                        </>
+                    )}
                 </div>
             </div>
             <Frame className="max-h-96 overflow-y-auto">
@@ -135,7 +217,9 @@ const TablesSelector = ({ ref }: { ref?: Ref<TablesSelectorFormRef> }) => {
                         <TableItem
                             key={table.name}
                             table={table}
-                            onToggle={handleToggle}
+                            onToggleAgentAccess={(name, enabled) => handleToggle(name, enabled, 'access')}
+                            onToggleCloningIncluding={(name, enabled) => handleToggle(name, enabled, 'cloning')}
+                            showHiddenSwitch={showHiddenSwitch}
                         />
                     ))}
                     {filteredTables.length === 0 && (

@@ -1,7 +1,7 @@
 import { useHttp } from '@inertiajs/react';
 import { useCallback, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { DriverStore } from '@/store/driver-store';
+import { useDriverStore } from '@/store/driver-store';
 import type { Driver, DriverConfig } from '@/types/databases';
 import  { DefaultDrivers } from '@/types/databases';
 import type { APIData } from '@/types/global';
@@ -40,8 +40,8 @@ const purgeConfig = (driverConfig: DriverConfig & Pick<CloningDriverConfig, 'fro
 const useDriverConfig = () => {
     const loadDriversRequest = useHttp<object, APIData<Driver>>({});
 
-    const drivers = DriverStore.use.drivers()
-    const fillDrivers = DriverStore.use.fillDrivers();
+    const drivers = useDriverStore((state) => state.drivers);
+    const fillDrivers = useDriverStore((state) => state.fillDrivers);
 
     const loadDrivers = useCallback((refresh: boolean = false) => {
         if (drivers.length > 0 && !refresh) {

@@ -20,6 +20,7 @@ type Props = {
     scrollable?: boolean;
     icon?: LucideIcon;
     showCloseButton?: boolean;
+    onEscapeKeyDown?: (event: KeyboardEvent) => void;
 };
 
 
@@ -55,6 +56,7 @@ export default function Modal({
     scrollable,
     icon: Icon,
     showCloseButton = true,
+    onEscapeKeyDown,
 }: Props) {
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -65,6 +67,7 @@ export default function Modal({
                     })}
                 >
                     <CustomDialogContent
+                        onEscapeKeyDown={onEscapeKeyDown}
                         className={cn(
                             'h-120 overflow-hidden p-0 sm:max-w-200',
                             {

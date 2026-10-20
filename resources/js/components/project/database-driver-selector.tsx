@@ -50,12 +50,6 @@ const DatabaseDriverSelector = memo(({ exists, defaultSelected, selectedDriver, 
                             message="La modification d'une base de données déjà utilisée par l'agent peut entrainer la confusion, préférez créer un nouveau projet avec une nouvelle base de donnés."
                         />
                     )}
-                    <input
-                        type="hidden"
-                        readOnly
-                        name="driver_id"
-                        defaultValue={selectedDriver}
-                    />
                     <RadioGroup
                         value={selectedDriver}
                         onValueChange={handleDriverChange}

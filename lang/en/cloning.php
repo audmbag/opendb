@@ -146,6 +146,16 @@ return [
         'remapping' => 'Remapping',
     ],
 
+    'remapping_notices' => [
+        'too_many_rows' => 'The identifiers of this table (:rows rows) will be kept as is: renewing them would need more memory than the cloning has.',
+        'exceeds_memory' => 'Too many identifiers to renew: the selected primary key remapping needs more memory than the cloning has. Set the identifiers of these tables to "Keep", then run the cloning again: :tables.',
+    ],
+
+    'skip_reasons' => [
+        'dotted_name' => 'Tables whose name contains a dot (".") cannot be copied: this one will not be included in the cloned database. To clone it, rename it without a dot in the source database.',
+        'unknown_structure' => 'This table structure could not be read, so its data cannot be anonymised. It will be skipped during cloning.',
+    ],
+
     'faker' => [
         'methods' => [
             'words' => 'Words',

@@ -18,8 +18,8 @@ const useProvider = () => {
 
     const [disconnectingId, setDisconnectingId] = useState<string | undefined>();
 
-    const providers = useProviderStore.use.providers();
-    const setProviders = useProviderStore.use.setProviders();
+    const providers = useProviderStore((state) => state.providers);
+    const setProviders = useProviderStore((state) => state.setProviders);
 
     const loadData = useCallback((reload: boolean = false) => {
         if ( !reload && (providers.length > 0)) {

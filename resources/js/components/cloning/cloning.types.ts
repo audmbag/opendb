@@ -119,6 +119,10 @@ export interface CloningTable {
     rowsStrategy: string;
     rowsClear: string | null;
     columns: CloningColumn[];
+    /** Raison pour laquelle la table sera ignorée au clonage, ou null si elle est copiée. */
+    skipReason: string | null;
+    /** Raison pour laquelle les identifiants de la table seront conservés au lieu d'être remappés, ou null. */
+    remappingNotice: string | null;
 }
 
 export interface CloningLabels {
@@ -147,3 +151,28 @@ export type CloningDriverConfig = Pick<
 > &
     CloningDriverConfigOptions;
 
+
+
+export type CloningDraft = {
+    cloningId: string;
+    tables: Record<string, Record<string, ColumnTransformation>>;
+};
+
+export type CloningConfigurationData = {
+    enforce_column_types: boolean;
+    drop_unknown_tables: boolean;
+    drop_extra_columns: boolean;
+    disable_fk_checks: boolean;
+    break_on_failure: boolean;
+};
+
+/**
+ * Données prêtes à être envoyées au serveur pour lancer le clonage.
+ */
+export type CloningPayload = {
+    cloningDriverConfig: CloningDriverConfig;
+    anonymisation: CloningDraft;
+    options: CloningConfigurationData;
+    agentDisabled: string[];
+    cloningDisabled: string[];
+};

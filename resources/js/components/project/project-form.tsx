@@ -25,8 +25,8 @@ import ProjectInfoForm from '@/components/project/project-info-form';
 import TablesSelector from '@/components/project/tables-selector';
 import { useSaveProject } from '@/hooks/use-project';
 import { useProjectModal } from '@/hooks/use-project-modal';
-import ConversationController from '@/wayfinder/actions/App/Http/Controllers/ConversationController';
 import { useTempProjectStore } from '@/store/use-project-store';
+import ConversationController from '@/wayfinder/actions/App/Http/Controllers/ConversationController';
 
 const ProjectForm = () => {
 
@@ -44,7 +44,7 @@ const ProjectForm = () => {
 
     const handleNextStep = useCallback(async () => {
 
-        setTriggeredButton('nextStep');
+        setTriggeredButton(() => 'nextStep');
 
         if (projectInfoFormRef.current && currentStep === 1) {
             const response = await projectInfoFormRef.current.submit();
@@ -66,17 +66,21 @@ const ProjectForm = () => {
 
     const saveProject = useCallback(async () => {
         setTriggeredButton(null);
-        await saveWithDisabledTables(project => {
+
+        const project = await saveWithDisabledTables();
+
+        if(project) {
             setIsProjectModalOpen(false);
             toast.success('Project créé avec succès');
-            router.visit(ConversationController.home.url({ project: project.id }))
-        });
+            router.visit(ConversationController.home.url({ project: project.id }));
+        }
     }, [saveWithDisabledTables, setIsProjectModalOpen]);
 
 
-    const initializeCloning = useCallback(async () => {
+    const initializeCloning = useCallback(() => {
+        setProcessing(true);
         setTriggeredButton('cloning');
-        await driverConfigRef.current?.initializeCloning();
+        driverConfigRef.current?.initializeCloning();
     }, []);
 
     const steps = useMemo<WizardStep[]>(() => [
@@ -120,18 +124,20 @@ const ProjectForm = () => {
                 content: <TablesSelector ref={tablesSelectorRef} />,
             },
         ],
-        [setCurrentStep, tablesSelectorRef, triggeredButton],
+        [tablesSelectorRef],
     );
 
     return (
-        <div className="flex flex-col gap-4 p-4">
-            <Wizard
-                steps={steps}
-                value={currentStep}
-                onValueChange={setCurrentStep}
-            />
+        <div className="flex flex-col">
+            <div className="p-4">
+                <Wizard
+                    steps={steps}
+                    value={currentStep}
+                    onValueChange={setCurrentStep}
+                />
+            </div>
 
-            <div className="flex items-center justify-between gap-2.5">
+            <div className="flex items-center justify-between gap-2.5 bg-accent p-4 border-t border-border">
                 <Button
                     variant="outline"
                     disabled={processing || processingSave || currentStep === 1}
@@ -146,15 +152,9 @@ const ProjectForm = () => {
                             <Button
                                 variant="outline"
                                 icon={CopyIcon}
-                                processing={
-                                    processing && triggeredButton === 'cloning'
-                                }
-                                disabled={
-                                    processing && triggeredButton !== 'cloning'
-                                }
-                                tooltip="
-                                    Cloner et anonymiser la base de données plutôt que d'utiliser votre base de données originale
-                                "
+                                processing={processing && triggeredButton === 'cloning'}
+                                disabled={processing}
+                                tooltip="Cloner et anonymiser la base de données plutôt que d'utiliser votre base de données originale"
                                 onClick={initializeCloning}
                             >
                                 Cloner et anonymiser
@@ -163,12 +163,8 @@ const ProjectForm = () => {
                         <Button
                             variant="outline"
                             onClick={handleNextStep}
-                            processing={
-                                processing && triggeredButton === 'nextStep'
-                            }
-                            disabled={
-                                processing && triggeredButton !== 'nextStep'
-                            }
+                            processing={processing && triggeredButton === 'nextStep'}
+                            disabled={processing}
                             icon={ChevronRightIcon}
                             className={'flex-row-reverse'}
                         >

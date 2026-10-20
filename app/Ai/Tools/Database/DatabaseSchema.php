@@ -27,7 +27,7 @@ class DatabaseSchema extends BaseTool implements Tool
 
     public function handle(Request $request): Stringable|string
     {
-        return $this->toJson($this->driver->getSchema());
+        return $this->toJson($this->driver->getSchema(false));
     }
 
     public function schema(JsonSchema $schema): array

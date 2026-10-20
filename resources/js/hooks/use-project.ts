@@ -1,14 +1,13 @@
-import type { FormComponentRef } from '@inertiajs/core';
 import { useHttp, usePage } from '@inertiajs/react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import type { CloningDriverConfig } from '@/components/cloning/cloning.types';
-import type { ProjectConfigFormProps } from '@/components/project/driver-config-form';
 import type { TablesSelectorFormRef } from '@/components/project/tables-selector';
 import type { ConnectionTestResult} from '@/hooks/use-driver-config';
 import { useDriverConfigTestConnection } from '@/hooks/use-driver-config';
 import { useTempProjectStore } from '@/store/use-project-store';
-import type { DriverConfig } from '@/types/databases';
+import type { DriverConfig, SSHConfiguration } from '@/types/databases';
+import { DefaultDrivers } from '@/types/databases';
 import type { Project } from '@/types/models/project';
 import ProjectController from '@/wayfinder/actions/App/Http/Controllers/ProjectController';
 
@@ -42,7 +41,7 @@ type ProjectInfoProps = {
 
 const useProjectInfo = ({ defaults, onFinish, onStart }: ProjectInfoProps) => {
     const tempProject = useTempProjectStore(d => d.tmpProject);
-    const setTempProject = useTempProjectStore.use.fill();
+    const setTempProject = useTempProjectStore((state) => state.fill);
 
     const { errors, post, data, setData, optimistic } = useHttp<ProjectInfo, Project>({
         id: defaults?.id || tempProject?.id || '',
@@ -99,13 +98,70 @@ const CONNECTION_TEST_DEFAULT: ConnectionTestState = {
 };
 
 
-const useProjectDriverConfig = ({ onStart, onFinish }: ProjectInfoProps) => {
+const DRIVER_CONNECTION_DEFAULTS: Partial<
+    Record<DefaultDrivers, { host: string; port: number; username: string }>
+> = {
+    [DefaultDrivers.MYSQL]: { host: '127.0.0.1', port: 3306, username: 'root' },
+    [DefaultDrivers.MARIADB]: { host: '127.0.0.1', port: 3306, username: 'root' },
+    [DefaultDrivers.POSTGRESQL]: { host: '127.0.0.1', port: 5432, username: 'postgres' },
+};
+
+export type SSHConfigFormData = Record<keyof SSHConfiguration, string>;
+
+/**
+ * Valeurs saisies dans le formulaire de configuration du driver.
+ */
+export type DriverConfigFormData = {
+    driver_id: string;
+    host: string;
+    port: string;
+    username: string;
+    password: string;
+    database: string;
+    ssh: SSHConfigFormData;
+    create_database_if_not_exists: boolean;
+};
+
+/**
+ * Données envoyées au serveur : seuls les champs affichés sont transmis.
+ */
+export type DriverConfigFormPayload = Pick<DriverConfigFormData, 'driver_id' | 'database'> &
+    Partial<Pick<DriverConfigFormData, 'host' | 'port' | 'username' | 'password' | 'ssh'>> & {
+        id?: string;
+        from_id?: string;
+        create_database_if_not_exists?: true;
+    };
+
+type ProjectDriverConfigProps = Pick<ProjectInfoProps, 'onStart' | 'onFinish'> & {
+    sshEnabled?: boolean;
+    cloning?: boolean;
+    createDatabaseIfNotExists?: boolean;
+};
+
+const getConnectionDefaults = (
+    driverId: string,
+    defaults: Partial<DriverConfig>,
+): Pick<DriverConfigFormData, 'host' | 'port' | 'username'> => {
+    const driverDefaults = DRIVER_CONNECTION_DEFAULTS[driverId as DefaultDrivers];
+    const saved = defaults.driver_id === driverId ? defaults : undefined;
+
+    return {
+        host: saved?.host || driverDefaults?.host || '',
+        port: String(saved?.port || driverDefaults?.port || ''),
+        username: saved?.username || driverDefaults?.username || '',
+    };
+};
+
+const useProjectDriverConfig = ({
+    onStart,
+    onFinish,
+    sshEnabled = true,
+    cloning = false,
+    createDatabaseIfNotExists = false,
+}: ProjectDriverConfigProps) => {
 
     const tempProject = useTempProjectStore((d) => d.tmpProject);
     const cloningDriverConfig = useTempProjectStore((state) => state.cloningDriverConfig,);
-
-
-    const formRef = useRef<FormComponentRef<ProjectConfigFormProps>>(null);
 
     const { testConnection, processing: processingTest, errors: testErrors, resetAndClearErrors, } = useDriverConfigTestConnection();
 
@@ -113,18 +169,71 @@ const useProjectDriverConfig = ({ onStart, onFinish }: ProjectInfoProps) => {
 
     const { props: { project }, } = usePage<{ project: Project }>();
 
-    const { post, optimistic, errors } = useHttp<ProjectConfigFormProps | null, { driverConfig: DriverConfig }>(null);
+    const { post, optimistic, errors } = useHttp<DriverConfigFormPayload | null, { driverConfig: DriverConfig }>(null);
 
     const defaults = useMemo(() => {
         return { ...tempProject?.driver_config, ...cloningDriverConfig, ...project?.driver_config };
     }, [cloningDriverConfig, tempProject?.driver_config, project?.driver_config]);
 
-    const submit = useCallback(async () => {
-        if (!formRef.current) {
-            return;
+    const [data, setFormData] = useState<DriverConfigFormData>(() => {
+        const driverId = defaults.driver_id || DefaultDrivers.MYSQL;
+
+        return {
+            driver_id: driverId,
+            ...getConnectionDefaults(driverId, defaults),
+            password: defaults.password || '',
+            database: defaults.database || '',
+            ssh: {
+                host: defaults.ssh?.host || '',
+                port: String(defaults.ssh?.port || 22),
+                user: defaults.ssh?.user || '',
+                id_file: defaults.ssh?.id_file || '',
+            },
+            create_database_if_not_exists: !!defaults.create_database_if_not_exists,
+        };
+    });
+
+    const [sshOpen, setSshOpen] = useState(!!defaults.ssh);
+
+    const setData = useCallback((values: Partial<DriverConfigFormData>) => {
+        setFormData((prev) => ({ ...prev, ...values }));
+    }, []);
+
+    const setSshData = useCallback((values: Partial<SSHConfigFormData>) => {
+        setFormData((prev) => ({ ...prev, ssh: { ...prev.ssh, ...values } }));
+    }, []);
+
+    const getData = useCallback((): DriverConfigFormPayload => {
+        const isSqlite = data.driver_id === DefaultDrivers.SQLITE;
+        const payload: DriverConfigFormPayload = {
+            driver_id: data.driver_id,
+            database: data.database,
+        };
+
+        if (defaults.id) {
+            payload[cloning ? 'from_id' : 'id'] = String(defaults.id);
         }
 
-        const formData = formRef.current.getData();
+        if (!isSqlite) {
+            payload.host = data.host;
+            payload.port = data.port;
+            payload.username = data.username;
+            payload.password = data.password;
+
+            if (sshEnabled && sshOpen) {
+                payload.ssh = data.ssh;
+            }
+        }
+
+        if (createDatabaseIfNotExists && data.create_database_if_not_exists) {
+            payload.create_database_if_not_exists = true;
+        }
+
+        return payload;
+    }, [cloning, createDatabaseIfNotExists, data, defaults.id, sshEnabled, sshOpen]);
+
+    const submit = useCallback(async () => {
+        const formData = getData();
 
         const oldData = {
             database: tempProject?.driver_config?.database,
@@ -168,19 +277,15 @@ const useProjectDriverConfig = ({ onStart, onFinish }: ProjectInfoProps) => {
             },
         );
 
-    }, [onFinish, onStart, optimistic, project?.id, tempProject?.driver_config, tempProject?.id]);
+    }, [getData, onFinish, onStart, optimistic, project?.id, tempProject?.driver_config, tempProject?.id]);
 
     const handleTestConnection = useCallback(async () => {
-        if (!formRef.current) {
-            return;
-        }
-
         setTestConnectionState(CONNECTION_TEST_DEFAULT);
 
         onStart?.();
 
         return await testConnection(
-            formRef.current.getData() as DriverConfig & Pick<CloningDriverConfig, 'from_id'>,
+            getData() as unknown as DriverConfig & Pick<CloningDriverConfig, 'from_id'>,
             ({ success, message, willCreateDatabase }) => {
                 setTestConnectionState({
                     success: success,
@@ -192,18 +297,37 @@ const useProjectDriverConfig = ({ onStart, onFinish }: ProjectInfoProps) => {
             },
             () => onFinish?.(),
         );
-    }, [onFinish, onStart, testConnection]);
+    }, [getData, onFinish, onStart, testConnection]);
 
     const resetData = useCallback(() => {
-        formRef.current?.clearErrors();
         resetAndClearErrors();
         setTestConnectionState(CONNECTION_TEST_DEFAULT);
     }, [resetAndClearErrors]);
 
+    const changeDriver = useCallback((driverId: string) => {
+        setFormData((prev) => {
+            const sqliteToggled = (prev.driver_id === DefaultDrivers.SQLITE) !== (driverId === DefaultDrivers.SQLITE);
+
+            return {
+                ...prev,
+                ...getConnectionDefaults(driverId, defaults),
+                driver_id: driverId,
+                database: sqliteToggled ? defaults.database || '' : prev.database,
+            };
+        });
+        resetData();
+    }, [defaults, resetData]);
+
 
     return {
         errors: { ...testErrors, ...errors },
-        formRef,
+        data,
+        setData,
+        setSshData,
+        getData,
+        changeDriver,
+        sshOpen,
+        setSshOpen,
         setTestConnectionState,
         testConnectionState,
         handleTestConnection,
@@ -215,6 +339,11 @@ const useProjectDriverConfig = ({ onStart, onFinish }: ProjectInfoProps) => {
     };
 };
 
+type SaveProjectDataType = {
+    agentDisabled: string[];
+    cloningDisabled?: string[];
+    cloningDriverConfig?: CloningDriverConfig | null;
+};
 
 const useSaveProject = () => {
     const tempProject = useTempProjectStore((d) => d.tmpProject);
@@ -224,34 +353,33 @@ const useSaveProject = () => {
 
     const tablesSelectorRef = useRef<TablesSelectorFormRef>(null);
 
-    const { post, processing, optimistic } = useHttp<{tables: string[]}, Project>({
-        tables: []
-    });
+    const { post, processing, optimistic } = useHttp<SaveProjectDataType, Project>({ agentDisabled: [] });
+    const cloningDriverConfig = useTempProjectStore((state) => state.cloningDriverConfig);
 
-    const saveWithDisabledTables = useCallback(async (onSuccess?: (project: Project) => void) => {
-        if (!tablesSelectorRef.current) {
-            return;
-        }
+    const saveWithDisabledTables = useCallback(async () => {
 
-        const disabledTables = tablesSelectorRef.current.submit();
+        let targetUrl = ProjectController.saveWithDisabledTables.url({ project: tempProject?.id || project?.id })
 
-        if(!disabledTables) {
-            return;
-        }
+        optimistic(() => {
+            let data: SaveProjectDataType = {
+                agentDisabled: tablesSelectorRef?.current?.submit()?.agentDisabled || [],
+                ...(tablesSelectorRef?.current?.submit()?.cloningDisabled && {
+                    cloningDisabled: tablesSelectorRef?.current?.submit()?.cloningDisabled,
+                }),
+            };
 
-        optimistic(() => ({ tables: disabledTables }));
+            if (cloningDriverConfig) {
+                data = { ...data, cloningDriverConfig };
 
-        await post(
-            ProjectController.saveWithDisabledTables.url({
-                project: tempProject?.id || project?.id,
-            }),
-            {
-                onSuccess: response => {
-                    clearTempProject();
-                    onSuccess?.(response);
-                },
-            },
-        );
+                targetUrl = ProjectController.saveWithCloning.url({ project: tempProject?.id || project?.id });
+            }
+
+            return data;
+        });
+
+        return await post(targetUrl, {
+            onSuccess: () => clearTempProject(),
+        });
     }, [clearTempProject, optimistic, project?.id, tempProject?.id]);
 
     return {

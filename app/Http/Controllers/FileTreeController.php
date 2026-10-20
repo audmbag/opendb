@@ -12,18 +12,18 @@ class FileTreeController extends Controller
 {
     public function __invoke(Request $request): JsonResponse
     {
-        $path = $request->input("path", null);
+        $path = $request->input('path', null);
 
         $extensionsArray = Str::of($request->query('targetFileExtensions'))
             ->explode(',')
-            ->map(fn($ext) => trim($ext))
+            ->map(fn ($ext) => trim($ext))
             ->toArray();
 
-        $onlyFolders = $request->boolean("onlyFolders", false);
+        $onlyFolders = $request->boolean('onlyFolders', false);
 
         $service = new FileExplorerService(onlyFolders: $onlyFolders, targetFileExtensions: $extensionsArray);
 
-        return Response::json($service->getFolderTree($path, 2));
+        return Response::json($service->getFolderTree($path, 2, $request->query('reveal')));
     }
 
     public function getChildren(string $path): array
@@ -36,7 +36,7 @@ class FileTreeController extends Controller
                     if ($file === '.' || $file === '..') {
                         continue;
                     }
-                    $fullPath = $path . DIRECTORY_SEPARATOR . $file;
+                    $fullPath = $path.DIRECTORY_SEPARATOR.$file;
                     $children[] = [
                         'name' => $file,
                         'path' => $fullPath,
@@ -46,8 +46,7 @@ class FileTreeController extends Controller
                 closedir($dir);
             }
         }
+
         return $children;
     }
 }
-
-

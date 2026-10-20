@@ -1,15 +1,19 @@
 import { useHttp } from '@inertiajs/react'
 import {
+    CircleSlashIcon,
     DatabaseBackupIcon,
-    Loader,
     Loader2Icon,
     RefreshCwIcon,
     Table2Icon,
 } from 'lucide-react';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import Alert from '@/components/alert';
 import CardFrame from '@/components/card-frame';
 import { useCloningStore } from '@/components/cloning/cloning-store';
-import type { CloningClientPayload } from '@/components/cloning/cloning.types';
+import type {
+    CloningClientPayload,
+    CloningDraft,
+} from '@/components/cloning/cloning.types';
 import TablesAnonymisationColumns from '@/components/cloning/tables-anonymisation-columns';
 import Button from '@/components/form/button';
 import {
@@ -18,26 +22,26 @@ import {
     SmallSideBarProvider,
 } from '@/components/sm-side-bar/small-side-bar';
 import type { SmallSidebarNavItem } from '@/components/sm-side-bar/types';
-import DriverConfigController from '@/wayfinder/actions/App/Http/Controllers/API/DriverConfigController';
+import { Muted } from '@/components/typograpfy/typography';
+import { Separator } from '@/components/ui/separator';
+import type { ProjectPartFromRef } from '@/hooks/use-project';
 import { useTempProjectStore } from '@/store/use-project-store';
-import Alert from '@/components/alert';
-import error from 'eslint-plugin-react/lib/util/error';
-import { APIData } from '@/types/global';
+import DriverConfigController from '@/wayfinder/actions/App/Http/Controllers/API/DriverConfigController';
 
-const TablesAnonymisationContent = ({
-    cloningPayload,
-}: {
-    cloningPayload: CloningClientPayload;
-}) => {
+const TablesAnonymisationContent = ({ cloningPayload, }: { cloningPayload: CloningClientPayload; }) => {
 
     const tables: SmallSidebarNavItem[] = useMemo(() => {
         return cloningPayload.tables.map((table) => ({
             name: table.name,
             value: table.name,
-            icon: Table2Icon,
-            badge: table.columns.length.toString(),
+            icon: table.skipReason ? CircleSlashIcon : Table2Icon,
+            badge: table.skipReason ? 'Ignorée' : table.columns.length.toString(),
             component: <TablesAnonymisationColumns table={table} />,
         }));
+    }, [cloningPayload.tables]);
+
+    const skippedTables = useMemo(() => {
+        return cloningPayload.tables.filter((table) => table.skipReason).map((table) => table.name);
     }, [cloningPayload.tables]);
 
     const columnCount = useMemo(() => {
@@ -51,9 +55,6 @@ const TablesAnonymisationContent = ({
     return (
         <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between gap-4">
-                <span>
-                    {tables.length} tables et {columnCount} colonnes détectées.
-                </span>
                 <div className="flex gap-2">
                     <Button
                         icon={DatabaseBackupIcon}
@@ -70,7 +71,22 @@ const TablesAnonymisationContent = ({
                         onClick={resetAll}
                     />
                 </div>
+                <div className="flex items-center gap-2">
+                    <Muted>{tables.length} tables</Muted>
+                    <Separator orientation="vertical" />
+                    <Muted>{columnCount} colonnes détectées.</Muted>
+                </div>
             </div>
+
+            {skippedTables.length > 0 && (
+                <Alert
+                    variant="warning"
+                    title={skippedTables.length === 1
+                        ? '1 table sera ignorée lors du clonage'
+                        : `${skippedTables.length} tables seront ignorées lors du clonage`}
+                    message={`${skippedTables.join(', ')} : sélectionnez une table pour en voir la raison.`}
+                />
+            )}
 
             <CardFrame innerPadding={false}>
                 {tables.length > 0 && tableOrder.length > 0 && (
@@ -89,40 +105,61 @@ const TablesAnonymisationContent = ({
     );
 };
 
-const TablesAnonymisation = () => {
+
+export type TableAnonymisationRef = ProjectPartFromRef<CloningDraft>
+
+
+type Props = {
+    ref?: React.Ref<TableAnonymisationRef>;
+};
+
+const TablesAnonymisation = ({ ref } : Props) => {
 
     const { get, processing } = useHttp<any, { data: CloningClientPayload }>();
 
-    const [cloningPayload, setCloningPayload] = useState<null | CloningClientPayload>(null);
-
     const loadPayload = useCloningStore((s) => s.loadPayload);
+    const buildDraft = useCloningStore((s) => s.buildDraft);
+    const originalPayload = useCloningStore((s) => s.originalPayload);
     const config = useTempProjectStore(state => state.cloningDriverConfig);
 
+    const [cloningPayload, setCloningPayload] = useState<null | CloningClientPayload>(originalPayload);
+    const [cloningError, setCloningError] = useState<string | null>(null);
+
+    const isLoaded = useRef(false);
+
     useEffect(() => {
+
+        if (isLoaded.current || originalPayload) {
+            return;
+        }
 
         if (!config?.from_id) {
             return;
         }
 
+        isLoaded.current = true;
+
         get(
             DriverConfigController.cloningClientPayload({ config: config.from_id }).url,
             {
                 onSuccess: ({ data }) => {
-                    console.log(data);
                     loadPayload(data);
                     setCloningPayload(data);
                 },
-                onError: (e) => {
-                    console.log(e);
+                onError: (error) => {
+                    setCloningError(error.error);
                 },
-                onHttpException: (e) => {
-                    console.log(e);
+                onHttpException: (error) => {
+                    setCloningError(JSON.parse(error.data).error);
                 },
             },
-        );
+        ).then(() => null);
 
     }, [config?.from_id, loadPayload])
 
+    useImperativeHandle(ref, () => ({
+        submit: () => buildDraft(),
+    }));
 
     return (
         <div>
@@ -136,11 +173,13 @@ const TablesAnonymisation = () => {
                 <TablesAnonymisationContent cloningPayload={cloningPayload} />
             )}
 
-            {/*<Alert*/}
-            {/*    title={'Erreur'}*/}
-            {/*    message={'Impossible de charger les données de clonage.'}*/}
-            {/*    variant="destructive"*/}
-            {/*/>*/}
+            {cloningError && (
+                <Alert
+                    title={'Impossible de charger les données de clonage.'}
+                    message={cloningError}
+                    variant="destructive"
+                />
+            )}
         </div>
     );
 };

@@ -18,7 +18,6 @@ final readonly class CloningTransformation
         public array $foreignKeys = [],
     ) {}
 
-
     public static function fromRaw(array $data): self
     {
         $remappingUse = null;
@@ -55,7 +54,6 @@ final readonly class CloningTransformation
             foreignKeys: $foreignKeys,
         );
     }
-
 
     public static function fromArray(array $data): self
     {

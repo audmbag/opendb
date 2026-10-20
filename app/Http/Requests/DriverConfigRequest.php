@@ -48,13 +48,19 @@ class DriverConfigRequest extends FormRequest
         return Arr::except($this->validated(), ['create_database_if_not_exists']);
     }
 
-    public static function getValidationRules(InputBag $input): array
+    /**
+     * @param  InputBag  $input  Données de connexion à valider
+     * @param  string  $prefix  Clé parente des données quand elles sont imbriquées dans la requête, point final inclus (« cloningDriverConfig. »)
+     * @return array<string, array<mixed>>
+     */
+    public static function getValidationRules(InputBag $input, string $prefix = ''): array
     {
-        $unless_sqlite = 'required_unless:driver_id,'.DriverLabEnum::SQLITE->value;
+        $unless_sqlite = "required_unless:{$prefix}driver_id,".DriverLabEnum::SQLITE->value;
+        $with_ssh = "required_with:{$prefix}ssh";
         $create_database = filter_var($input->get('create_database_if_not_exists'), FILTER_VALIDATE_BOOLEAN);
 
-        return [
-            'id' => ['nullable', 'string'],
+        return Arr::prependKeysWith([
+            'id' => ['nullable', 'numeric'],
             'from_id' => ['nullable', 'string'],
             'driver_id' => ['required', 'string', Rule::exists(Driver::class, 'id')],
             'host' => [$unless_sqlite, 'string'],
@@ -72,14 +78,14 @@ class DriverConfigRequest extends FormRequest
             'username' => [$unless_sqlite, 'string'],
             'password' => [$unless_sqlite, 'string'],
             'ssh' => ['nullable', 'array'],
-            'ssh.host' => ['required_with:ssh', 'string'],
+            'ssh.host' => [$with_ssh, 'string'],
             'ssh.port' => ['nullable', 'numeric'],
-            'ssh.user' => ['required_with:ssh', 'string'],
-            'ssh.id_file' => ['required_with:ssh', 'string', function (string $attribute, mixed $value, Closure $fail) {
+            'ssh.user' => [$with_ssh, 'string'],
+            'ssh.id_file' => [$with_ssh, 'string', function (string $attribute, mixed $value, Closure $fail) {
                 if (! is_file($value)) {
                     return $fail("The {$attribute} must be a valid file path.");
                 }
             }],
-        ];
+        ], $prefix);
     }
 }

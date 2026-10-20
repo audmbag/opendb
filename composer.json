@@ -9,7 +9,7 @@
     ],
     "license": "MIT",
     "require": {
-        "php": "^8.4",
+        "php": "^8.5",
         "ext-pcntl": "*",
         "albertoarena/laravel-truss": "^1.11",
         "calebporzio/sushi": "^2.5",

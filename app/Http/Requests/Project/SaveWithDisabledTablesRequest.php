@@ -5,7 +5,7 @@ namespace App\Http\Requests\Project;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
-class SaveTableInfosRequest extends FormRequest
+class SaveWithDisabledTablesRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -23,8 +23,8 @@ class SaveTableInfosRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'tables' => ['nullable', 'array'],
-            'tables.*' => ['required', 'string'],
+            'agentDisabled' => ['nullable', 'array'],
+            'agentDisabled.*' => ['required', 'string'],
         ];
     }
 }

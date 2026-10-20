@@ -21,11 +21,13 @@ final readonly class CloningAnonymizationConfig
      * @param  array  $raw  Contenu de .cloning.yaml, déjà parsé (Yaml::parseFile()).
      * @param  iterable  $dbSchema  Retour de BaseDriver::getSchema() (tableau ou Collection/objets).
      * @param  array  $piiMatchers  Contenu de clonio.pii-matchers.yaml, déjà parsé.
+     * @param  array<string, int>  $keptPrimaryKeys  Tables trop grandes pour que leur clé primaire soit remappée, avec leur nombre de lignes.
      */
     public function __construct(
         private array $raw,
         iterable $dbSchema = [],
         array $piiMatchers = [],
+        private array $keptPrimaryKeys = [],
     ) {
         $this->schema = new DbSchemaCatalog($dbSchema);
         $this->matchers = PiiMatcherCatalog::fromRaw($piiMatchers);
@@ -38,7 +40,7 @@ final readonly class CloningAnonymizationConfig
     {
         $tables = [];
         foreach ($this->raw['tables'] ?? [] as $tableName => $tableData) {
-            $tables[] = CloningTable::fromRaw($tableName, $tableData, $this->schema, $this->matchers);
+            $tables[] = CloningTable::fromRaw((string) $tableName, $tableData, $this->schema, $this->matchers, $this->keptPrimaryKeys[$tableName] ?? null);
         }
 
         return $tables;
@@ -82,9 +84,7 @@ final readonly class CloningAnonymizationConfig
             }
 
             foreach ($columns as $columnName => $data) {
-                $transformation = $data instanceof CloningTransformation
-                    ? $data
-                    : CloningTransformation::fromArray($data);
+                $transformation = $data instanceof CloningTransformation ? $data : CloningTransformation::fromArray($data);
 
                 $tables[$tableName]['columns'][$columnName] = $transformation->toRaw();
             }
@@ -106,7 +106,7 @@ final readonly class CloningAnonymizationConfig
         foreach ($tables as $tableName => $table) {
             foreach ($table['columns'] ?? [] as $columnName => $data) {
                 $transformation = CloningTransformation::fromRaw($data);
-                $adapted = CloningStrategyResolver::adapt($transformation, $this->schema->getColumn($tableName, $columnName));
+                $adapted = CloningStrategyResolver::adapt($transformation, $this->schema->getColumn((string) $tableName, (string) $columnName));
 
                 if ($adapted !== $transformation) {
                     $tables[$tableName]['columns'][$columnName] = $adapted->toRaw();

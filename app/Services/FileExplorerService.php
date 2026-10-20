@@ -27,8 +27,10 @@ class FileExplorerService
     /**
      * @param  string|null  $path  Chemin absolu du dossier à explorer
      * @param  int  $depth  Nombre de niveaux à précharger (2 = enfants + petits-enfants)
+     * @param  string|null  $reveal  Chemin à rendre visible : chaque dossier menant à ce chemin voit ses enfants préchargés
+     * @return array{id: string, name: string, type: string, children: array}
      */
-    public function getFolderTree(?string $path = null, int $depth = 2): array
+    public function getFolderTree(?string $path = null, int $depth = 2, ?string $reveal = null): array
     {
         $path = $path ?? $this->getUserHomeDirectory();
 
@@ -38,7 +40,7 @@ class FileExplorerService
             'id' => $realPath,
             'name' => basename($realPath),
             'type' => 'folder',
-            'children' => $this->getChildren($realPath, $depth),
+            'children' => $this->getChildren($realPath, $depth, blank($reveal) ? null : rtrim($reveal, DIRECTORY_SEPARATOR)),
         ];
     }
 
@@ -67,7 +69,7 @@ class FileExplorerService
     /**
      * @return array<int, array{id: string, name: string, type: string, children?: array}>
      */
-    protected function getChildren(string $path, int $depth): array
+    protected function getChildren(string $path, int $depth, ?string $reveal = null): array
     {
         if ($depth <= 0 || ! is_readable($path)) {
             return [];
@@ -99,7 +101,11 @@ class FileExplorerService
                     'type' => 'folder',
                 ];
 
-                $node['children'] = $this->getChildren($childPath, $depth - 1);
+                $isOnRevealPath = $reveal !== null && $this->isSameOrParentPath($childPath, $reveal);
+
+                $node['children'] = $isOnRevealPath
+                    ? $this->getChildren($childPath, max($depth - 1, 1), $reveal)
+                    : $this->getChildren($childPath, $depth - 1);
 
                 $folders[] = $node;
             } else {
@@ -126,6 +132,11 @@ class FileExplorerService
         usort($files, fn ($a, $b) => strcasecmp($a['name'], $b['name']));
 
         return [...$folders, ...$files];
+    }
+
+    protected function isSameOrParentPath(string $parent, string $path): bool
+    {
+        return $path === $parent || str_starts_with($path, $parent.DIRECTORY_SEPARATOR);
     }
 
     public function getUserHomeDirectory(): string

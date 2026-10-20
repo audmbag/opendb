@@ -25,14 +25,17 @@ interface DriverContract
 
     /**
      * @return bool `true` si la base a été créée, `false` si elle existait déjà.
-     *
-     * @throws Exception
      */
     public function createDatabaseIfNotExists(): bool;
 
     public function getConnectionString(): string;
 
     public function getConnection(): Connection;
+
+    /**
+     * Port local du tunnel SSH ouvert vers la base, ou null si la connexion est directe.
+     */
+    public function sshTunnelPort(): ?int;
 
     public function describeDatabase(): array;
 
@@ -43,6 +46,11 @@ interface DriverContract
     public function focusTable(string $tableName, bool $withRelations = true): array;
 
     public function getSchema(): array;
+
+    /**
+     * Oublie le schéma mis en cache, par exemple après un clonage qui a rempli la base.
+     */
+    public function forgetSchema(): void;
 
     public function exportSchema(string $format): string;
 

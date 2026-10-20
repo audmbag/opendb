@@ -42,7 +42,8 @@ type Props = {
     align?: React.ComponentProps<typeof UISelectContent>['align'];
     size?: ButtonProps['size'];
     position?: React.ComponentProps<typeof UISelectContent>['position'];
-} & React.ComponentProps<typeof UISelect> & React.ComponentProps<typeof NativeSelect>;
+} & React.ComponentProps<typeof UISelect> &
+    Omit<React.ComponentProps<typeof NativeSelect>, 'size'>;
 
 
 
@@ -139,7 +140,7 @@ export default function Select({
     ...props
 }: Omit<InputPropsType, 'button'> & Props & { optionsLabel?: string }) {
     return (
-        <Field className={cn('gap-2', className)}>
+        <Field className={cn('gap-2 w-auto', className)}>
             {label && (
                 <FieldLabel htmlFor={props.name || props.id}>
                     {label}

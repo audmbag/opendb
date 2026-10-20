@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services\Cloning\Config;
 
+use App\Services\Cloning\CloningSourceConfig;
 use App\Services\Cloning\Pii\PiiMatcherCatalog;
 use App\Services\Cloning\Schema\DbSchemaCatalog;
+use Illuminate\Support\Number;
 
 final readonly class CloningTable
 {
@@ -17,6 +19,8 @@ final readonly class CloningTable
         public string $rowsStrategy,
         public ?string $rowsClear,
         public array $columns,
+        public ?string $skipReason = null,
+        public ?string $remappingNotice = null,
     ) {}
 
     public static function fromRaw(
@@ -24,10 +28,11 @@ final readonly class CloningTable
         array $data,
         DbSchemaCatalog $schema,
         PiiMatcherCatalog $matchers,
+        ?int $keptPrimaryKeyRows = null,
     ): self {
         $columns = [];
         foreach ($data['columns'] ?? [] as $columnName => $columnData) {
-            $columns[] = CloningColumn::fromRaw($columnName, $columnData, $name, $schema, $matchers);
+            $columns[] = CloningColumn::fromRaw((string) $columnName, $columnData, $name, $schema, $matchers);
         }
 
         return new self(
@@ -35,6 +40,10 @@ final readonly class CloningTable
             rowsStrategy: $data['rows']['strategy'],
             rowsClear: $data['rows']['clear'] ?? null,
             columns: $columns,
+            skipReason: CloningSourceConfig::skipReason($name, $data),
+            remappingNotice: $keptPrimaryKeyRows === null ? null : __('cloning.remapping_notices.too_many_rows', [
+                'rows' => Number::format($keptPrimaryKeyRows, locale: app()->getLocale()),
+            ]),
         );
     }
 
@@ -53,6 +62,8 @@ final readonly class CloningTable
             'rowsStrategy' => $this->rowsStrategy,
             'rowsClear' => $this->rowsClear,
             'columns' => $columns,
+            'skipReason' => $this->skipReason,
+            'remappingNotice' => $this->remappingNotice,
         ];
     }
 }

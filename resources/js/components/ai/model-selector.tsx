@@ -132,6 +132,7 @@ const ModelSelector = () => {
                 variant="ghost"
                 processing={processing}
                 onClick={handleOpen}
+                size={"sm"}
             >
                 <span className="flex items-center gap-1">
                     {selectedModelData?.provider ? (

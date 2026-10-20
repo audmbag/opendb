@@ -31,3 +31,4 @@ yarn-error.log
 clonio.json
 /opendb
 /database/pii-scenarios/.credentials
+.update

@@ -2,6 +2,7 @@
 
 namespace App\Database\Drivers;
 
+use AlbertoArena\Truss\Cache\SchemaCacheRepository;
 use AlbertoArena\Truss\Export\ExportBuilder;
 use AlbertoArena\Truss\TrussManager;
 use App\Database\Contracts\DriverContract;
@@ -9,10 +10,8 @@ use App\Database\Enums\DriverLabEnum;
 use App\Database\Exceptions\DatabaseCheckException;
 use App\Services\SSH\Remote;
 use App\Services\SSH\SshTunnel;
-use Closure;
 use Exception;
 use Illuminate\Database\Connection;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -68,7 +67,7 @@ class BaseDriver
     private function fill(): void
     {
         $this->driver_id = $this->databaseConfig['driver_id'];
-        $this->host = $this->databaseConfig['host'] ? self::cleanHost($this->databaseConfig['host']) : null;
+        $this->host = ($this->databaseConfig['host'] ?? null) ? self::cleanHost($this->databaseConfig['host']) : null;
         $this->port = $this->databaseConfig['port'] ?? null;
         $this->username = $this->databaseConfig['username'] ?? null;
         $this->password = $this->databaseConfig['password'] ?? null;
@@ -104,8 +103,8 @@ class BaseDriver
                 remotePort: $this->port,
                 remoteHost: $this->host
             ),
-            sshUser: $sshConfig->user,
-            sshPort: $sshConfig->port,
+            sshUser: $sshConfig['user'],
+            sshPort: $sshConfig['port'],
             identityFile: $sshConfig['id_file'],
             autoDisconnectTimeout: '15m'
         );
@@ -190,8 +189,6 @@ class BaseDriver
      * Crée la base de données si elle n'existe pas.
      *
      * @return bool `true` si la base a été créée, `false` si elle existait déjà.
-     *
-     * @throws Exception
      */
     public function createDatabaseIfNotExists(): bool
     {
@@ -325,6 +322,11 @@ class BaseDriver
         return DB::connection($this->connection_name);
     }
 
+    public function sshTunnelPort(): ?int
+    {
+        return $this->has_ssh_tunnel ? $this->ssh_tunnel_forward_port : null;
+    }
+
     public function disconnect(): void
     {
         DB::disconnect($this->connection_name);
@@ -340,8 +342,9 @@ class BaseDriver
 
         $driver = $config['driver_id'] ?? $this->label();
 
-        if (! $this->isSQLite()) {
-            $config['port'] = $this->has_ssh_tunnel ? $this->ssh_tunnel_forward_port : $config['port'];
+        if (! $this->isSQLite() && $this->has_ssh_tunnel) {
+            $config['host'] = '127.0.0.1';
+            $config['port'] = $this->ssh_tunnel_forward_port;
         }
 
         unset($config['driver_id'], $config['ssh'], $config['create_database_if_not_exists']);
@@ -375,17 +378,6 @@ class BaseDriver
     public static function cleanHost(string $host): string
     {
         return $host === 'localhost' ? '127.0.0.1' : $host;
-    }
-
-    protected function remember(string $suffix, Closure $callback): mixed
-    {
-        $host = self::cleanHost($this->getConfig()['host']);
-
-        $database = $this->connection->getDatabaseName();
-
-        $key = "opendb:schema:{$this->connection->getDriverName()}:{$host}:{$database}:{$suffix}";
-
-        return Cache::remember($key, self::SCHEMA_CACHE_TTL, $callback);
     }
 
     private function getExportBuilder(): ExportBuilder
@@ -430,9 +422,19 @@ class BaseDriver
         return $table->toArray();
     }
 
-    public function getSchema(): array
+    public function forgetSchema(): void
     {
-        return $this->getExportBuilder()->toArray();
+        app(SchemaCacheRepository::class)->forget($this->connection_name);
+    }
+
+    public function getSchema($withoutAnnotations = true): array
+    {
+        $builder = $this->getExportBuilder();
+        if ($withoutAnnotations) {
+            $builder = $builder->withoutAnnotations();
+        }
+
+        return $builder->toArray();
     }
 
     public function exportSchema(string $format): string
@@ -446,7 +448,7 @@ class BaseDriver
         return $this->getExportBuilder()->render($format);
     }
 
-    private function isSQLite(): bool
+    public function isSQLite(): bool
     {
         return $this->databaseConfig['driver_id'] === DriverLabEnum::SQLITE->value;
     }

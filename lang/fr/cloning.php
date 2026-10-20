@@ -146,6 +146,16 @@ return [
         'remapping' => 'Remappage',
     ],
 
+    'remapping_notices' => [
+        'too_many_rows' => 'Les identifiants de cette table (:rows lignes) seront conservés tels quels : les renouveler demanderait plus de mémoire que le clonage n\'en dispose.',
+        'exceeds_memory' => 'Trop d\'identifiants à renouveler : le remappage des clés primaires choisi demande plus de mémoire que le clonage n\'en dispose. Passez en « Conserver » les identifiants de ces tables, puis relancez le clonage : :tables.',
+    ],
+
+    'skip_reasons' => [
+        'dotted_name' => 'Les tables dont le nom contient un point (« . ») ne peuvent pas être copiées : celle-ci ne sera pas incluse dans la base clonée. Pour la cloner, renommez-la sans point dans la base source.',
+        'unknown_structure' => 'La structure de cette table n\'a pas pu être lue : ses données ne peuvent pas être anonymisées. Elle sera ignorée lors du clonage.',
+    ],
+
     'faker' => [
         'methods' => [
             'words' => 'Mots',

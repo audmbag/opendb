@@ -1,9 +1,9 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import type {
+import  {
     AvailableStrategy,
     CloningClientPayload,
-    CloningColumn,
+    CloningColumn, CloningDraft,
     CloningLabels,
     ColumnTransformation,
     DetectedMatcher,
@@ -73,6 +73,8 @@ function defaultTransformationFor(strategy: AvailableStrategy, meta: ColumnMeta 
 }
 
 interface CloningState {
+    originalPayload: CloningClientPayload | null;
+    cloningId: string | null;
     fakerCatalogs: Record<string, FakerCatalog>;
     labels: CloningLabels;
     meta: Record<ColumnKey, ColumnMeta>;
@@ -94,7 +96,6 @@ interface CloningState {
     ) => ColumnTransformation | undefined;
 
     getFakerOptions: (table: string, column: string) => FakerMethodOption[];
-
 
     setStrategy: (
         table: string,
@@ -134,13 +135,13 @@ interface CloningState {
 
     dirtyKeys: () => ColumnKey[];
 
-    buildDraft: (
-        onlyDirty?: boolean,
-    ) => Record<string, Record<string, ColumnTransformation>>;
+    buildDraft: (onlyDirty?: boolean) => CloningDraft;
 }
 
 export const useCloningStore = create<CloningState>()(
     immer((set, get) => ({
+        originalPayload: null,
+        cloningId: null,
         fakerCatalogs: {},
         labels: EMPTY_LABELS,
         meta: {},
@@ -150,58 +151,63 @@ export const useCloningStore = create<CloningState>()(
         values: {},
         loaded: false,
 
-        loadPayload: (payload) => set((state) => {
-            state.fakerCatalogs = payload.fakerCatalogs;
-            state.labels = payload.labels ?? EMPTY_LABELS;
-            state.meta = {};
-            state.initialValues = {};
-            state.values = {};
-            state.tableOrder = payload.tables.map((t) => t.name);
-            state.columnsByTable = {};
+        loadPayload: (payload) =>
+            set((state) => {
+                state.originalPayload = payload;
+                state.cloningId = payload.cloningId;
+                state.fakerCatalogs = payload.fakerCatalogs;
+                state.labels = payload.labels ?? EMPTY_LABELS;
+                state.meta = {};
+                state.initialValues = {};
+                state.values = {};
+                state.tableOrder = payload.tables.map((t) => t.name);
+                state.columnsByTable = {};
 
-            for (const table of payload.tables) {
-                state.columnsByTable[table.name] = table.columns.map(
-                    (c) => c.name,
-                );
+                for (const table of payload.tables) {
+                    state.columnsByTable[table.name] = table.columns.map(
+                        (c) => c.name,
+                    );
 
-                for (const column of table.columns) {
-                    const key = columnKey(table.name, column.name);
-                    const {
-                        strategy,
-                        name,
-                        type,
-                        detectedMatcher,
-                        options,
-                        fakerCatalogKey,
-                        suggestedFakerMethod,
-                        ...rest
-                    } = column as CloningColumn & Record<string, unknown>;
+                    for (const column of table.columns) {
+                        const key = columnKey(table.name, column.name);
+                        const {
+                            strategy,
+                            name,
+                            type,
+                            detectedMatcher,
+                            options,
+                            fakerCatalogKey,
+                            suggestedFakerMethod,
+                            ...rest
+                        } = column as CloningColumn & Record<string, unknown>;
 
-                    state.meta[key] = {
-                        table: table.name,
-                        name,
-                        type,
-                        detectedMatcher,
-                        options,
-                        fakerCatalogKey,
-                        suggestedFakerMethod,
-                    };
+                        state.meta[key] = {
+                            table: table.name,
+                            name,
+                            type,
+                            detectedMatcher,
+                            options,
+                            fakerCatalogKey,
+                            suggestedFakerMethod,
+                        };
 
-                    // Reconstruit la transformation courante depuis les champs à plat de la colonne.
-                    const transformation = {
-                        strategy,
-                        ...rest,
-                    } as ColumnTransformation;
-                    state.initialValues[key] = transformation;
-                    state.values[key] = transformation;
+                        // Reconstruit la transformation courante depuis les champs à plat de la colonne.
+                        const transformation = {
+                            strategy,
+                            ...rest,
+                        } as ColumnTransformation;
+                        state.initialValues[key] = transformation;
+                        state.values[key] = transformation;
+                    }
                 }
-            }
 
-            state.loaded = true;
-        }),
+                state.loaded = true;
+            }),
 
         clear: () =>
             set((state) => {
+                state.originalPayload = null;
+                state.cloningId = null;
                 state.fakerCatalogs = {};
                 state.labels = EMPTY_LABELS;
                 state.meta = {};
@@ -232,7 +238,6 @@ export const useCloningStore = create<CloningState>()(
             if (!suggested) {
                 return catalog;
             }
-
 
             const rest = catalog.filter(
                 (m) => m.fakerMethod !== suggested.fakerMethod,
@@ -322,7 +327,9 @@ export const useCloningStore = create<CloningState>()(
 
         resetAll: () =>
             set((state) => {
-                for (const key of Object.keys(state.initialValues) as ColumnKey[]) {
+                for (const key of Object.keys(
+                    state.initialValues,
+                ) as ColumnKey[]) {
                     state.values[key] = state.initialValues[key];
                 }
             }),
@@ -347,15 +354,13 @@ export const useCloningStore = create<CloningState>()(
             );
         },
 
-        buildDraft: (onlyDirty = false) => {
+        buildDraft: (onlyDirty = false): CloningDraft => {
             const state = get();
             const keys = onlyDirty
                 ? state.dirtyKeys()
                 : (Object.keys(state.values) as ColumnKey[]);
-            const draft: Record<
-                string,
-                Record<string, ColumnTransformation>
-            > = {};
+
+            const draft = {} as CloningDraft['tables'];
 
             for (const key of keys) {
                 const meta = state.meta[key];
@@ -368,7 +373,10 @@ export const useCloningStore = create<CloningState>()(
                 draft[meta.table][meta.name] = state.values[key];
             }
 
-            return draft;
+            return {
+                cloningId: state.cloningId || '',
+                tables: draft,
+            };
         },
     })),
 );

@@ -3,6 +3,7 @@
 namespace App\Services\Cloning\Data;
 
 use App\Database\Drivers\BaseDriver;
+use App\Database\Enums\DriverLabEnum;
 use App\Models\DriverConfig;
 use Illuminate\Support\Facades\Crypt;
 
@@ -19,10 +20,11 @@ class CloningConnection
         public ?string $username = null,
         public ?string $password = null,
         public bool $is_production = false,
+        public ?array $ssh = null,
     ) {
         $this->decryptedPassword = $this->password;
         $this->encryptPassword();
-        $this->host = BaseDriver::cleanHost($this->host);
+        $this->host = $this->type !== DriverLabEnum::SQLITE->value ? BaseDriver::cleanHost($this->host) : $this->host;
     }
 
     protected function encryptPassword(): void
@@ -43,6 +45,7 @@ class CloningConnection
             'username' => $this->username,
             'password' => $this->password,
             'is_production' => $this->is_production,
+            'ssh' => $this->ssh,
         ];
     }
 
@@ -56,6 +59,7 @@ class CloningConnection
             'database' => $config->database,
             'username' => $config->username,
             'password' => $config->password,
+            'ssh' => $config->ssh,
         ]);
     }
 
@@ -70,6 +74,7 @@ class CloningConnection
             username: $data['username'] ?? null,
             password: $data['password'] ?? null,
             is_production: $data['is_production'] ?? false,
+            ssh: $data['ssh'] ?? null,
         );
     }
 }

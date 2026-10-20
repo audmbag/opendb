@@ -75,7 +75,7 @@ export function DatabaseStatusBar({
     return (
         <div
             className={cn(
-                'ml-0.5 flex w-full animate-in flex-wrap items-center justify-between gap-4 overflow-hidden rounded-lg border-border bg-sidebar p-2 shadow-sm ring-1 ring-sidebar-border',
+                'flex w-full animate-in flex-wrap items-center justify-between gap-4 overflow-hidden rounded-lg border-border bg-sidebar p-2 shadow-sm ring-1 ring-sidebar-border',
                 className,
             )}
         >
@@ -87,10 +87,13 @@ export function DatabaseStatusBar({
                 <div className="flex items-center gap-2">
                     <DatabaseIconHelper
                         icon={driver_config.driver?.icon}
+                        forDriver={driver_config.driver_id}
                         fill
                         className="size-8"
                     />
-                    <H6>{driver_config.driver?.name}</H6>
+                    <H6>
+                        {driver_config.driver?.name || driver_config?.driver_id?.toUpperCase()}
+                    </H6>
                 </div>
                 <DatabaseConnectionStatus />
                 <div className="flex flex-1 scrollbar-none items-center gap-4 overflow-x-auto text-xs whitespace-nowrap">

@@ -1,3 +1,5 @@
+'use no memo';
+
 import type { ItemInstance } from '@headless-tree/core';
 import { MinusIcon, PlusIcon, ChevronDownIcon } from "lucide-react"
 import { Slot } from 'radix-ui';

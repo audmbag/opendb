@@ -26,7 +26,7 @@ const ChatDiscussion = () => {
 
     const [title, setTitle] = useState(conversation.title);
 
-    const conversations = useConversationStore.use.conversations()
+    const conversations = useConversationStore((state) => state.conversations)
 
     const handleEditTitle = useCallback(
         (value: string) => {

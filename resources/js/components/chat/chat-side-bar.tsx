@@ -37,7 +37,7 @@ const Conversations = () => {
 
     const { loadConversations, loadConversationsRequest, archive, remove } = useConversation();
 
-    const conversations = useConversationStore.use.conversations();
+    const conversations = useConversationStore((state) => state.conversations);
 
     const [editingConversation, setEditingConversation] = useState<
         null | Conversation
