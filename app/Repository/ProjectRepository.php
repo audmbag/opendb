@@ -6,6 +6,7 @@ use App\Enums\ProjectStatusEnum;
 use App\Models\DriverConfig;
 use App\Models\Project;
 use App\Models\User;
+use App\Services\ProjectMemory;
 use DB;
 use Illuminate\Container\Attributes\CurrentUser;
 use Illuminate\Support\Collection;
@@ -62,7 +63,11 @@ readonly class ProjectRepository
 
     public function delete(Project $project): Project
     {
-        return tap($project)->delete();
+        return tap($project, function (Project $project) {
+            $project->delete();
+
+            new ProjectMemory($project)->delete();
+        });
     }
 
     public function getRecentProjects(): Collection
