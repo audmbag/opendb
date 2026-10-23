@@ -19,18 +19,17 @@ class ConversationMessageRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
+     * The body is the one sent by the AI SDK useChat hook, read by Vercel::chat().
+     *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
         return [
-            'message' => ['nullable', 'string', 'required_without:decisions'],
-            'files' => 'nullable|array',
-            'files.*' => 'file|max:10240',
-            'decisions' => ['nullable', 'array', 'required_without:message'],
-            'decisions.*.id' => ['required_with:decisions', 'string'],
-            'decisions.*.action' => ['required_with:decisions', Rule::in(['approve', 'reject'])],
-            'decisions.*.result' => ['nullable', 'string'],
+            'messages' => ['required', 'array', 'min:1'],
+            'messages.*.id' => ['required', 'string'],
+            'messages.*.role' => ['required', Rule::in(['system', 'user', 'assistant'])],
+            'messages.*.parts' => ['present', 'array'],
         ];
     }
 }

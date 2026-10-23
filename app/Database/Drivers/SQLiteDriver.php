@@ -76,4 +76,26 @@ class SQLiteDriver extends BaseDriver implements DriverContract
             $this->connection->statement('PRAGMA query_only = OFF;');
         }
     }
+
+    public function explain(string $sql, array $bindings = []): array
+    {
+        $steps = collect($this->executeReadOnly("EXPLAIN QUERY PLAN {$sql}", $bindings))->groupBy('parent');
+
+        $build = function (int $parent) use (&$build, $steps): array {
+            return $steps->get($parent, collect())
+                ->map(fn (object $step): array => $this->planNode(
+                    label: (string) $step->detail,
+                    warning: match (true) {
+                        (bool) preg_match('/^SCAN (?!.*USING (?:COVERING )?INDEX)/', (string) $step->detail) => 'Parcours complet de la table',
+                        str_contains((string) $step->detail, 'USE TEMP B-TREE') => 'Tri ou regroupement dans une structure temporaire',
+                        default => null,
+                    },
+                    children: $build((int) $step->id),
+                ))
+                ->values()
+                ->all();
+        };
+
+        return $build(0);
+    }
 }

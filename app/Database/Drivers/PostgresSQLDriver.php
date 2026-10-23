@@ -91,4 +91,37 @@ class PostgresSQLDriver extends BaseDriver implements DriverContract
             throw $e;
         }
     }
+
+    public function explain(string $sql, array $bindings = []): array
+    {
+        $row = $this->executeReadOnly("EXPLAIN (FORMAT JSON) {$sql}", $bindings)[0];
+        $plans = json_decode((string) array_values((array) $row)[0], true);
+
+        return array_map(fn (array $plan): array => $this->explainStep($plan['Plan']), $plans);
+    }
+
+    /**
+     * @param  array<string, mixed>  $step
+     * @return array{label: string, detail: ?string, cost: ?float, rows: ?int, warning: ?string, children: list<array<string, mixed>>}
+     */
+    protected function explainStep(array $step): array
+    {
+        $detail = collect([
+            isset($step['Relation Name']) ? 'sur '.$step['Relation Name'].(isset($step['Alias']) && $step['Alias'] !== $step['Relation Name'] ? " {$step['Alias']}" : '') : null,
+            isset($step['Index Name']) ? "index {$step['Index Name']}" : null,
+            isset($step['Join Type']) ? "jointure {$step['Join Type']}" : null,
+            $step['Index Cond'] ?? $step['Hash Cond'] ?? $step['Merge Cond'] ?? null,
+            isset($step['Filter']) ? "filtre {$step['Filter']}" : null,
+            isset($step['Sort Key']) ? 'tri '.implode(', ', (array) $step['Sort Key']) : null,
+        ])->filter()->implode(' · ');
+
+        return $this->planNode(
+            label: (string) $step['Node Type'],
+            detail: $detail,
+            cost: $step['Total Cost'] ?? null,
+            rows: $step['Plan Rows'] ?? null,
+            warning: $step['Node Type'] === 'Seq Scan' ? 'Parcours complet de la table' : null,
+            children: array_map(fn (array $child): array => $this->explainStep($child), $step['Plans'] ?? []),
+        );
+    }
 }

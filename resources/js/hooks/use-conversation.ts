@@ -1,19 +1,12 @@
 import { useChat } from '@ai-sdk/react';
 import { router, useHttp, usePage } from '@inertiajs/react';
-import type {
-    DynamicToolUIPart,
-    FileUIPart,
-    ToolApprovalResponse,
-    ToolUIPart,
-    UIMessage,
-} from 'ai';
+import type { DynamicToolUIPart, UIMessage } from 'ai';
 import { DefaultChatTransport } from 'ai';
 import { Trash2Icon } from 'lucide-react';
-import { useCallback, useMemo, useReducer, useRef } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import type { PromptInputMessage } from '@/components/ai-elements/prompt-input';
 import AlertDialog from '@/components/alert-dialog';
-import { dataUrlToBlob } from '@/lib/utils';
 import { useConversationStore } from '@/store/use-conversation-store';
 import type { APIData } from '@/types/global';
 import type { Conversation } from '@/types/models/conversation';
@@ -25,164 +18,35 @@ type SingleConversationResponse = {
     conversation: Conversation;
 }
 
+type StreamErrorData = {
+    message: string;
+}
+
 const useConversationMessage = (
     conversation: Conversation,
     initialMessages: UIMessage[],
 ) => {
 
-    const approvalReasonsRef = useRef<Map<string, string>>(new Map());
-    const [, forceRerender] = useReducer((x) => x + 1, 0);
-
-    const sniffApprovalReasons = useCallback((stream: ReadableStream<Uint8Array>) => {
-        const reader = stream.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-
-        (async () => {
-            while (true) {
-                const { done, value } = await reader.read();
-
-                if (done) {
-                    break;
-                }
-
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                buffer = lines.pop() ?? '';
-
-                for (const line of lines) {
-                    if (!line.startsWith('data: ')) {
-                        continue;
-                    }
-
-                    try {
-                        const chunk = JSON.parse(line.slice(6));
-
-                        if (
-                            chunk.type === 'tool-approval-request' &&
-                            chunk.reason
-                        ) {
-                            approvalReasonsRef.current.set(
-                                chunk.approvalId,
-                                chunk.reason,
-                            );
-                            forceRerender();
-                        }
-                    } catch { /* empty */ }
-                }
-            }
-        })();
-    }, []);
-
     const transport = useMemo(() => {
-        // eslint-disable-next-line react-hooks/refs
         return new DefaultChatTransport({
             api: ConversationController.chat(conversation.id).url,
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '',
             },
-
-            prepareSendMessagesRequest: ({ messages }) => {
-                const lastMessage = messages[messages.length - 1];
-
-                const approvalParts = lastMessage.parts.filter(
-                    (part) => {
-                        const partTool = part as ToolUIPart
-
-                        return (
-                            partTool.type.startsWith('tool-') &&
-                            partTool.state === 'approval-responded'
-                        );
-                    }
-                )
-
-                if (approvalParts.length > 0) {
-                    return {
-                        body: {
-                            decisions: approvalParts.map((part) => {
-                                const partTool = part as any;
-
-                                return {
-                                    approvalId: partTool.approval.id,
-                                    approved: partTool.approval.approved,
-                                    reason: partTool.approval.reason || '',
-                                };
-                            }),
-                        },
-                    };
-                }
-
-                let text = '';
-
-                const files: FileUIPart[] = [];
-
-                lastMessage.parts.forEach((part) => {
-                    if (part.type === 'text') {
-                        text += part.text;
-                    }
-
-                    if (part.type === 'file') {
-                        files.push(part);
-                    }
-                });
-
-                return {
-                    body: {
-                        message: text,
-                        files: files,
-                    },
-                };
-            },
-
-            async fetch(input, init) {
-                const payload = JSON.parse(init!.body as string);
-
-                const formData = new FormData();
-
-                if(payload.message) {
-                    formData.append('message', payload.message);
-                }
-
-                if(payload.decisions && payload.decisions.length > 0) {
-                    payload.decisions.forEach((decision: ToolApprovalResponse, index: number) => {
-                        formData.append(`decisions[${index}][action]`, decision.approved ? 'approve' : 'reject');
-                        formData.append(`decisions[${index}][id]`, decision.approvalId);
-
-                        if(!decision.approved && decision.reason) {
-                            formData.append(`decisions[${index}][result]`, decision.reason);
-                        }
-                    });
-                }
-
-                for (const file of payload.files ?? []) {
-                    formData.append('files[]', await dataUrlToBlob(file));
-                }
-
-                const headers = new Headers(init!.headers);
-                headers.delete('Content-Type');
-
-                const response = await fetch(input, { ...init, headers, body: formData });
-
-                if (response.body) {
-                    const [forSdk, forSniffing] = response.body.tee();
-                    sniffApprovalReasons(forSniffing);
-
-                    return new Response(forSdk, {
-                        status: response.status,
-                        statusText: response.statusText,
-                        headers: response.headers,
-                    });
-                }
-
-                return response;
-            },
         });
-    }, []);
+    }, [conversation.id]);
 
     const pendingMessage = useConversationStore((state) => state.pendingMessage);
     const clearPendingMessage = useConversationStore((state) => state.clearPendingMessage);
 
     const sentApprovalBatchesRef = useRef<Set<string>>(new Set());
+
+    /**
+     * The server sends the message explaining a stream error just before the error itself,
+     * so it is held until the error tells it belongs to the failed request.
+     */
+    const receivedStreamErrorMessageRef = useRef<string | null>(null);
+    const [streamErrorMessage, setStreamErrorMessage] = useState<string | null>(null);
 
     const sendAutomaticallyWhen = useCallback(({ messages }: { messages: UIMessage[] }) => {
             const last = messages[messages.length - 1];
@@ -235,6 +99,15 @@ const useConversationMessage = (
         transport: transport,
         messages: initialMessages,
         sendAutomaticallyWhen,
+        onData: (part) => {
+            if (part.type === 'data-stream-error') {
+                receivedStreamErrorMessageRef.current = (part.data as StreamErrorData).message;
+            }
+        },
+        onError: () => {
+            setStreamErrorMessage(receivedStreamErrorMessageRef.current);
+            receivedStreamErrorMessageRef.current = null;
+        },
     });
 
     const submitPromptMessage = useCallback(
@@ -254,9 +127,9 @@ const useConversationMessage = (
         status,
         submitPromptMessage,
         error,
+        streamErrorMessage,
         regenerate,
         addToolApprovalResponse,
-        approvalReasonsRef,
     };
 };
 

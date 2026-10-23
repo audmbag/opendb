@@ -390,6 +390,39 @@ class BaseDriver
         return $this->connection->statement($sql, $bindings);
     }
 
+    public function dryRunAffectedRows(string $sql, array $bindings = []): ?int
+    {
+        if (! preg_match('/^\s*(UPDATE|DELETE)\b/i', $sql)) {
+            return null;
+        }
+
+        $this->connection->beginTransaction();
+
+        try {
+            return $this->connection->affectingStatement($sql, $bindings);
+        } finally {
+            $this->connection->rollBack();
+        }
+    }
+
+    /**
+     * Une étape du plan d'exécution renvoyé par explain().
+     *
+     * @param  list<array<string, mixed>>  $children
+     * @return array{label: string, detail: ?string, cost: ?float, rows: ?int, warning: ?string, children: list<array<string, mixed>>}
+     */
+    protected function planNode(string $label, ?string $detail = null, mixed $cost = null, mixed $rows = null, ?string $warning = null, array $children = []): array
+    {
+        return [
+            'label' => $label,
+            'detail' => filled($detail) ? $detail : null,
+            'cost' => is_numeric($cost) ? round((float) $cost, 2) : null,
+            'rows' => is_numeric($rows) ? (int) $rows : null,
+            'warning' => $warning,
+            'children' => $children,
+        ];
+    }
+
     public function listTables(bool $withDetails = true, ?callable $mapper = null): array
     {
         $tables = $this->getExportBuilder()->toArray();

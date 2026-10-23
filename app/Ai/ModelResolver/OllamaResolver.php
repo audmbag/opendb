@@ -6,42 +6,18 @@ namespace App\Ai\ModelResolver;
 
 use DateTimeImmutable;
 use Exception;
-use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\Collection;
-use Laravel\Ai\Enums\Lab;
-use LmSomeco\AiModels\Contracts\ProviderResolver;
 use LmSomeco\AiModels\Data\AiModel;
+use LmSomeco\AiModels\Resolvers\Resolver;
 
-class OllamaResolver implements ProviderResolver
+class OllamaResolver extends Resolver
 {
-    /**
-     * @param  array<string, mixed>  $config
-     */
-    public function __construct(
-        protected HttpFactory $http,
-        protected Lab $lab,
-        protected array $config,
-    ) {}
-
-    public function provider(): Lab
+    protected function fetch(): Collection
     {
-        return $this->lab;
-    }
+        $request = $this->request();
 
-    public function configured(): bool
-    {
-        return filled($this->baseUrl());
-    }
-
-    public function models(): Collection
-    {
-        $request = $this->http
-            ->baseUrl($this->baseUrl())
-            ->acceptJson()
-            ->timeout((int) ($this->config['timeout'] ?? 15));
-
-        if (filled($this->config['key'] ?? null)) {
-            $request->withToken((string) $this->config['key']);
+        if (filled($this->apiKey())) {
+            $request->withToken((string) $this->apiKey());
         }
 
         $response = $request->get('/api/tags')->throw();
@@ -51,11 +27,6 @@ class OllamaResolver implements ProviderResolver
             ->filter()
             ->sortBy('id')
             ->values();
-    }
-
-    protected function baseUrl(): string
-    {
-        return rtrim((string) ($this->config['url'] ?? 'http://localhost:11434'), '/');
     }
 
     /**
@@ -69,8 +40,7 @@ class OllamaResolver implements ProviderResolver
             return null;
         }
 
-        return new AiModel(
-            provider: $this->provider(),
+        return $this->newModel(
             id: (string) $id,
             name: (string) ($model['name'] ?? $id),
             createdAt: $this->parseModifiedAt($model['modified_at'] ?? null),

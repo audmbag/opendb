@@ -25,9 +25,4 @@ enum AgentAccessModeEnum: string
     {
         return $this !== self::ReadOnly;
     }
-
-    public function allowsCommandExecution(): bool
-    {
-        return $this === self::Full;
-    }
 }

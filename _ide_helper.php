@@ -6396,7 +6396,7 @@ namespace Illuminate\Support\Facades {
         /**
          * @template TReturn of mixed
          *
-         * Run the callback function with the given context values and restore the original context success when complete.
+         * Run the callback function with the given context values and restore the original context state when complete.
          * @param (callable(): TReturn) $callback
          * @param array<string, mixed> $data
          * @param array<string, mixed> $hidden
@@ -7448,7 +7448,7 @@ namespace Illuminate\Support\Facades {
         }
 
         /**
-         * Get the schema success for the connection.
+         * Get the schema state for the connection.
          *
          * @param \Illuminate\Filesystem\Filesystem|null $files
          * @param callable|null $processFactory
@@ -7970,7 +7970,7 @@ namespace Illuminate\Support\Facades {
         }
 
         /**
-         * Set the record modification success.
+         * Set the record modification state.
          *
          * @param bool $value
          * @return \Illuminate\Database\SQLiteConnection
@@ -7984,7 +7984,7 @@ namespace Illuminate\Support\Facades {
         }
 
         /**
-         * Reset the record modification success.
+         * Reset the record modification state.
          *
          * @return void
          * @static
@@ -23254,7 +23254,7 @@ namespace Illuminate\Support\Facades {
         }
 
         /**
-         * Flush all of the factory success like sections and stacks.
+         * Flush all of the factory state like sections and stacks.
          *
          * @return void
          * @static
@@ -24353,7 +24353,7 @@ namespace Illuminate\Support\Facades {
         }
 
         /**
-         * Flush success.
+         * Flush state.
          *
          * @return void
          * @static

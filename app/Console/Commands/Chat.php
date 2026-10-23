@@ -15,6 +15,7 @@ use JetBrains\PhpStorm\NoReturn;
 use Laravel\Ai\Approvals\Decision;
 use Laravel\Ai\Approvals\Decisions;
 use Laravel\Ai\Approvals\PendingApproval;
+use Laravel\Ai\Exceptions\StreamErrorException;
 use Laravel\Ai\Responses\StreamableAgentResponse;
 use Laravel\Ai\Streaming\Events\Error as AiStreamError;
 use Laravel\Ai\Streaming\Events\ReasoningDelta;
@@ -146,16 +147,22 @@ class Chat extends Command
 
             $stream = stream();
 
-            foreach ($this->agentResponse as $chunk) {
-                $stream->append(match (true) {
-                    $chunk instanceof ToolCall => $this->renderToolCall($chunk),
-                    $chunk instanceof ToolResult => $this->renderToolResult($chunk),
-                    $chunk instanceof ToolApprovalRequest => $this->renderToolCallApproval($chunk),
-                    $chunk instanceof ReasoningDelta => $this->renderReasoning($chunk),
-                    $chunk instanceof TextDelta => $chunk->delta,
-                    $chunk instanceof AiStreamError => "\n❌ {$chunk->message}\n",
-                    default => '',
-                });
+            try {
+                foreach ($this->agentResponse as $chunk) {
+                    $stream->append(match (true) {
+                        $chunk instanceof ToolCall => $this->renderToolCall($chunk),
+                        $chunk instanceof ToolResult => $this->renderToolResult($chunk),
+                        $chunk instanceof ToolApprovalRequest => $this->renderToolCallApproval($chunk),
+                        $chunk instanceof ReasoningDelta => $this->renderReasoning($chunk),
+                        $chunk instanceof TextDelta => $chunk->delta,
+                        $chunk instanceof AiStreamError => "\n❌ {$chunk->message}\n",
+                        default => '',
+                    });
+                }
+            } catch (StreamErrorException $exception) {
+                if ($exception->error === null) {
+                    $stream->append("\n❌ {$exception->getMessage()}\n");
+                }
             }
 
             $stream->close();

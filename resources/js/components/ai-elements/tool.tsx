@@ -36,10 +36,10 @@ export type ToolHeaderProps = {
   title?: string;
   className?: string;
 } & (
-  | { type: ToolUIPart["type"]; success: ToolUIPart["state"]; toolName?: never }
+  | { type: ToolUIPart["type"]; state: ToolUIPart["state"]; toolName?: never }
   | {
       type: DynamicToolUIPart["type"];
-      success: DynamicToolUIPart["state"];
+      state: DynamicToolUIPart["state"];
       toolName: string;
     }
 );
@@ -105,7 +105,7 @@ export type ToolContentProps = ComponentProps<typeof CollapsibleContent>;
 export const ToolContent = ({ className, ...props }: ToolContentProps) => (
   <CollapsibleContent
     className={cn(
-      "data-[success=closed]:fade-out-0 data-[success=closed]:slide-out-to-top-2 data-[success=open]:slide-in-from-top-2 space-y-4 p-4 text-popover-foreground outline-none data-[success=closed]:animate-out data-[success=open]:animate-in",
+      "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 space-y-4 p-4 text-popover-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in",
       className
     )}
     {...props}

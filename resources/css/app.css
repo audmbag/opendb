@@ -90,11 +90,11 @@
     --border: oklch(0.922 0 0);
     --input: oklch(0.922 0 0);
     --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
+    --chart-1: var(--color-blue-500);
+    --chart-2: var(--color-emerald-500);
+    --chart-3: var(--color-amber-500);
+    --chart-4: var(--color-rose-500);
+    --chart-5: var(--color-violet-500);
     --radius: 0.625rem;
     --sidebar: oklch(0.985 0 0);
     --sidebar-foreground: oklch(0.145 0 0);
@@ -142,11 +142,11 @@
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
     --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
+    --chart-1: var(--color-blue-400);
+    --chart-2: var(--color-emerald-400);
+    --chart-3: var(--color-amber-400);
+    --chart-4: var(--color-rose-400);
+    --chart-5: var(--color-violet-400);
     --sidebar: oklch(0.205 0 0);
     --sidebar-foreground: oklch(0.985 0 0);
     --sidebar-primary: oklch(0.488 0.243 264.376);
@@ -255,3 +255,23 @@
 }
 
 
+
+/*
+ * Sélection du champ à mentions (voir useSelectionHighlight dans components/ui/mention.tsx) : la sélection native de
+ * l'input transparent est masquée et redessinée sur le calque visible, avec les couleurs système du navigateur pour le
+ * texte, et un fond bleu foncé sous le bleu clair des mentions.
+ */
+[data-slot="mention"][data-selection-highlight] [data-slot="mention-input"]::selection {
+    background-color: transparent;
+    color: transparent;
+}
+
+::highlight(mention-text-selection) {
+    background-color: Highlight;
+    color: HighlightText;
+}
+
+::highlight(mention-tag-selection) {
+    background-color: var(--color-blue-900);
+    color: var(--color-blue-400);
+}

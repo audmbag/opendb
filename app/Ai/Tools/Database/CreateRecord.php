@@ -3,6 +3,8 @@
 namespace App\Ai\Tools\Database;
 
 use App\Database\Contracts\DriverContract;
+use App\Database\Exceptions\TableNotFoundException;
+use App\Database\TableRecordForm;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Cache;
@@ -13,7 +15,6 @@ use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
 use Stringable;
 
-
 class CreateRecord extends BaseTool implements Approvable, Tool
 {
     use InteractsWithApprovals;
@@ -22,43 +23,56 @@ class CreateRecord extends BaseTool implements Approvable, Tool
         private readonly DriverContract $driver,
     ) {}
 
+    /**
+     * The cache key of the values the user submitted in the form of a tool call.
+     */
+    public static function submissionCacheKey(string $toolCallId): string
+    {
+        return "form-submission:{$toolCallId}";
+    }
+
     public function description(): Stringable|string
     {
         return 'Prépare la création d\'un enregistrement dans une table. '
             .'N\'écris JAMAIS toi-même une requête INSERT pour créer un enregistrement : '
             .'utilise systématiquement cet outil avec le nom de la table cible. '
-            .'Un formulaire interactif sera présenté à l\'utilisateur ; n\'invente pas de valeurs '
-            .'pour les champs que l\'utilisateur n\'a pas encore fournis.';
+            .'Un formulaire interactif, généré à partir de la structure de la table, sera présenté à l\'utilisateur ; '
+            .'n\'invente pas de valeurs pour les champs que l\'utilisateur n\'a pas encore fournis. '
+            .'Une fois l\'enregistrement créé, donne systématiquement à l\'utilisateur ses détails : '
+            .'la table, l\'identifiant généré s\'il y en a un, et chaque colonne renseignée avec sa valeur, '
+            .'tels que renvoyés par cet outil (présente-les sous forme de liste ou de tableau). '
+            .'Si l\'utilisateur a annulé le formulaire ou si la création a échoué, indique-le clairement avec la raison.';
     }
-
 
     public function handle(Request $request): Stringable|string
     {
-        $table = $request['table'];
+        $table = (string) $request->string('table');
 
-        $submitted = Cache::pull("form-submission:{$request->toolCallId()}");
+        $submission = Cache::pull(static::submissionCacheKey((string) $request->toolCallId()));
 
-        if (! $submitted) {
-            return "Aucune donnée de formulaire trouvée pour cet appel. L'utilisateur n'a peut-être pas encore soumis.";
+        if (! is_array($submission) || $submission['table'] !== $table) {
+            return "Aucune donnée de formulaire n'a été soumise pour cet appel : l'enregistrement n'a pas été créé.";
         }
 
         try {
-            $id = $this->driver->getConnection()->table($table)->insertGetId($submitted);
+            $record = new TableRecordForm($this->driver, $table)->insert($submission['values']);
+        } catch (TableNotFoundException $e) {
+            return $e->getMessage();
         } catch (QueryException $e) {
             return $this->formatQueryError($e);
         }
 
-        return "Enregistrement créé dans `{$table}` (id={$id}).";
+        return "Enregistrement créé dans `{$table}` : ".$this->toJson($record);
     }
 
     public function schema(JsonSchema $schema): array
     {
         return [
             'table' => $schema->string()
-                ->description('Nom exact de la table cible, tel qu\'identifié via DescribeSchema.')
+                ->description('Nom exact de la table cible, tel qu\'identifié via ListTables.')
                 ->required(),
             'known_values' => $schema->object(fn ($schema) => [])
-                ->description('Valeurs déjà mentionnées par l\'utilisateur dans la conversation, à préremplir dans le formulaire.'),
+                ->description('Valeurs déjà mentionnées par l\'utilisateur dans la conversation, à préremplir dans le formulaire, indexées par nom de colonne.'),
         ];
     }
 

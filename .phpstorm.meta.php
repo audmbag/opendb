@@ -2395,7 +2395,7 @@ namespace PHPSTORM_META {
 'boost.browser-logs','home',
 'storage.local','storage.local.upload',);
         registerArgumentsSet('views',
-'app','laravel-exceptions-renderer::components.badge','laravel-exceptions-renderer::components.empty-success','laravel-exceptions-renderer::components.file-with-line','laravel-exceptions-renderer::components.formatted-source',
+'app','laravel-exceptions-renderer::components.badge','laravel-exceptions-renderer::components.empty-state','laravel-exceptions-renderer::components.file-with-line','laravel-exceptions-renderer::components.formatted-source',
 'laravel-exceptions-renderer::components.frame','laravel-exceptions-renderer::components.frame-code','laravel-exceptions-renderer::components.header','laravel-exceptions-renderer::components.http-method','laravel-exceptions-renderer::components.icons.alert',
 'laravel-exceptions-renderer::components.icons.check','laravel-exceptions-renderer::components.icons.chevron-left','laravel-exceptions-renderer::components.icons.chevron-right','laravel-exceptions-renderer::components.icons.chevrons-down-up','laravel-exceptions-renderer::components.icons.chevrons-left',
 'laravel-exceptions-renderer::components.icons.chevrons-right','laravel-exceptions-renderer::components.icons.chevrons-up-down','laravel-exceptions-renderer::components.icons.copy','laravel-exceptions-renderer::components.icons.database','laravel-exceptions-renderer::components.icons.folder',

@@ -5,6 +5,7 @@ namespace App\Ai\Services;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Str;
+use Laravel\Ai\Ai;
 use Laravel\Ai\Enums\Lab;
 use LmSomeco\AiModels\Data\AiModel;
 use LmSomeco\AiModels\Facades\AiModels;
@@ -36,6 +37,8 @@ readonly class ProviderManagerService
             'ai.default_for_embeddings' => $this->provider->value,
             'ai.default_for_reranking' => $this->provider->value,
         ]);
+
+        Ai::forgetInstance($this->provider->value);
     }
 
     public function getModes(): Collection

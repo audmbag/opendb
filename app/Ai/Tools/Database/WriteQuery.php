@@ -68,7 +68,7 @@ class WriteQuery extends BaseTool implements Approvable, Tool
         foreach (self::DESTRUCTIVE_KEYWORDS as $keyword) {
             if (preg_match('/\b'.$keyword.'\b/', $sql)) {
                 return Approval::required(
-                    "`$raw_sql` : Cette requête contient une opération destructrice ({$keyword}) sur la base de données. Voulez-vous autoriser l'outil à continuer ?"
+                    "Cette requête contient une opération destructrice ({$keyword}) sur la base de données. Voulez-vous autoriser l'outil à continuer ?"
                 );
             }
         }

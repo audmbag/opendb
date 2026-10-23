@@ -1,12 +1,18 @@
-import { Link } from '@inertiajs/react';
-import { ExternalLinkIcon,  MoreHorizontalIcon } from 'lucide-react';
-import type {LucideIcon} from 'lucide-react';
+import { Link, usePage } from '@inertiajs/react';
+import { ExternalLinkIcon, MoreHorizontalIcon } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import * as React from 'react';
-import { Fragment, useCallback, useState } from 'react';
+import { Fragment, useCallback } from 'react';
 import DropdownMenu from '@/components/dropdown-menu';
-import type {DropdownMenuItemType} from '@/components/dropdown-menu';
+import type { DropdownMenuItemType } from '@/components/dropdown-menu';
 import Button from '@/components/form/button';
 import Tooltip from '@/components/tooltip';
+import {
+    Editable,
+    EditableArea,
+    EditableInput,
+    EditablePreview,
+} from '@/components/ui/editable';
 import { Kbd, KbdGroup } from '@/components/ui/kbd';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -15,12 +21,6 @@ import {
     useSidebar,
 } from '@/components/ui/sidebar';
 import { cn, limit } from '@/lib/utils';
-import {
-    Editable,
-    EditableArea,
-    EditableInput,
-    EditablePreview,
-} from '@/components/ui/editable';
 
 export type SidebarMenuItemType = {
     label: string;
@@ -33,10 +33,19 @@ export type SidebarMenuItemType = {
     hiddenOnSidebarClosed?: boolean;
     onClick?: () => void;
     href?: string;
+    isActive?: boolean;
     viewTransition?: boolean;
     editing?: boolean;
     onSubmitEditing?: (value: string) => void;
     onCancelEditing?: () => void;
+};
+
+/**
+ * The dropdown trigger lives inside the item's link: stop its click from navigating.
+ */
+const preventLinkNavigation = (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
 };
 
 export const SidebarMenuItem = ({
@@ -49,6 +58,7 @@ export const SidebarMenuItem = ({
     options = [],
     hiddenOnSidebarClosed = false,
     href,
+    isActive,
     viewTransition,
     editing,
     onSubmitEditing,
@@ -57,86 +67,95 @@ export const SidebarMenuItem = ({
 }: SidebarMenuItemType & React.ComponentProps<typeof Fragment>) => {
     const { open } = useSidebar();
 
-    const handleEditing = useCallback((value: string) => {
-        if(value === label) {
-            onCancelEditing?.()
+    const { url } = usePage();
 
-            return;
-        }
+    const isCurrentPage =
+        isActive ?? (!!href && !external && url.split('?')[0] === href);
 
-        onSubmitEditing?.(value);
-    }, [label, onCancelEditing, onSubmitEditing]);
+    const handleEditing = useCallback(
+        (value: string) => {
+            if (value === label) {
+                onCancelEditing?.();
+
+                return;
+            }
+
+            onSubmitEditing?.(value);
+        },
+        [label, onCancelEditing, onSubmitEditing],
+    );
 
     return (
         <Fragment {...pros}>
             {(!hiddenOnSidebarClosed || open) && (
                 <>
                     <UISidebarMenuItem>
-                        <Tooltip
-                            value={hiddenOnSidebarClosed ? label : undefined}
-                            side={'right'}
-                        >
-                            <SidebarMenuButton
-                                asChild
-                                tooltip={label}
-                                variant={variant}
-                                className={cn('text-nowrap', {
+                        <SidebarMenuButton
+                            asChild
+                            tooltip={label}
+                            variant={variant}
+                            isActive={isCurrentPage}
+                            title={hiddenOnSidebarClosed ? label : undefined}
+                            className={cn(
+                                'text-nowrap data-active:bg-zinc-200 data-active:text-sidebar-foreground data-active:hover:bg-zinc-200 dark:data-active:bg-zinc-800',
+                                {
                                     'justify-between': options.length > 0,
                                     'p-0': editing,
-                                })}
-                            >
-                                {editing ? (
-                                    <Editable
-                                        defaultValue={label}
-                                        onSubmit={handleEditing}
-                                        placeholder="Titre de la conversation"
-                                        editing={editing}
-                                    >
-                                        <EditableArea>
-                                            <EditablePreview />
-                                            <EditableInput
-                                                className="px-1"
-                                                autoComplete="off"
+                                },
+                            )}
+                        >
+                            {editing ? (
+                                <Editable
+                                    defaultValue={label}
+                                    onSubmit={handleEditing}
+                                    placeholder="Titre de la conversation"
+                                    editing={editing}
+                                >
+                                    <EditableArea>
+                                        <EditablePreview />
+                                        <EditableInput
+                                            className="px-1"
+                                            autoComplete="off"
+                                        />
+                                    </EditableArea>
+                                </Editable>
+                            ) : (
+                                <Link
+                                    href={href}
+                                    target={external ? '_blank' : undefined}
+                                    viewTransition={viewTransition}
+                                >
+                                    {Icon && <Icon />}
+                                    <span>{limit(label, 20)}</span>
+                                    {external && (
+                                        <ExternalLinkIcon className="ml-auto" />
+                                    )}
+                                    {shortcut && (
+                                        <KbdGroup className="ml-auto">
+                                            {shortcut.map((key) => (
+                                                <Kbd
+                                                    key={key}
+                                                    className="ml-auto"
+                                                >
+                                                    {key}
+                                                </Kbd>
+                                            ))}
+                                        </KbdGroup>
+                                    )}
+                                    {options.length > 0 && (
+                                        <DropdownMenu items={options}>
+                                            <Button
+                                                icon={MoreHorizontalIcon}
+                                                variant="ghost"
+                                                size="icon-sm"
+                                                className="size-6 h-4 shrink-0"
+                                                onClick={preventLinkNavigation}
                                             />
-                                        </EditableArea>
-                                    </Editable>
-                                ) : (
-                                    <Link
-                                        href={href}
-                                        target={external ? '_blank' : undefined}
-                                        viewTransition={viewTransition}
-                                    >
-                                        {Icon && <Icon />}
-                                        <span>{limit(label, 25)}</span>
-                                        {external && (
-                                            <ExternalLinkIcon className="ml-auto" />
-                                        )}
-                                        {shortcut && (
-                                            <KbdGroup className="ml-auto">
-                                                {shortcut.map((key) => (
-                                                    <Kbd
-                                                        key={key}
-                                                        className="ml-auto"
-                                                    >
-                                                        {key}
-                                                    </Kbd>
-                                                ))}
-                                            </KbdGroup>
-                                        )}
-                                        {options.length > 0 && (
-                                            <DropdownMenu items={options}>
-                                                <Button
-                                                    icon={MoreHorizontalIcon}
-                                                    variant="ghost"
-                                                    size="icon-sm"
-                                                    className="size-6 h-4"
-                                                />
-                                            </DropdownMenu>
-                                        )}
-                                    </Link>
-                                )}
-                            </SidebarMenuButton>
-                        </Tooltip>
+                                        </DropdownMenu>
+                                    )}
+                                </Link>
+                            )}
+                        </SidebarMenuButton>
                     </UISidebarMenuItem>
                     {separator && <Separator />}
                 </>
@@ -144,7 +163,5 @@ export const SidebarMenuItem = ({
         </Fragment>
     );
 };
-
-
 
 export default SidebarMenuItem;
