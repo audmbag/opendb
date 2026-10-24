@@ -3,6 +3,8 @@
 use App\Http\Controllers\API\DriverConfigController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Chat\DatabaseSchemaController;
+use App\Http\Controllers\Chat\TableRecordController;
+use App\Http\Controllers\Chat\ToolArtifactController;
 use App\Http\Controllers\ConversationController;
 use App\Http\Controllers\FileTreeController;
 use App\Http\Controllers\HomeController;
@@ -54,6 +56,7 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('/schema/database', [DatabaseSchemaController::class, 'database']);
         Route::get('/schema/table/{table}', [DatabaseSchemaController::class, 'table']);
+        Route::get('/tables/{table}/record-form', [TableRecordController::class, 'form']);
 
         Route::get('/files', ProjectFileController::class);
     });
@@ -63,6 +66,17 @@ Route::middleware(['auth'])->group(function () {
         Route::patch('/{conversation}/archive', [ConversationController::class, 'archive']);
         Route::delete('/{conversation}', [ConversationController::class, 'destroy']);
         Route::post('/{conversation}/chat', [ConversationController::class, 'chat']);
+        Route::post('/{conversation}/tool-calls/{toolCallId}/record', [TableRecordController::class, 'store']);
+
+        Route::controller(ToolArtifactController::class)->prefix('/{conversation}/tool-calls/{toolCallId}/artifact')->group(function () {
+            Route::get('/results', 'results');
+            Route::get('/kpis', 'kpis');
+            Route::get('/chart', 'chart');
+            Route::get('/profile', 'profile');
+            Route::get('/record', 'record');
+            Route::get('/explain', 'explain');
+            Route::get('/write-preview', 'writePreview');
+        });
     });
 
 });

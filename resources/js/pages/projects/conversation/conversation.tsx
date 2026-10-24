@@ -45,7 +45,7 @@ const ChatDiscussion = () => {
 
     return (
         <>
-            <div className="flex justify-between pl-4 py-2 pr-6 absolute top-0 left-0 w-full z-10 bg-transparent">
+            <div className="flex justify-between pl-4 py-2 pr-6 absolute top-0 left-0 w-full z-10 bg-background/5 backdrop-blur-xs">
                 <div className="flex items-center gap-2">
                     <SidebarTrigger className="md:hidden" />
                     <Editable

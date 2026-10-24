@@ -4,44 +4,19 @@ declare(strict_types=1);
 
 namespace App\Ai\ModelResolver;
 
-use Illuminate\Http\Client\Factory as HttpFactory;
+use App\Ai\Data\AiModel;
 use Illuminate\Support\Collection;
-use Laravel\Ai\Enums\Lab;
-use LmSomeco\AiModels\Contracts\ProviderResolver;
-use LmSomeco\AiModels\Data\AiModel;
 
-class GeminiResolver implements ProviderResolver
+class GeminiResolver extends Resolver
 {
-    /**
-     * @param  array<string, mixed>  $config
-     */
-    public function __construct(
-        protected HttpFactory $http,
-        protected Lab $lab,
-        protected array $config,
-    ) {}
-
-    public function provider(): Lab
-    {
-        return $this->lab;
-    }
-
-    public function configured(): bool
-    {
-        return filled($this->apiKey());
-    }
-
-    public function models(): Collection
+    protected function fetch(): Collection
     {
         $models = collect();
         $query = ['pageSize' => 1000];
 
         do {
-            $response = $this->http
-                ->baseUrl($this->baseUrl())
+            $response = $this->request()
                 ->withHeaders(['x-goog-api-key' => (string) $this->apiKey()])
-                ->acceptJson()
-                ->timeout((int) ($this->config['timeout'] ?? 15))
                 ->get('/models', $query)
                 ->throw();
 
@@ -57,19 +32,6 @@ class GeminiResolver implements ProviderResolver
         return $models->sortBy('id')->values();
     }
 
-    protected function apiKey(): ?string
-    {
-        return $this->config['key'] ?? null;
-    }
-
-    protected function baseUrl(): string
-    {
-        return rtrim(
-            (string) ($this->config['url'] ?? 'https://generativelanguage.googleapis.com/v1beta'),
-            '/'
-        );
-    }
-
     /**
      * @param  array<string, mixed>  $model
      */
@@ -83,8 +45,7 @@ class GeminiResolver implements ProviderResolver
             ? substr((string) $model['name'], strlen('models/'))
             : (string) $model['name'];
 
-        return new AiModel(
-            provider: $this->provider(),
+        return $this->newModel(
             id: $id,
             name: $model['displayName'] ?? $id,
             contextWindow: isset($model['inputTokenLimit']) ? (int) $model['inputTokenLimit'] : null,

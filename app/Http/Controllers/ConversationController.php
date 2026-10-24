@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Ai\Agents\SQLDatabaseAgent;
 use App\Ai\Enums\AgentAccessModeEnum;
+use App\Ai\Protocols\VercelDataProtocolWithModel;
 use App\Http\Requests\ConversationMessageRequest;
 use App\Http\Requests\ConversationRequest;
 use App\Models\Project;
@@ -11,16 +12,10 @@ use App\Repository\ConversationRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
-use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 use Inertia\Response;
-use Laravel\Ai\Approvals\Decision;
-use Laravel\Ai\Approvals\Decisions;
-use Laravel\Ai\Files\Document;
 use Laravel\Ai\Models\Conversation;
 use Laravel\Ai\Responses\StreamableAgentResponse;
+use Laravel\Ai\Vercel\Vercel;
 
 class ConversationController extends Controller
 {
@@ -87,30 +82,11 @@ class ConversationController extends Controller
 
     public function chat(Conversation $conversation, ConversationMessageRequest $request): StreamableAgentResponse
     {
-        $validated = $request->validated();
+        $chat = Vercel::chat($request);
 
-        $files = array_map(function (UploadedFile $file) {
-            $path = $file->storeAs('attachments', uniqid().'-'.$file->getClientOriginalName(), 'public');
-
-            return Document::fromStorage($path, 'public');
-        }, $validated['files'] ?? []);
-
-        $agent = new SQLDatabaseAgent(AgentAccessModeEnum::ReadWrite, Project::firstWhere('id', $conversation->project_id));
-
-        $prompt = isset($validated['decisions'])
-            ? Decisions::from(collect($validated['decisions'])->mapWithKeys(
-                fn (array $decision) => [
-                    $decision['id'] => match ($decision['action']) {
-                        'approve' => Decision::approve(),
-                        'reject' => Decision::reject($decision['result'] ?? null),
-                    },
-                ]
-            )->all())
-            : $validated['message'];
-
-        return $agent
+        return new SQLDatabaseAgent(AgentAccessModeEnum::ReadWrite, Project::firstWhere('id', $conversation->project_id))
             ->continue($conversation->id, $request->user())
-            ->stream($prompt, attachments: $files)
-            ->usingVercelDataProtocol();
+            ->stream($chat)
+            ->usingProtocol(new VercelDataProtocolWithModel($chat->messageId()));
     }
 }

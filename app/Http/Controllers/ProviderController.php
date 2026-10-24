@@ -5,12 +5,12 @@ namespace App\Http\Controllers;
 use App\Http\Requests\ProviderRequest;
 use App\Models\Provider;
 use App\Repository\ProviderRepository;
-use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Laravel\Ai\Exceptions\AiException;
 
 class ProviderController extends Controller
 {
@@ -35,7 +35,7 @@ class ProviderController extends Controller
             ]);
 
             return back();
-        } catch (ConnectionException $exception) {
+        } catch (AiException $exception) {
             Inertia::flash([
                 'error' => "Impossible de connecter le provider {$provider->label}, la connexion au fournisseur {$provider->label} a échoué. Essayer plus tard",
             ]);
@@ -60,7 +60,6 @@ class ProviderController extends Controller
 
         return response()->json(['success' => true, 'message' => "Le provider {$provider->label} a été déconnecté, vous n'avez plus accès à ses modèles."]);
     }
-
 
     public function toggleModel(Provider $provider, Request $request, ProviderRepository $providerRepository): JsonResponse
     {

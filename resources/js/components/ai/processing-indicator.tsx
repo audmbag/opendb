@@ -13,8 +13,8 @@ const ProcessingIndicator = ({ status }: { status: ChatStatus }) => {
                 </div>
             )}
             {status === 'streaming' && (
-                <div className="flex items-center gap-1">
-                    <DotmSquare3 size={18} dotSize={3} aria-label="Saving" />
+                <div className="flex items-center gap-2">
+                    <DotmSquare3 size={14} dotSize={2} aria-label="Saving" />
                     <Shimmer duration={1}>Génération...</Shimmer>
                 </div>
             )}

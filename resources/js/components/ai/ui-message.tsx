@@ -102,7 +102,10 @@ const UIMessage = ({
             </MessageContent>
 
             {artifactables && artifactables.length > 0 && (
-                <ArtifactPreviewButton artifactables={artifactables} />
+                <ArtifactPreviewButton
+                    artifactables={artifactables}
+                    isMessageSaved={!isLast || status === 'ready'}
+                />
             )}
 
             {(part.type === 'text' || part.type.startsWith('data-')) &&

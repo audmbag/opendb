@@ -9,7 +9,11 @@ import {
     Table2Icon,
 } from 'lucide-react';
 import * as React from 'react';
-import { SidebarMenuItem, SidebarMenuItemType } from '@/components/sidebar-menu-item';
+import type {
+    SidebarMenuItemType} from '@/components/sidebar-menu-item';
+import {
+    SidebarMenuItem
+} from '@/components/sidebar-menu-item';
 import { SidebarUser } from '@/components/sidebar-user';
 import {
     Sidebar,
@@ -26,37 +30,48 @@ import {
 } from '@/components/ui/sidebar';
 import { cn, limit } from '@/lib/utils';
 import type { Project } from '@/types/models/project';
+import ConversationController from '@/wayfinder/actions/App/Http/Controllers/ConversationController';
 
+const getMenuItems = (
+    project: Project,
+    currentUrl: string,
+): SidebarMenuItemType[] => {
+    const chatUrl = ConversationController.home(project.id).url;
 
-const data: SidebarMenuItemType[] = [
-    {
-        label: 'Nouveau',
-        icon: FolderPlusIcon,
-        separator: true,
-        shortcut: ['Ctrl', 'Shift', 'N'],
-    },
-    {
-        label: 'Chat',
-        icon: MessageSquareTextIcon,
-    },
-    {
-        label: 'Tables',
-        icon: Table2Icon,
-    },
-    {
-        label: 'Editeur SQL',
-        icon: Code2Icon,
-    },
-    {
-        label: 'Schéma ERD',
-        icon: GitCompareArrowsIcon,
-        separator: true,
-    },
-    {
-        label: 'Paramètres du projet',
-        icon: FolderCogIcon,
-    },
-];
+    return [
+        {
+            label: 'Nouveau',
+            icon: FolderPlusIcon,
+            separator: true,
+            shortcut: ['Ctrl', 'Shift', 'N'],
+        },
+        {
+            label: 'Chat',
+            icon: MessageSquareTextIcon,
+            href: chatUrl,
+            isActive:
+                currentUrl === chatUrl ||
+                currentUrl.startsWith(`${chatUrl}/chat/`),
+        },
+        {
+            label: 'Tables',
+            icon: Table2Icon,
+        },
+        {
+            label: 'Editeur SQL',
+            icon: Code2Icon,
+        },
+        {
+            label: 'Schéma ERD',
+            icon: GitCompareArrowsIcon,
+            separator: true,
+        },
+        {
+            label: 'Paramètres du projet',
+            icon: FolderCogIcon,
+        },
+    ];
+};
 
 const Footerdata: SidebarMenuItemType[] = [
     {
@@ -64,13 +79,13 @@ const Footerdata: SidebarMenuItemType[] = [
         icon: FileTextIcon,
         separator: true,
         external: true,
-    }
+    },
 ];
 
-
 const Header = () => {
-
-    const { props: { project } } = usePage<{ project: Project }>();
+    const {
+        props: { project },
+    } = usePage<{ project: Project }>();
 
     const { open } = useSidebar();
 
@@ -114,6 +129,16 @@ const Header = () => {
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const { open } = useSidebar();
 
+    const {
+        url,
+        props: { project },
+    } = usePage<{ project: Project }>();
+
+    const menuItems = React.useMemo(
+        () => getMenuItems(project, url.split('?')[0]),
+        [project, url],
+    );
+
     return (
         <Sidebar {...props} collapsible="icon" variant={'floating'}>
             <Header />
@@ -130,7 +155,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                     },
                                 )}
                             />
-                            {data.map((item) => (
+                            {menuItems.map((item) => (
                                 <SidebarMenuItem key={item.label} {...item} />
                             ))}
                         </SidebarMenu>

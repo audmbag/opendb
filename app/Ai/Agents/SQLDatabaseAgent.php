@@ -6,15 +6,23 @@ use App\Ai\Enums\AgentAccessModeEnum;
 use App\Ai\Middleware\LogAgentActivity;
 use App\Ai\Tools\Database\CreateRecord;
 use App\Ai\Tools\Database\DatabaseSchema;
+use App\Ai\Tools\Database\ExplainQuery;
 use App\Ai\Tools\Database\FocusTable;
 use App\Ai\Tools\Database\ListTables;
+use App\Ai\Tools\Database\ProfileTable;
 use App\Ai\Tools\Database\ReadQuery;
+use App\Ai\Tools\Database\ShowChart;
+use App\Ai\Tools\Database\ShowKpis;
+use App\Ai\Tools\Database\ShowQueryResults;
+use App\Ai\Tools\Database\ShowRecord;
 use App\Ai\Tools\Database\ShowSchemaDiagram;
 use App\Ai\Tools\Database\WriteQuery;
 use App\Ai\Tools\FileStorage\DeleteFile;
+use App\Ai\Tools\Memory\UpdateProjectMemory;
 use App\Database\Contracts\DriverContract;
 use App\Models\Driver;
 use App\Models\Project;
+use App\Services\ProjectMemory;
 use Laravel\Ai\Attributes\MaxSteps;
 use Laravel\Ai\Attributes\Model;
 use Laravel\Ai\Concerns\RemembersConversations;
@@ -29,6 +37,8 @@ use Laravel\Ai\Tools\Filesystem\WriteFile;
 use Stringable;
 
 #[Model('gemini-3.5-flash-lite')]
+// #[Model('gemini-3-flash-preview')]
+// #[Model('gemini-3.1-flash-lite')]
 #[MaxSteps(15)]
 class SQLDatabaseAgent implements Agent, Conversational, HasMiddleware, HasTools
 {
@@ -37,6 +47,8 @@ class SQLDatabaseAgent implements Agent, Conversational, HasMiddleware, HasTools
     const string FILE_DISK = 'current-project';
 
     public readonly DriverContract $driver;
+
+    public readonly ProjectMemory $memory;
 
     public function __construct(
         public readonly AgentAccessModeEnum $accessMode,
@@ -50,6 +62,7 @@ class SQLDatabaseAgent implements Agent, Conversational, HasMiddleware, HasTools
         ]);
 
         $this->driver = $this->project->driver_config->getDriver();
+        $this->memory = new ProjectMemory($this->project);
     }
 
     public function configureDisk(): void
@@ -72,7 +85,12 @@ class SQLDatabaseAgent implements Agent, Conversational, HasMiddleware, HasTools
             'drivers' => Driver::pluck('name'),
         ])->render()
             ."\n\n"
-            .view($this->accessMode->instructionsView())->render();
+            .view($this->accessMode->instructionsView())->render()
+            ."\n\n"
+            .view('agent.instructions.memory', [
+                'memory' => $this->memory->content(),
+                'maxEntries' => ProjectMemory::MAX_ENTRIES,
+            ])->render();
     }
 
     public function tools(): iterable
@@ -84,6 +102,13 @@ class SQLDatabaseAgent implements Agent, Conversational, HasMiddleware, HasTools
                 new FocusTable($this->driver),
                 new ListTables($this->driver),
                 new ShowSchemaDiagram($this->driver),
+                new ShowQueryResults($this->driver),
+                new ShowKpis($this->driver),
+                new ShowChart($this->driver),
+                new ProfileTable($this->driver),
+                new ShowRecord($this->driver),
+                new ExplainQuery($this->driver),
+                new UpdateProjectMemory($this->memory),
                 ...FileStorage::readOnly(self::FILE_DISK),
             ],
             AgentAccessModeEnum::ReadWrite => [
@@ -94,6 +119,13 @@ class SQLDatabaseAgent implements Agent, Conversational, HasMiddleware, HasTools
                 new ListTables($this->driver),
                 new CreateRecord($this->driver),
                 new ShowSchemaDiagram($this->driver),
+                new ShowQueryResults($this->driver),
+                new ShowKpis($this->driver),
+                new ShowChart($this->driver),
+                new ProfileTable($this->driver),
+                new ShowRecord($this->driver),
+                new ExplainQuery($this->driver),
+                new UpdateProjectMemory($this->memory),
                 ...FileStorage::readOnly(self::FILE_DISK)
                     ->merge([
                         new WriteFile(self::FILE_DISK),

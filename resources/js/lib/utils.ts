@@ -48,9 +48,6 @@ export const createSelectors = <S extends UseBoundStore<StoreApi<object>>>(
 };
 
 
-export async function dataUrlToBlob(file: PromptInputMessage['files'][0]) {
-    const res = await fetch(file.url);
-    const blob = await res.blob();
 
-    return new File([blob], file.filename || 'file', { type: file.mediaType });
-}
+
+export const chartColor = (index: number): string => `var(--chart-${(index % 5) + 1})`;

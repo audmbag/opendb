@@ -13,9 +13,18 @@ import { useConversation, useConversationMessage } from '@/hooks/use-conversatio
 import type { CustomOutputToolUIPart } from '@/types/agent';
 import { ArtifactableTools } from '@/types/agent';
 
+/**
+ * The SDK keeps a streamed request reason as `requestReason`, while messages hydrated by Vercel::toUiMessages() carry it as `reason`.
+ */
+const getApprovalReason = (part: ToolUIPart): string | undefined => {
+    const approval = part.approval as { reason?: string; requestReason?: string } | undefined;
+
+    return approval?.requestReason ?? approval?.reason;
+};
+
 const Conversation = () => {
 
-    const { conversation, initialMessages } = useConversation();
+    const { project, conversation, initialMessages } = useConversation();
 
     const {
         pendingMessage,
@@ -24,9 +33,9 @@ const Conversation = () => {
         status,
         submitPromptMessage,
         error,
+        streamErrorMessage,
         regenerate,
         addToolApprovalResponse,
-        approvalReasonsRef,
     } = useConversationMessage(conversation, initialMessages);
 
     const hasAutoSent = useRef(false);
@@ -38,7 +47,7 @@ const Conversation = () => {
 
         hasAutoSent.current = true;
 
-        submitPromptMessage(pendingMessage);
+        submitPromptMessage(pendingMessage).then(() => null);
 
         clearPendingMessage();
 
@@ -59,7 +68,11 @@ const Conversation = () => {
 
     return (
         <>
-            <AiElementConversation resize="instant" initial="instant" className="relative size-full mask-[linear-gradient(to_bottom,black_90%,transparent_100%)]">
+            <AiElementConversation
+                resize="instant"
+                initial="instant"
+                className="relative size-full mask-[linear-gradient(to_bottom,black_90%,transparent_100%)]"
+            >
                 <ConversationContent className="m-auto max-w-4xl gap-4 pb-12">
                     {messages.map((message, messageIndex) => {
                         const isLast = messageIndex === messages.length - 1;
@@ -83,13 +96,20 @@ const Conversation = () => {
                                 );
                             }
 
-                            if (ArtifactableTools.includes((part as ToolUIPart).type as any)) {
-
-                                let output = {}
+                            if (
+                                ArtifactableTools.includes(
+                                    (part as ToolUIPart).type as any,
+                                )
+                            ) {
+                                let output = {};
 
                                 try {
-                                    output = JSON.parse((part as ToolUIPart).output as string);
-                                } catch { /* empty */ }
+                                    output = JSON.parse(
+                                        (part as ToolUIPart).output as string,
+                                    );
+                                } catch {
+                                    /* empty */
+                                }
 
                                 const withFormatedOutput = {
                                     ...part,
@@ -135,46 +155,17 @@ const Conversation = () => {
                         });
                     })}
 
-                    {(() => {
-                        if (!approvalRequestPart) {
-                            return null;
-                        }
-
-                        switch (approvalRequestPart.type) {
-                            case 'tool-CreateRecord':
-                                return (
-                                    <ApprovalFormRenderer
-                                        part={approvalRequestPart}
-                                    />
-                                );
-                            default:
-                                return (
-                                    <Confirmation
-                                        part={approvalRequestPart}
-                                        approvalReason={
-                                            approvalRequestPart?.approval
-                                                ?.reason ||
-                                            // eslint-disable-next-line react-hooks/refs
-                                            approvalReasonsRef.current.get(
-                                                approvalRequestPart?.approval
-                                                    ?.id ?? '',
-                                            )
-                                        }
-                                        onApprovalResponded={
-                                            handleApprovalResponse
-                                        }
-                                    />
-                                );
-                        }
-                    })()}
-
                     <ProcessingIndicator status={status} />
 
                     {(status === 'error' || error) && (
                         <Alert
                             title="Une erreur est survenue"
-                            message="Une erreur est survenue lors de la génération de la réponse. Veuillez réessayer."
+                            mode="frame"
                             variant="destructive"
+                            message={
+                                streamErrorMessage ??
+                                'Une erreur est survenue lors de la génération de la réponse. Veuillez réessayer.'
+                            }
                             buttons={[
                                 {
                                     label: 'Réessayer',
@@ -187,13 +178,45 @@ const Conversation = () => {
                 </ConversationContent>
                 <ConversationScrollButton className="bottom-8" />
             </AiElementConversation>
-            <PromptInput
-                suggestions={false}
-                className="[view-transition-name:prompt-input]"
-                onSubmit={submitPromptMessage}
-                loading={status === 'streaming'}
-                variant="secondary"
-            />
+
+            <div className="w-full max-w-4xl">
+                {(() => {
+                    if (!approvalRequestPart) {
+                        return (
+                            <PromptInput
+                                suggestions={false}
+                                className="[view-transition-name:prompt-input]"
+                                onSubmit={submitPromptMessage}
+                                loading={status === 'streaming'}
+                                variant="secondary"
+                            />
+                        );
+                    }
+
+                    switch (approvalRequestPart.type) {
+                        case 'tool-CreateRecord':
+                            return (
+                                <ApprovalFormRenderer
+                                    key={approvalRequestPart.toolCallId}
+                                    part={approvalRequestPart}
+                                    projectId={project.id}
+                                    conversationId={conversation.id}
+                                    onApprovalResponded={handleApprovalResponse}
+                                />
+                            );
+                        default:
+                            return (
+                                <Confirmation
+                                    part={approvalRequestPart}
+                                    approvalReason={getApprovalReason(
+                                        approvalRequestPart,
+                                    )}
+                                    onApprovalResponded={handleApprovalResponse}
+                                />
+                            );
+                    }
+                })()}
+            </div>
         </>
     );
 };

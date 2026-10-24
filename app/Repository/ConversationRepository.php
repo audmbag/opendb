@@ -9,9 +9,11 @@ use Illuminate\Container\Attributes\CurrentUser;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use Laravel\Ai\Approvals\PendingApproval;
+use Laravel\Ai\Enums\MessageStatus;
 use Laravel\Ai\Models\Conversation;
 use Laravel\Ai\Models\ConversationMessage;
-use Storage;
+use Laravel\Ai\Vercel\Vercel;
 
 class ConversationRepository
 {
@@ -64,92 +66,84 @@ class ConversationRepository
         ]);
     }
 
-    protected function toUiMessage(ConversationMessage $message): ?array
+    /**
+     * Find the call of the given tool waiting for the user's approval in one of their conversations.
+     *
+     * @return array{id: string, name: string, arguments: array<string, mixed>, approval_reason: string}|null
+     */
+    public function findPendingToolCall(Conversation $conversation, string $toolCallId, string $toolName): ?array
     {
-        if (! in_array($message->role, ['user', 'assistant'])) {
+        $toolCall = $this->findToolCall($conversation, $toolCallId, $toolName, MessageStatus::Paused);
+
+        return $toolCall !== null && PendingApproval::isPending($toolCall) ? $toolCall : null;
+    }
+
+    /**
+     * Find a call of the given tool saved in one of the user's conversations, so its arguments can be trusted.
+     *
+     * @return array{id: string, name: string, arguments: array<string, mixed>}|null
+     */
+    public function findToolCall(Conversation $conversation, string $toolCallId, string $toolName, ?MessageStatus $status = null): ?array
+    {
+        if ($conversation->participant_type !== $this->user->getMorphClass() || (string) $conversation->participant_id !== (string) $this->user->getKey()) {
             return null;
         }
 
-        $parts = [];
-
-        foreach (($message->attachments ?? []) as $attachment) {
-            $parts[] = [
-                'type' => 'file',
-                'mediaType' => Storage::disk($attachment['disk'])->mimeType($attachment['path']),
-                'filename' => $attachment['name'],
-                'url' => Storage::disk($attachment['disk'])->url($attachment['path']),
-            ];
-        }
-
-        if ($message->role === 'assistant') {
-            $calls = $message->tool_calls ?: [];
-            $results = collect($message->tool_results ?: [])->keyBy('id');
-            $pendingApprovals = $message->approval_state['pending'] ?? [];
-
-            foreach ($calls as $call) {
-                $pendingReason = $pendingApprovals[$call['id']] ?? null;
-
-                if ($pendingReason !== null) {
-                    $parts[] = [
-                        'type' => 'tool-'.$call['name'],
-                        'toolCallId' => $call['id'],
-                        'success' => 'approval-requested',
-                        'input' => $call['arguments'] ?? [],
-                        'approval' => [
-                            'id' => $call['id'],
-                            'reason' => $pendingReason,
-                        ],
-                    ];
-
-                    continue;
-                }
-
-                $result = $results->get($call['id']);
-
-                $parts[] = [
-                    'type' => 'tool-'.$call['name'],
-                    'toolCallId' => $call['id'],
-                    'success' => $result ? 'output-available' : 'input-available',
-                    'input' => $call['arguments'] ?? [],
-                    'output' => $result['output'] ?? $result['result'] ?? null,
-                    'errorText' => $result['error'] ?? null,
-                ];
-            }
-        }
-
-        if (filled($message->content)) {
-            $parts[] = ['type' => 'text', 'text' => $message->content];
-        }
-
-        if (! empty($message->meta)) {
-            $parts[] = [
-                'type' => 'data-provider',
-                'id' => "data-provider-{$message->id}-{$message->meta['provider']}",
-                'data' => $message->meta['provider'],
-            ];
-            $parts[] = [
-                'type' => 'data-model',
-                'id' => "data-model-{$message->id}-{$message->meta['model']}",
-                'data' => $message->meta['model'],
-            ];
-        }
-
-        return [
-            'id' => $message->id,
-            'role' => $message->role,
-            'parts' => $parts,
-        ];
+        return $conversation->messages()
+            ->where('role', 'assistant')
+            ->when($status !== null, fn ($query) => $query->where('status', $status))
+            ->get()
+            ->flatMap(fn (ConversationMessage $message) => $message->tool_calls)
+            ->first(fn (array $call) => $call['id'] === $toolCallId && $call['name'] === $toolName);
     }
 
     public function UIMessages(Conversation $conversation): Collection
     {
         /**
-         * @var Collection $messages
+         * @var Collection<int, ConversationMessage> $messages
          */
-        $messages = $this->loadMessages($conversation)->messages;
+        $messages = $this->loadMessages($conversation)->messages->keyBy('id');
 
-        return $messages->map(fn (ConversationMessage $message) => $this->toUiMessage($message))
-            ->filter()
-            ->values();
+        return collect(Vercel::toUiMessages($messages))
+            ->map(fn (array $uiMessage) => [
+                ...$uiMessage,
+                'parts' => [
+                    ...$this->textPartsLast($uiMessage['parts']),
+                    ...$this->modelParts($messages->get($uiMessage['id'])),
+                ],
+            ]);
+    }
+
+    /**
+     * Move the text parts after the tool calls, so the answer reads after the tools it is based on.
+     *
+     * @param  list<array<string, mixed>>  $parts
+     * @return list<array<string, mixed>>
+     */
+    protected function textPartsLast(array $parts): array
+    {
+        [$textParts, $otherParts] = collect($parts)->partition(fn (array $part) => $part['type'] === 'text');
+
+        return [...$otherParts->values(), ...$textParts->values()];
+    }
+
+    /**
+     * Build the data parts naming the provider and the model that wrote an assistant message.
+     *
+     * @return list<array{type: string, id: string, data: string}>
+     */
+    protected function modelParts(?ConversationMessage $message): array
+    {
+        $provider = $message?->meta['provider'] ?? null;
+        $model = $message?->meta['model'] ?? null;
+
+        if ($message?->role !== 'assistant' || blank($provider) || blank($model)) {
+            return [];
+        }
+
+        return [
+            ['type' => 'data-provider', 'id' => "data-provider-{$message->id}-{$provider}", 'data' => $provider],
+            ['type' => 'data-model', 'id' => "data-model-{$message->id}-{$model}", 'data' => $model],
+        ];
     }
 }

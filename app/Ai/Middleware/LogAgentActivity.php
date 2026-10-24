@@ -5,8 +5,10 @@ namespace App\Ai\Middleware;
 use App\Ai\Enums\AgentAccessModeEnum;
 use Closure;
 use Illuminate\Support\Facades\Log;
-use Laravel\Ai\Prompts\AgentPrompt;
-use Laravel\Ai\Responses\AgentResponse;
+use Laravel\Ai\Gateway\StepResponse;
+use Laravel\Ai\Gateway\StepResult;
+use Laravel\Ai\Messages\UserMessage;
+use Laravel\Ai\PendingStep;
 
 class LogAgentActivity
 {
@@ -14,21 +16,27 @@ class LogAgentActivity
         public AgentAccessModeEnum $accessMode,
     ) {}
 
-    public function handle(AgentPrompt $prompt, Closure $next)
+    /**
+     * Log the user prompt on the first generation step, then the response of every step.
+     */
+    public function handle(PendingStep $step, Closure $next): StepResult
     {
-        Log::channel('agent-logs')->info('Prompt agent', [
-            'mode' => $this->accessMode->value,
-            'prompt' => $prompt->prompt,
-        ]);
+        $prompt = $step->isFirstStep() ? last($step->messages) : null;
 
-        return $next($prompt)->then(function (AgentResponse $response) {
+        if ($prompt instanceof UserMessage) {
+            Log::channel('agent-logs')->info('Prompt agent', [
+                'mode' => $this->accessMode->value,
+                'prompt' => $prompt->content,
+            ]);
+        }
+
+        return $next($step)->then(function (StepResponse $response) use ($step) {
             Log::channel('agent-logs')->info('Réponse agent', [
                 'mode' => $this->accessMode->value,
-                'text' => $response->text ?? null,
-                'pending_approvals' => method_exists($response, 'hasPendingApprovals')
-                    && $response->hasPendingApprovals(),
+                'step' => $step->number,
+                'text' => $response->text,
+                'pending_approvals' => $response->pendingApprovals !== [],
             ]);
         });
-
     }
 }

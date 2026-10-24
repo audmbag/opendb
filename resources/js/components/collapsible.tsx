@@ -15,7 +15,7 @@ export default function Collapsible({ label, children, className, ...props }: Pr
                 className={buttonVariants({
                     variant: 'secondary',
                     className:
-                        'group w-full justify-start group-data-[success=open]:rounded-b-none!',
+                        'group w-full justify-start group-data-[state=open]:rounded-b-none!',
                 })}
             >
                 <SquareTerminalIcon />

@@ -7,7 +7,7 @@ import {
     PencilIcon,
     PencilOffIcon,
 } from 'lucide-react';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import AttachmentItem from '@/components/ai/attachment-item';
 import ModelSelector from '@/components/ai/model-selector';
@@ -162,6 +162,7 @@ export default function PromptInput({
     const [mentionKey, setMentionKey] = useState(0);
     const [prompt, setPrompt] = useState('');
     const [isSubmitted, setIsSubmitted] = useState(false);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     const { paths, load: loadProjectFiles, isLoading: isLoadingProjectFiles } = useProjectFiles(project?.id);
 
@@ -182,6 +183,23 @@ export default function PromptInput({
         },
         [loadProjectFiles],
     );
+
+    /**
+     * Fill the prompt from code rather than typing. The mention highlighter, which displays the text over the
+     * transparent textarea, renders it from the textarea's DOM value: writing the DOM before the state keeps it from
+     * showing the previous value.
+     */
+    const fillPrompt = useCallback((value: string) => {
+        const textarea = textareaRef.current;
+
+        if (textarea) {
+            textarea.value = value;
+            textarea.setSelectionRange(value.length, value.length);
+        }
+
+        setPrompt(value);
+        setMentions([]);
+    }, []);
 
     const handleSubmitPromptMessage = useCallback(
         async (message: AIPromptInputMessage) => {
@@ -243,6 +261,7 @@ export default function PromptInput({
                         isLoading={isLoadingProjectFiles}
                     >
                         <PromptInputTextarea
+                            ref={textareaRef}
                             className="min-h-15 py-4"
                             placeholder="Démander n'importe quoi... (@ pour mentionner un fichier)"
                             value={prompt}
@@ -328,7 +347,7 @@ export default function PromptInput({
             </div>
             {suggestions && !isSubmitted && (
                 <Presence present={!prompt}>
-                    <PromptSuggestions onClick={(value) => setPrompt(value)} />
+                    <PromptSuggestions onClick={(value) => fillPrompt(value)} />
                 </Presence>
             )}
         </div>

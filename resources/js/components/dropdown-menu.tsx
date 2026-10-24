@@ -15,9 +15,9 @@ type Props = {
     items: DropdownMenuItemType[];
 } & React.ComponentProps<typeof DropdownMenuUI.DropdownMenu>;
 
-export default function DropdownMenu({ items, children }: Props) {
+export default function DropdownMenu({ items, children, ...props }: Props) {
     return (
-        <DropdownMenuUI.DropdownMenu>
+        <DropdownMenuUI.DropdownMenu {...props}>
             <DropdownMenuUI.DropdownMenuTrigger asChild>
                 {children}
             </DropdownMenuUI.DropdownMenuTrigger>

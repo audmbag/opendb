@@ -8,6 +8,24 @@ use Throwable;
 
 class MySQLDriver extends BaseDriver implements DriverContract
 {
+    /**
+     * Les étapes du plan JSON de MySQL et MariaDB affichées dans l'arbre, avec leur libellé.
+     */
+    private const array PLAN_STEPS = [
+        'query_block' => 'Requête',
+        'nested_loop' => 'Boucle imbriquée (jointure)',
+        'ordering_operation' => 'Tri',
+        'filesort' => 'Tri',
+        'grouping_operation' => 'Regroupement',
+        'duplicates_removal' => 'Suppression des doublons',
+        'temporary_table' => 'Table temporaire',
+        'windowing' => 'Fenêtrage',
+        'union_result' => 'Union',
+        'materialized_from_subquery' => 'Sous-requête matérialisée',
+        'attached_subqueries' => 'Sous-requêtes',
+        'optimized_away_subqueries' => 'Sous-requêtes optimisées',
+    ];
+
     public function getConnectionString(bool $escapePassword = true): string
     {
         $config = $this->getConfig();
@@ -145,5 +163,115 @@ class MySQLDriver extends BaseDriver implements DriverContract
             $this->connection->statement('ROLLBACK');
             throw $e;
         }
+    }
+
+    public function explain(string $sql, array $bindings = []): array
+    {
+        $row = $this->executeReadOnly("EXPLAIN FORMAT=JSON {$sql}", $bindings)[0];
+
+        return $this->explainSteps(json_decode((string) array_values((array) $row)[0], true));
+    }
+
+    /**
+     * Les étapes contenues dans une partie du plan JSON, les clés inconnues étant traversées sans créer d'étape.
+     *
+     * @param  array<string|int, mixed>  $plan
+     * @return list<array{label: string, detail: ?string, cost: ?float, rows: ?int, warning: ?string, children: list<array<string, mixed>>}>
+     */
+    protected function explainSteps(array $plan): array
+    {
+        $steps = [];
+
+        foreach ($plan as $key => $value) {
+            if (! is_array($value)) {
+                continue;
+            }
+
+            $children = array_is_list($value)
+                ? collect($value)->filter(fn (mixed $item): bool => is_array($item))->flatMap(fn (array $item): array => $this->explainSteps($item))->values()->all()
+                : $this->explainSteps($value);
+
+            if ($key === 'table' && ! array_is_list($value)) {
+                $steps[] = $this->planNode(
+                    label: 'Table '.($value['table_name'] ?? '?'),
+                    detail: collect([
+                        isset($value['access_type']) ? "accès {$value['access_type']}" : null,
+                        isset($value['key']) ? "index {$value['key']}" : null,
+                        $value['attached_condition'] ?? null,
+                    ])->filter()->implode(' · '),
+                    cost: $value['cost_info']['prefix_cost'] ?? null,
+                    rows: $value['rows_examined_per_scan'] ?? $value['rows'] ?? null,
+                    warning: ($value['access_type'] ?? null) === 'ALL' ? 'Parcours complet de la table' : null,
+                    children: $children,
+                );
+
+                continue;
+            }
+
+            if (! is_string($key) || ! isset(self::PLAN_STEPS[$key])) {
+                array_push($steps, ...$children);
+
+                continue;
+            }
+
+            $steps[] = $this->planNode(
+                label: self::PLAN_STEPS[$key],
+                cost: $value['cost_info']['query_cost'] ?? $value['cost_info']['sort_cost'] ?? null,
+                warning: match (true) {
+                    ($value['using_filesort'] ?? false) === true => 'Tri sans index (filesort)',
+                    ($value['using_temporary_table'] ?? false) === true => 'Table temporaire',
+                    default => null,
+                },
+                children: $children,
+            );
+        }
+
+        return $steps;
+    }
+
+    /**
+     * Une table MyISAM ne revient pas en arrière au ROLLBACK : l'essai n'est fait que si toutes les tables citées sont InnoDB.
+     */
+    public function dryRunAffectedRows(string $sql, array $bindings = []): ?int
+    {
+        $tableEngines = collect($this->connection->select(
+            'SELECT TABLE_NAME AS name, ENGINE AS engine FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()'
+        ))->mapWithKeys(fn (object $table): array => [(string) $table->name => (string) $table->engine])->all();
+
+        $otherSchemas = array_map(
+            fn (object $schema): string => (string) $schema->name,
+            $this->connection->select('SELECT SCHEMA_NAME AS name FROM information_schema.SCHEMATA WHERE SCHEMA_NAME <> DATABASE()'),
+        );
+
+        return self::writeTouchesOnlyInnoDbTables($sql, $tableEngines, $otherSchemas) ? parent::dryRunAffectedRows($sql, $bindings) : null;
+    }
+
+    /**
+     * Indique si toutes les tables qu'une écriture peut toucher sont InnoDB. Tout identifiant qui porte le nom d'une table compte,
+     * même s'il s'agit d'une colonne ou d'un alias : mieux vaut refuser l'essai que d'oublier une table. Citer une autre base le refuse aussi.
+     *
+     * @param  array<string, string>  $tableEngines  le moteur de chaque table de la base, par nom
+     * @param  array<int, string>  $otherSchemas
+     */
+    public static function writeTouchesOnlyInnoDbTables(string $sql, array $tableEngines, array $otherSchemas): bool
+    {
+        preg_match_all('/`((?:[^`]|``)+)`|[\p{L}\p{N}_$]+/u', $sql, $matches, PREG_SET_ORDER);
+
+        $identifiers = array_map(
+            fn (array $match): string => mb_strtolower(isset($match[1]) ? str_replace('``', '`', $match[1]) : $match[0]),
+            $matches
+        );
+
+        if (array_intersect($identifiers, array_map(mb_strtolower(...), $otherSchemas))) {
+            return false;
+        }
+
+        $citedEngines = array_filter(
+            $tableEngines,
+            fn (string $table): bool => in_array(mb_strtolower($table), $identifiers, true),
+            ARRAY_FILTER_USE_KEY
+        );
+
+        return $citedEngines !== [] && collect($citedEngines)->every(fn (string $engine): bool => strcasecmp($engine, 'InnoDB') === 0);
     }
 }

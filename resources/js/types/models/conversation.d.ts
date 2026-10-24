@@ -6,11 +6,13 @@ export interface ConversationMessage extends BaseModel {
     role: 'user' | 'agent';
     content: string;
     attachments: unknown[];
+    steps: unknown[];
+    status: 'completed' | 'paused' | 'failed';
     tool_calls: unknown[];
     tool_results: unknown[];
+    provider_tool_calls: unknown[];
     usage: unknown[];
     meta: unknown[];
-    approval_state?: unknown[];
     is_start: boolean;
 }
 

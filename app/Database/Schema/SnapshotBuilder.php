@@ -36,14 +36,27 @@ class SnapshotBuilder extends TrussSnapshotBuilder
         );
     }
 
-    private function table(Connection $connection, ?string $schema, string $name): Table
+    /**
+     * Describe a table of the current schema as Laravel's schema builder does, without splitting a dotted name.
+     *
+     * @return array{columns: list<array<string, mixed>>, indexes: list<array<string, mixed>>, foreign_keys: list<array<string, mixed>>}
+     */
+    public function describe(Connection $connection, string $name, ?string $schema = null): array
     {
         $grammar = $connection->getSchemaGrammar();
         $processor = $connection->getPostProcessor();
+        $schema ??= $connection->getSchemaBuilder()->getCurrentSchemaName();
 
-        $columns = $processor->processColumns($connection->selectFromWriteConnection($grammar->compileColumns($schema, $name)));
-        $indexes = $processor->processIndexes($connection->selectFromWriteConnection($grammar->compileIndexes($schema, $name)));
-        $foreignKeys = $processor->processForeignKeys($connection->selectFromWriteConnection($grammar->compileForeignKeys($schema, $name)));
+        return [
+            'columns' => $processor->processColumns($connection->selectFromWriteConnection($grammar->compileColumns($schema, $name))),
+            'indexes' => $processor->processIndexes($connection->selectFromWriteConnection($grammar->compileIndexes($schema, $name))),
+            'foreign_keys' => $processor->processForeignKeys($connection->selectFromWriteConnection($grammar->compileForeignKeys($schema, $name))),
+        ];
+    }
+
+    private function table(Connection $connection, ?string $schema, string $name): Table
+    {
+        ['columns' => $columns, 'indexes' => $indexes, 'foreign_keys' => $foreignKeys] = $this->describe($connection, $name, $schema);
 
         $primaryKey = [];
         $secondaryIndexes = [];

@@ -4,6 +4,8 @@ namespace App\Ai\Tools\Database;
 
 use App\Ai\Enums\AgentAccessModeEnum;
 use App\Database\Contracts\DriverContract;
+use Closure;
+use Illuminate\Contracts\JsonSchema\JsonSchema as JsonSchemaContract;
 use Illuminate\Database\QueryException;
 use Illuminate\JsonSchema\JsonSchema;
 use RuntimeException;
@@ -21,10 +23,39 @@ class BaseTool
     }
 
     /**
-     * @param string $tableName
-     * @param DriverContract $driver
-     * @return array
+     * The output of a tool rendered in the chat interface: the metadata returned by the callback, or the error that prevents the rendering.
      *
+     * @param  Closure(): array<string, mixed>  $callback
+     */
+    protected function artifactOutput(Closure $callback): string
+    {
+        try {
+            return $this->toJson(['success' => true, ...$callback()]);
+        } catch (QueryException $e) {
+            return $this->toJson(['success' => false, 'error' => $this->formatQueryError($e)]);
+        } catch (RuntimeException $e) {
+            return $this->toJson(['success' => false, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * The parameters of a SELECT query whose rows are displayed in the chat interface.
+     *
+     * @return array<string, mixed>
+     */
+    protected function selectQuerySchema(JsonSchemaContract $schema): array
+    {
+        return [
+            'query' => $schema->string()
+                ->description('Requête SQL SELECT (ou WITH … SELECT) unique, préparée avec bindings nommés, sans point-virgule multiple.')
+                ->required(),
+            'bindings' => $schema->object()
+                ->description('Objet clé-valeur contenant les paramètres (ex: {"id": 1, "status": "active"}). Objet vide si aucun paramètre.')
+                ->required(),
+        ];
+    }
+
+    /**
      * @throws RuntimeException if the table does not exist in the database.
      */
     protected function validateTable(string $tableName, DriverContract $driver): array
