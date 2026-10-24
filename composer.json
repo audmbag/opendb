@@ -20,7 +20,6 @@
         "laravel/mcp": "^1.0",
         "laravel/tinker": "^3.0",
         "laravel/wayfinder": "^0.1.14",
-        "lmsomeco/laravel-ai-models": "dev-laravel-ai-v1@dev",
         "spatie/laravel-data": "^4.23"
     },
     "require-dev": {

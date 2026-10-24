@@ -25303,110 +25303,6 @@ namespace Laravel\Mcp\Facades {
             }
     }
 
-namespace LmSomeco\AiModels\Facades {
-    /**
-     * @see ModelRegistry
-     */
-    class AiModels {
-        /**
-         * Every provider entry in config/ai.php that has a resolver for its driver,
-         * built into resolver instances and keyed by the provider name.
-         *
-         * Because resolvers are selected by the entry's "driver" (a Lab value),
-         * dynamically-injected providers (e.g. "db-{id}" connectors registered at
-         * runtime via config(['ai.providers...' => ...])) are supported transparently.
-         *
-         * @return Collection<string, ProviderResolver>
-         * @static
-         */
-        public static function providers()
-        {
-            /** @var \LmSomeco\AiModels\ModelRegistry $instance */
-            return $instance->providers();
-        }
-
-        /**
-         * The names of providers that have the credentials they need to run.
-         *
-         * @return Collection<int, string>
-         * @static
-         */
-        public static function configuredProviders()
-        {
-            /** @var \LmSomeco\AiModels\ModelRegistry $instance */
-            return $instance->configuredProviders();
-        }
-
-        /**
-         * Every model across every configured provider.
-         *
-         * @return Collection<int, AiModel>
-         * @static
-         */
-        public static function all($fresh = false)
-        {
-            /** @var \LmSomeco\AiModels\ModelRegistry $instance */
-            return $instance->all($fresh);
-        }
-
-        /**
-         * The models for a single provider, by its config/ai.php name (or Lab).
-         *
-         * @return Collection<int, AiModel>
-         * @static
-         */
-        public static function provider($provider, $fresh = false)
-        {
-            /** @var \LmSomeco\AiModels\ModelRegistry $instance */
-            return $instance->provider($provider, $fresh);
-        }
-
-        /**
-         * Resolve models for an ad-hoc connector that is not declared in config/ai.php.
-         *
-         * Pass the underlying driver (a Lab) plus its credentials. Caching is opt-in:
-         * provide a $cacheKey (e.g. "connector:{$connector->getConnectorId()}") to cache the result.
-         *
-         * @param array<string, mixed> $config e.g. ['key' => '...', 'url' => '...']
-         * @return Collection<int, AiModel>
-         * @static
-         */
-        public static function driver($driver, $config = [], $cacheKey = null, $fresh = false)
-        {
-            /** @var \LmSomeco\AiModels\ModelRegistry $instance */
-            return $instance->driver($driver, $config, $cacheKey, $fresh);
-        }
-
-        /**
-         * Resolve models for a database-driven connector instance.
-         *
-         * Uses a stable per-connector cache key so repeated calls within the same
-         * request hit the cache. Pass $fresh = true to bypass it.
-         *
-         * @return Collection<int, AiModel>
-         * @static
-         */
-        public static function connector($connector, $fresh = false)
-        {
-            /** @var \LmSomeco\AiModels\ModelRegistry $instance */
-            return $instance->connector($connector, $fresh);
-        }
-
-        /**
-         * Drop cached models for one provider (or cache key), or for every provider
-         * currently declared in config/ai.php.
-         *
-         * @static
-         */
-        public static function refresh($provider = null)
-        {
-            /** @var \LmSomeco\AiModels\ModelRegistry $instance */
-            return $instance->refresh($provider);
-        }
-
-            }
-    }
-
 namespace Illuminate\Support {
     /**
      * @template TKey of array-key
@@ -30841,7 +30737,6 @@ namespace  {
     class Vite extends \Illuminate\Support\Facades\Vite {}
     class Debugbar extends \Fruitcake\LaravelDebugbar\Facades\Debugbar {}
     class Mcp extends \Laravel\Mcp\Facades\Mcp {}
-    class AiModels extends \LmSomeco\AiModels\Facades\AiModels {}
 }
 
 

@@ -2,13 +2,12 @@
 
 namespace App\Ai\Services;
 
+use App\Ai\Data\AiModel;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Str;
 use Laravel\Ai\Ai;
 use Laravel\Ai\Enums\Lab;
-use LmSomeco\AiModels\Data\AiModel;
-use LmSomeco\AiModels\Facades\AiModels;
 use Throwable;
 
 use function Laravel\Ai\agent;
@@ -43,7 +42,7 @@ readonly class ProviderManagerService
 
     public function getModes(): Collection
     {
-        $ai_models = AiModels::provider($this->provider);
+        $ai_models = app(ModelRegistry::class)->provider($this->provider);
 
         return $ai_models->map(function (AiModel $model) {
             return [

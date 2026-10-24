@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace App\Ai\ModelResolver;
 
+use App\Ai\Data\AiModel;
 use DateTimeImmutable;
 use Exception;
 use Illuminate\Support\Collection;
-use LmSomeco\AiModels\Data\AiModel;
-use LmSomeco\AiModels\Resolvers\Resolver;
 
 class OllamaResolver extends Resolver
 {
