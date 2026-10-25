@@ -1,0 +1,82 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Cloning\Engine\Enums;
+
+use ValueError;
+
+enum DatabaseConnectionType: string
+{
+    case Mysql = 'mysql';
+    case MariaDB = 'mariadb';
+    case PostgreSQL = 'pgsql';
+    case Sqlite = 'sqlite';
+    case Dump = 'dump';
+
+    public function label(): string
+    {
+        return match ($this) {
+            self::Mysql => 'MySQL',
+            self::MariaDB => 'MariaDB',
+            self::PostgreSQL => 'PostgreSQL',
+            self::Sqlite => 'SQLite',
+            self::Dump => 'Dump (SQL file)',
+        };
+    }
+
+    public function defaultPort(): ?int
+    {
+        return match ($this) {
+            self::Mysql, self::MariaDB => 3306,
+            self::PostgreSQL => 5432,
+            self::Sqlite, self::Dump => null,
+        };
+    }
+
+    public function requiresSchema(): bool
+    {
+        return $this === self::PostgreSQL;
+    }
+
+    public function requiresNetworkConfig(): bool
+    {
+        return $this !== self::Sqlite && $this !== self::Dump;
+    }
+
+    public function isDump(): bool
+    {
+        return $this === self::Dump;
+    }
+
+    public function isDialect(): bool
+    {
+        return $this !== self::Dump;
+    }
+
+    public static function values(): array
+    {
+        return array_map(static fn (self $case): string => $case->value, self::cases());
+    }
+
+    public static function dialectValues(): array
+    {
+        return array_values(array_filter(self::values(), static fn (string $v): bool => $v !== self::Dump->value));
+    }
+
+    public static function labels(): array
+    {
+        return array_map(static fn (self $case): string => $case->label(), self::cases());
+    }
+
+    public static function fromLabel(string $label): self
+    {
+        foreach (self::cases() as $case) {
+            if ($case->label() === $label) {
+                return $case;
+            }
+        }
+
+        throw new ValueError(sprintf("'%s' is not a valid label for ", $label).self::class);
+    }
+}

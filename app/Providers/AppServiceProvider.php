@@ -4,7 +4,7 @@ namespace App\Providers;
 
 use AlbertoArena\Truss\Introspection\SnapshotBuilder as TrussSnapshotBuilder;
 use App\Database\Schema\SnapshotBuilder;
-use App\Services\Cloning\CloningManager;
+use App\Services\Cloning\Workflow\CloningWorkspaceFactory;
 use App\Services\SystemInfoService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\DevCommands;
@@ -20,10 +20,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->when(CloningManager::class)
-            ->needs('$cloning_config_path')
-            ->give(resource_path('app/clonio.json'))
-            ->needs('$pii_matchers_path')
+        $this->app->when(CloningWorkspaceFactory::class)
+            ->needs('$configTemplatePath')
+            ->give(resource_path('app/clonio.json'));
+        $this->app->when(CloningWorkspaceFactory::class)
+            ->needs('$piiMatchersPath')
             ->give(resource_path('app/clonio.pii-matchers.yaml'));
 
         $this->app->bind(TrussSnapshotBuilder::class, SnapshotBuilder::class);

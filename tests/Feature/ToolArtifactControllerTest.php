@@ -3,6 +3,7 @@
 use App\Models\Project;
 use App\Models\User;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\File;
 use Laravel\Ai\Enums\MessageStatus;
 use Laravel\Ai\Models\Conversation;
 
@@ -248,4 +249,52 @@ it('returns 404 for the preview of a write that is no longer waiting for approva
     $response = $this->actingAs($this->user)->getJson("/conversations/{$conversation->id}/tool-calls/call_1/artifact/write-preview");
 
     $response->assertNotFound();
+});
+
+describe('download', function () {
+    beforeEach(function () {
+        $this->projectPath = realpath(sys_get_temp_dir()).DIRECTORY_SEPARATOR.uniqid('tool-artifact-project-');
+        mkdir($this->projectPath.'/exports', recursive: true);
+        file_put_contents($this->projectPath.'/exports/shop_20261025_101800.zip', 'archive');
+        file_put_contents($this->projectPath.'/.env', 'APP_KEY=secret');
+        $this->project->update(['path' => $this->projectPath]);
+    });
+
+    afterEach(function () {
+        File::deleteDirectory($this->projectPath);
+    });
+
+    function conversationWithExport(User $user, Project $project, string $path): Conversation
+    {
+        return conversationWithToolCall($user, $project, [
+            'id' => 'call_1',
+            'name' => 'ExportDatabase',
+            'arguments' => [],
+            'result' => json_encode(['success' => true, 'path' => $path, 'format' => 'sql', 'output' => 'zip', 'tables' => 'all', 'bytes' => 7]),
+        ], MessageStatus::Completed);
+    }
+
+    it('downloads the archive written by the export', function () {
+        $conversation = conversationWithExport($this->user, $this->project, 'exports/shop_20261025_101800.zip');
+
+        $response = $this->actingAs($this->user)->get("/conversations/{$conversation->id}/tool-calls/call_1/artifact/download");
+
+        $response->assertOk()->assertDownload('shop_20261025_101800.zip');
+    });
+
+    it('returns 404 for a file outside the exports directory of the project', function (string $path) {
+        $conversation = conversationWithExport($this->user, $this->project, $path);
+
+        $this->actingAs($this->user)->get("/conversations/{$conversation->id}/tool-calls/call_1/artifact/download")->assertNotFound();
+    })->with([
+        'project file' => ['.env'],
+        'path traversal' => ['exports/../.env'],
+        'missing archive' => ['exports/missing.zip'],
+    ]);
+
+    it('returns 404 when the conversation belongs to another user', function () {
+        $conversation = conversationWithExport($this->user, $this->project, 'exports/shop_20261025_101800.zip');
+
+        $this->actingAs(User::factory()->create())->get("/conversations/{$conversation->id}/tool-calls/call_1/artifact/download")->assertNotFound();
+    });
 });

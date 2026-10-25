@@ -26,7 +26,7 @@ type Props = {
 const variantClass = {
     success: "bg-green-50 text-green-800 dark:bg-green-900 dark:text-green-200",
     warning: "bg-yellow-50 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-    destructive: "bg-red-50 text-red-800 dark:bg-red-900 dark:text-red-200",
+    destructive: "bg-red-50 text-red-800 dark:bg-red-900/10 dark:text-red-200",
 };
 
 export default function Alert({ variant, title, message, className, buttons, mode = 'default', ...props }: Props) {

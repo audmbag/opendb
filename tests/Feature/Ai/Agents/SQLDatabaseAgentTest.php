@@ -8,6 +8,8 @@ use App\Ai\Tools\Database\ShowChart;
 use App\Ai\Tools\Database\ShowKpis;
 use App\Ai\Tools\Database\ShowQueryResults;
 use App\Ai\Tools\Database\ShowRecord;
+use App\Ai\Tools\Mail\ManageMailRecipients;
+use App\Ai\Tools\Mail\SendMail;
 use App\Ai\Tools\Memory\UpdateProjectMemory;
 use App\Models\Project;
 use App\Services\ProjectMemory;
@@ -39,3 +41,13 @@ it('gives the tools displaying artifacts to the agent in every access mode', fun
 
     expect($tools)->toContain(ShowQueryResults::class, ShowKpis::class, ShowChart::class, ProfileTable::class, ShowRecord::class, ExplainQuery::class);
 })->with(AgentAccessModeEnum::cases());
+
+it('gives the mail tools to the agent in read-write mode only', function (AgentAccessModeEnum $accessMode, bool $hasMailTools) {
+    $tools = collect(new SQLDatabaseAgent($accessMode, $this->project)->tools())->map(fn (object $tool) => $tool::class);
+
+    expect($tools->contains(SendMail::class))->toBe($hasMailTools)
+        ->and($tools->contains(ManageMailRecipients::class))->toBe($hasMailTools);
+})->with([
+    'read-only' => [AgentAccessModeEnum::ReadOnly, false],
+    'read-write' => [AgentAccessModeEnum::ReadWrite, true],
+]);

@@ -1,8 +1,8 @@
 <?php
 
 use App\Enums\OperatingSystemEnum;
-use App\Services\Cloning\CloningManager;
 use App\Services\Cloning\Exception\CloningException;
+use App\Services\Cloning\Workflow\CloningWorkspaceFactory;
 use App\Services\SystemInfoService;
 use Illuminate\Support\Facades\File;
 
@@ -24,8 +24,7 @@ beforeEach(function () {
     $this->tmpDirectory->put('logs/'.$this->logFile, '{"event":"run_started"}');
     $this->tmpDirectory->put('logs/source_target_2026-10-18T08-40-44Z_audit.pdf', 'pdf');
 
-    $this->manager = app(CloningManager::class);
-    $this->manager->tmpDirectory = $this->cloningId;
+    $this->workspace = app(CloningWorkspaceFactory::class)->open($this->cloningId);
 });
 
 afterEach(function () {
@@ -35,7 +34,7 @@ afterEach(function () {
 it('moves the jsonl log into the logs directory and removes the temporary directory', function () {
     $temporaryPath = $this->tmpDirectory->path('');
 
-    $newPath = $this->manager->clearMoveLogsAndTemporaryDirectory();
+    $newPath = $this->workspace->archiveLog();
 
     expect($newPath)->toBe(app(SystemInfoService::class)->applicationPath('logs', $this->cloningId, $this->logFile))
         ->and(File::get($newPath))->toBe('{"event":"run_started"}')
@@ -45,11 +44,5 @@ it('moves the jsonl log into the logs directory and removes the temporary direct
 it('fails when the log file does not exist', function () {
     $this->tmpDirectory->delete('logs/'.$this->logFile);
 
-    $this->manager->clearMoveLogsAndTemporaryDirectory();
+    $this->workspace->archiveLog();
 })->throws(CloningException::class, 'No cloning log file (.jsonl) found');
-
-it('fails when the cloning id is not set', function () {
-    $this->manager->tmpDirectory = null;
-
-    $this->manager->clearMoveLogsAndTemporaryDirectory();
-})->throws(CloningException::class, 'Cloning id is not set');

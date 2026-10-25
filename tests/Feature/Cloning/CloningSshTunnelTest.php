@@ -6,9 +6,13 @@ use App\Database\Drivers\MySQLDriver;
 use App\Enums\OperatingSystemEnum;
 use App\Services\Cloning\CloningManager;
 use App\Services\Cloning\CloningRunnerHelper;
-use App\Services\Cloning\CloningSourceConfig;
-use App\Services\Cloning\Data\CloningConnection;
+use App\Services\Cloning\Data\CloningRequest;
+use App\Services\Cloning\Engine\Data\ConnectionData;
+use App\Services\Cloning\Workflow\CloningConnections;
+use App\Services\Cloning\Workflow\CloningExecutor;
+use App\Services\Cloning\Workflow\SourceDatabaseStats;
 use App\Services\SystemInfoService;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\File;
 
 beforeEach(function () {
@@ -27,44 +31,41 @@ beforeEach(function () {
     $this->tunnelDriver->shouldReceive('sshTunnelPort')->andReturn(50123);
 
     $this->runner = Mockery::mock(CloningRunnerHelper::class);
+    $this->app->instance(CloningRunnerHelper::class, $this->runner);
 
-    $this->manager = new class(resource_path('app/clonio.json'), resource_path('app/clonio.pii-matchers.yaml'), app(SystemInfoService::class), $this->runner) extends CloningManager
+    $this->connections = new class extends CloningConnections
     {
         /** @var list<string> */
         public array $openedDrivers = [];
 
         public ?DriverContract $fakeDriver = null;
 
-        protected function getDriver(CloningConnection $connection): DriverContract
+        public function driver(ConnectionData $connection): DriverContract
         {
             $this->openedDrivers[] = $connection->database;
 
             return $this->fakeDriver;
         }
-
-        protected function sourceConfig(): CloningSourceConfig
-        {
-            return new CloningSourceConfig([], [], 'fr_FR');
-        }
-
-        public function writeClonioConfig(): array
-        {
-            return json_decode(file_get_contents($this->createCloningFileConfig()), true);
-        }
     };
-    $this->manager->fakeDriver = $this->tunnelDriver;
-    $this->manager->tmpDirectory = '2026-10-20_10-00-00_sshTunnl';
+    $this->connections->fakeDriver = $this->tunnelDriver;
+    $this->app->instance(CloningConnections::class, $this->connections);
+
+    $this->stats = Mockery::mock(SourceDatabaseStats::class);
+    $this->stats->shouldReceive('primaryKeyRanges')->andReturn([]);
+    $this->stats->shouldReceive('largestRowBytes')->andReturn(null);
+    $this->app->instance(SourceDatabaseStats::class, $this->stats);
+
+    $this->cloningId = '2026-10-20_10-00-00_sshTunnl';
 });
 
 afterEach(function () {
     File::deleteDirectory($this->home);
 });
 
-function sshCloningConnection(string $database, ?array $ssh): CloningConnection
+function sshCloningConnection(string $database, ?array $ssh, string $name = CloningManager::SOURCE_CONNECTION_NAME): ConnectionData
 {
-    return CloningConnection::fromArray([
-        'type' => 'mysql',
-        'dialect' => 'mysql',
+    return CloningConnections::fromArray($name, [
+        'driver_id' => 'mysql',
         'host' => '127.0.0.1',
         'port' => 3306,
         'database' => $database,
@@ -74,11 +75,11 @@ function sshCloningConnection(string $database, ?array $ssh): CloningConnection
     ]);
 }
 
-it('points clonio to the local end of the ssh tunnel', function () {
-    $this->manager->fromConfig = sshCloningConnection('remote_db', $this->ssh);
-    $this->manager->toConfig = sshCloningConnection('remote_clone', $this->ssh);
-
-    $connections = $this->manager->writeClonioConfig()['connections'];
+it('points the cloning engine to the local end of the ssh tunnel', function () {
+    $connections = [
+        'source' => $this->connections->engineConnection(sshCloningConnection('remote_db', $this->ssh)),
+        'target' => $this->connections->engineConnection(sshCloningConnection('remote_clone', $this->ssh, CloningManager::TARGET_CONNECTION_NAME)),
+    ];
 
     expect($connections['source'])->toMatchArray(['host' => '127.0.0.1', 'port' => 50123, 'database' => 'remote_db', 'username' => 'remote_user'])
         ->and($connections['source'])->not->toHaveKey('ssh')
@@ -87,21 +88,25 @@ it('points clonio to the local end of the ssh tunnel', function () {
 });
 
 it('keeps direct connections unchanged without opening a tunnel', function () {
-    $this->manager->fromConfig = sshCloningConnection('remote_db', $this->ssh);
-    $this->manager->toConfig = CloningConnection::fromArray([
-        'type' => 'mysql',
+    $target = $this->connections->engineConnection(CloningConnections::fromArray(CloningManager::TARGET_CONNECTION_NAME, [
+        'driver_id' => 'mysql',
         'host' => 'db.example.test',
         'port' => 3307,
         'database' => 'local_clone',
         'username' => 'root',
         'ssh' => null,
-    ]);
+    ]));
 
-    $connections = $this->manager->writeClonioConfig()['connections'];
+    expect($target)->toMatchArray(['host' => 'db.example.test', 'port' => 3307, 'database' => 'local_clone'])
+        ->and($target)->not->toHaveKey('ssh')
+        ->and($this->connections->openedDrivers)->toBe([]);
+});
 
-    expect($connections['target'])->toMatchArray(['host' => 'db.example.test', 'port' => 3307, 'database' => 'local_clone'])
-        ->and($connections['target'])->not->toHaveKey('ssh')
-        ->and($this->manager->openedDrivers)->toBe(['remote_db']);
+it('encrypts the password given to the cloning engine', function () {
+    $source = $this->connections->engineConnection(sshCloningConnection('remote_db', null));
+
+    expect($source['password'])->toStartWith('encrypted:')
+        ->and(Crypt::decryptString(substr($source['password'], 10)))->toBe('secret');
 });
 
 it('connects the driver to the local end of the ssh tunnel', function () {
@@ -124,11 +129,8 @@ it('reports no tunnel port for a direct connection', function () {
     expect($driver->sshTunnelPort())->toBeNull();
 });
 
-it('runs clonio through the tunnel and forgets the cached schema of the cloned database', function () {
-    $this->manager->fromConfig = sshCloningConnection('remote_db', $this->ssh);
-    $this->manager->toConfig = sshCloningConnection('remote_clone', $this->ssh);
-
-    $directory = app(SystemInfoService::class)->temporaryDirectory($this->manager->tmpDirectory);
+it('runs the cloning engine through the tunnel and forgets the cached schema of the cloned database', function () {
+    $directory = app(SystemInfoService::class)->temporaryDirectory($this->cloningId);
     $directory->put(CloningManager::SOURCE_CONNECTION_NAME.'.cloning.yaml', "version: '1'\nconnection: source\noptions: {}\ntables: {}\n");
     $this->tunnelDriver->shouldReceive('getSchema')->andReturn([]);
 
@@ -141,7 +143,11 @@ it('runs clonio through the tunnel and forgets the cached schema of the cloned d
     });
     $this->tunnelDriver->shouldReceive('forgetSchema')->once();
 
-    $this->manager->cloneNow($this->manager->tmpDirectory, []);
+    app(CloningExecutor::class)->execute(new CloningRequest(
+        cloningId: $this->cloningId,
+        source: sshCloningConnection('remote_db', $this->ssh),
+        target: sshCloningConnection('remote_clone', $this->ssh, CloningManager::TARGET_CONNECTION_NAME),
+    ));
 });
 
 it('forgets the cached schema of a connection', function () {

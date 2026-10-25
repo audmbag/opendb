@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Ai\Concerns\HasConversations;
@@ -18,7 +19,6 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasConversations, HasFactory, Notifiable;
 
-
     protected function casts(): array
     {
         return [
@@ -29,5 +29,15 @@ class User extends Authenticatable
     public function projects(): HasMany
     {
         return $this->hasMany(Project::class);
+    }
+
+    public function mailSetting(): HasOne
+    {
+        return $this->hasOne(MailSetting::class);
+    }
+
+    public function mailRecipients(): HasMany
+    {
+        return $this->hasMany(MailRecipient::class);
     }
 }

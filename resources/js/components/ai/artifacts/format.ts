@@ -16,6 +16,16 @@ export function formatNumber(value: number): string {
 }
 
 /**
+ * A size in bytes with the largest unit that keeps it above 1 (o, Ko, Mo, Go).
+ */
+export function formatBytes(bytes: number): string {
+    const units = ['o', 'Ko', 'Mo', 'Go'];
+    const exponent = Math.min(units.length - 1, bytes > 0 ? Math.floor(Math.log(bytes) / Math.log(1024)) : 0);
+
+    return `${numberFormatter.format(bytes / 1024 ** exponent)} ${units[exponent]}`;
+}
+
+/**
  * A value of a cell as displayed in a table: NULL is handled by the caller, objects are shown as JSON.
  */
 export function formatCell(value: CellValue | object): string {

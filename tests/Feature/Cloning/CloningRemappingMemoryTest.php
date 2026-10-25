@@ -4,8 +4,11 @@ use App\Database\Drivers\BaseDriver;
 use App\Enums\OperatingSystemEnum;
 use App\Services\Cloning\CloningManager;
 use App\Services\Cloning\CloningRunnerHelper;
-use App\Services\Cloning\Data\CloningConnection;
+use App\Services\Cloning\Data\CloningRequest;
 use App\Services\Cloning\Exception\CloningException;
+use App\Services\Cloning\Workflow\CloningConnections;
+use App\Services\Cloning\Workflow\CloningExecutor;
+use App\Services\Cloning\Workflow\CloningPreparer;
 use App\Services\SystemInfoService;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Yaml\Yaml;
@@ -31,9 +34,8 @@ beforeEach(function () {
     $pdo->exec("INSERT INTO users VALUES (1, 'a@example.test'), (2, 'b@example.test')");
 
     $this->cloningId = '2026-10-20_13-00-00_rmpMemry';
-    $this->manager = CloningManager::from(CloningConnection::fromArray(['type' => 'sqlite', 'dialect' => 'sqlite', 'database' => $this->source]));
-    $this->manager->tmpDirectory = $this->cloningId;
-    $this->payload = collect($this->manager->toClientPayload()['tables'])->keyBy('name');
+    $this->sourceConnection = CloningConnections::fromArray(CloningManager::SOURCE_CONNECTION_NAME, ['driver_id' => 'sqlite', 'database' => $this->source]);
+    $this->payload = collect(app(CloningPreparer::class)->clientPayload($this->sourceConnection, $this->cloningId)['tables'])->keyBy('name');
     $this->yaml = Yaml::parseFile(app(SystemInfoService::class)->temporaryDirectory($this->cloningId)->path('source.cloning.yaml'));
 });
 
@@ -54,11 +56,9 @@ it('sizes the chunks from the sqlite page statistics', function () {
     $pdo->exec('WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c WHERE x < 20) INSERT INTO documents SELECT x, randomblob(1048576) FROM c');
     BaseDriver::for(['driver_id' => 'sqlite', 'database' => $this->source])->forgetSchema();
 
-    $manager = CloningManager::from(CloningConnection::fromArray(['type' => 'sqlite', 'dialect' => 'sqlite', 'database' => $this->source]));
-    $manager->tmpDirectory = '2026-10-20_13-00-01_rmpMemry';
-    $manager->toClientPayload();
+    $cloningId = app(CloningPreparer::class)->clientPayload($this->sourceConnection)['cloningId'];
 
-    $yaml = Yaml::parseFile(app(SystemInfoService::class)->temporaryDirectory($manager->tmpDirectory)->path('source.cloning.yaml'));
+    $yaml = Yaml::parseFile(app(SystemInfoService::class)->temporaryDirectory($cloningId)->path('source.cloning.yaml'));
 
     expect($this->yaml['options']['chunk_size'])->toBe(1000)
         ->and($yaml['options']['chunk_size'])->toBeBetween(14, 16);
@@ -67,10 +67,12 @@ it('sizes the chunks from the sqlite page statistics', function () {
 it('refuses before running clonio a remapping chosen by hand that exceeds its memory', function () {
     $this->runner->shouldNotReceive('cloneNow');
 
-    $clone = fn () => $this->manager->to(CloningConnection::fromArray(['type' => 'sqlite', 'dialect' => 'sqlite', 'database' => $this->home.'/target.sqlite']))
-        ->cloneNow($this->cloningId, [
-            'comments' => ['id' => ['strategy' => 'remapping', 'remappingUse' => 'random_integer', 'foreignKeys' => []]],
-        ]);
+    $clone = fn () => app(CloningExecutor::class)->execute(new CloningRequest(
+        cloningId: $this->cloningId,
+        source: $this->sourceConnection,
+        target: CloningConnections::fromArray(CloningManager::TARGET_CONNECTION_NAME, ['driver_id' => 'sqlite', 'database' => $this->home.'/target.sqlite']),
+        clientDraft: ['comments' => ['id' => ['strategy' => 'remapping', 'remappingUse' => 'random_integer', 'foreignKeys' => []]]],
+    ));
 
     expect($clone)->toThrow(CloningException::class, __('cloning.remapping_notices.exceeds_memory', ['tables' => 'comments']));
 });

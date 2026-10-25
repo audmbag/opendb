@@ -4,6 +4,7 @@ import { HardDriveDownloadIcon } from 'lucide-react';
 import {
     ChartColumnBig,
     Database,
+    FileArchive,
     Table2,
     Workflow,
     FilePlus2,
@@ -32,6 +33,7 @@ export const AgentTools = {
     ProfileTable: 'tool-ProfileTable',
     ShowRecord: 'tool-ShowRecord',
     ExplainQuery: 'tool-ExplainQuery',
+    ExportDatabase: 'tool-ExportDatabase',
 } as const;
 
 
@@ -44,6 +46,7 @@ export const ArtifactableTools = [
     AgentTools.ProfileTable,
     AgentTools.ShowRecord,
     AgentTools.ExplainQuery,
+    AgentTools.ExportDatabase,
 ];
 
 export type AgentToolNameType = `tool-${keyof typeof AgentTools}`;
@@ -83,6 +86,8 @@ export function getMetadata(name: AgentToolNameType): ToolMetadata | undefined {
             return { icon: IdCard, color: 'text-violet-500' };
         case AgentTools.ExplainQuery:
             return { icon: Route, color: 'text-red-500' };
+        case AgentTools.ExportDatabase:
+            return { icon: FileArchive, color: 'text-lime-600' };
     }
 }
 
@@ -137,6 +142,21 @@ export type RecordToolUIPart = CustomOutputToolUIPart<{
 
 export type ExplainQueryToolUIPart = CustomOutputToolUIPart<{
     steps: string[];
+}>;
+
+export type ExportFormat = 'sql' | 'csv';
+
+export type ExportCompression = 'zip' | 'tar' | 'gzip';
+
+export type ExportDatabaseToolUIPart = CustomOutputToolUIPart<{
+    /**
+     * The path of the archive, relative to the directory of the project.
+     */
+    path: string;
+    format: ExportFormat;
+    output: ExportCompression;
+    tables: string[] | 'all';
+    bytes: number;
 }>;
 
 

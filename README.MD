@@ -12,7 +12,7 @@ Features :
 - [ ] Add file mention to prompt input by typing @
 
 ⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️
-- PHP extensions : pdo_sqlite, pdo_mysql, pdo_pgsql
+- PHP extensions : pdo_sqlite, pdo_mysql, pdo_pgsql pdo_sqlite, mbstring
 - Ne pas oublier de configurer /etc/sudoers.d/agent-driver-install sous Linux, Task Scheduler sous Windows l'autorisation root/Admin
 et ainsi avoir la possibilité d'installer mysql, sqlite3, postgresql ou mariadb sur le système de l'utilisateur.
 - Toujous lors de l'installation, configurer le fichier `~/.config/opendb/.env` pour y stocker des variables d'env

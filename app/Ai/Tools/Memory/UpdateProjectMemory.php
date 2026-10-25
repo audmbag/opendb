@@ -63,7 +63,8 @@ class UpdateProjectMemory implements Tool
                 ->required()
                 ->description("L'opération à effectuer sur la mémoire : add, replace ou remove."),
             'note' => $schema->string()
-                ->description('Le texte de l\'entrée, une seule phrase concise (requis pour add et replace).'),
+                ->description('Le texte de l\'entrée, une seule phrase concise (requis pour add et replace). '
+                    .'Une consigne de l\'utilisateur s\'écrit en règle impérative qui garde toutes ses conditions.'),
             'match' => $schema->string()
                 ->description('Un extrait du texte de l\'entrée existante à cibler (requis pour replace et remove).'),
         ];

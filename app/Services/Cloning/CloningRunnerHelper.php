@@ -2,14 +2,11 @@
 
 namespace App\Services\Cloning;
 
+use App\Services\Cloning\Engine\CloningEngine;
+use App\Services\Cloning\Engine\CloningRunOptions;
 use App\Services\Cloning\Exception\CloningException;
 use App\Services\SystemInfoService;
-use Illuminate\Filesystem\FilesystemAdapter;
-use Illuminate\Process\ProcessResult;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Process;
-use Illuminate\Support\Str;
-use Symfony\Component\Finder\SplFileInfo;
+use RuntimeException;
 
 class CloningRunnerHelper
 {
@@ -21,86 +18,81 @@ class CloningRunnerHelper
         'break_on_failure' => false,
     ];
 
-    const int MAX_CLONING_TIMEOUT = 3600;
-
     public function __construct(
         protected SystemInfoService $systemInfoService,
+        protected CloningEngine $engine,
     ) {}
 
-    protected function runCloningCommand(array $config = [], array $skipTables = []): array
+    /**
+     * @param  array<string, bool>  $options  Options de DEFAULT_CLONING_OPTIONS à surcharger.
+     * @param  list<string>  $skipTables
+     */
+    public function cloningOptions(array $options = [], array $skipTables = []): CloningRunOptions
     {
-        $config = [...self::DEFAULT_CLONING_OPTIONS, ...$config];
+        $options = [...self::DEFAULT_CLONING_OPTIONS, ...$options];
 
-        $breakOnFailure = $config['break_on_failure'];
-
-        unset($config['break_on_failure']);
-
-        $config = $config
-            |> array_keys(...)
-            |> (fn (array $options) => array_map(fn (string $option) => str_replace('_', '-', $option), $options))
-            |> (fn (array $options) => array_map(fn (string $key, bool $value) => $value ? "--$key" : "--no-$key", $options, $config))
-            |> (fn (array $options) => array_merge($options, [
-                $breakOnFailure ? '--break-on-failure' : '',
-                count($skipTables) > 0 ? '--skip-tables='.implode(',', $skipTables) : '',
-            ]))
-            |> array_filter(...);
-
-        return [
-            'clonio',
-            'cloning:run',
-            CloningManager::SOURCE_CONNECTION_NAME.'.cloning.yaml',
-            '--target',
-            CloningManager::TARGET_CONNECTION_NAME,
-            '--allow-failure',
-            ...$config,
-        ];
+        return new CloningRunOptions(
+            disableForeignKeyChecks: (bool) $options['disable_fk_checks'],
+            dropExtraColumns: (bool) $options['drop_extra_columns'],
+            dropUnknownTables: (bool) $options['drop_unknown_tables'],
+            enforceColumnTypes: (bool) $options['enforce_column_types'],
+            breakOnFailure: (bool) $options['break_on_failure'],
+            skipTables: array_values($skipTables),
+        );
     }
 
     /**
-     * @return array{ProcessResult, FilesystemAdapter}
+     * Clone la source vers la cible décrites dans le dossier temporaire `$tmpName` et renvoie le chemin du journal JSONL.
+     *
+     * @param  array<string, bool>  $options
+     * @param  list<string>  $skipTables
+     *
+     * @throws CloningException Si le clonage n'a pas pu démarrer (configuration invalide, connexion impossible...)
      */
-    protected function process(string $tmpName, array $command, int $timeout = 60): array
-    {
-        $tmpDirectory = $this->systemInfoService->temporaryDirectory($tmpName);
-
-        $process = Process::path($tmpDirectory->path(''))
-            ->env([
-                'LOG_CHANNEL' => false,
-                'LOG_STACK' => false,
-            ])
-            ->timeout($timeout);
-
-        $process = $process->run($command);
-
-        return [$process, $tmpDirectory];
-    }
-
     public function cloneNow(string $tmpName, array $options = [], array $skipTables = []): string
     {
-        [$processResult, $tmpDirectory] = $this->process($tmpName, $this->runCloningCommand($options, $skipTables), self::MAX_CLONING_TIMEOUT);
+        $workingDirectory = $this->systemInfoService->temporaryDirectory($tmpName)->path('');
 
-        $logPath = $this->firstJsonlFile($tmpDirectory->path('logs'));
-
-        if (! $logPath) {
-            throw CloningException::failedToCloneConnection($this->output($processResult));
-        }
-
-        return $logPath;
+        return $this->withRunLimits(function () use ($workingDirectory, $options, $skipTables): string {
+            try {
+                return $this->engine->run(
+                    $workingDirectory,
+                    CloningManager::SOURCE_CONNECTION_NAME.'.cloning.yaml',
+                    CloningManager::TARGET_CONNECTION_NAME,
+                    $this->cloningOptions($options, $skipTables),
+                );
+            } catch (RuntimeException $e) {
+                throw CloningException::failedToCloneConnection($e->getMessage());
+            }
+        });
     }
 
-    protected function output(ProcessResult $result): string
+    /**
+     * Lève la limite de temps et garantit au clonage la marge mémoire de RemappingMemoryBudget, comme un process
+     * clonio séparé, puis rétablit les limites d'origine.
+     *
+     * @template TResult
+     *
+     * @param  callable(): TResult  $callback
+     * @return TResult
+     */
+    protected function withRunLimits(callable $callback): mixed
     {
-        return Str::limit($result->errorOutput() === '' ? $result->output() : $result->errorOutput(), 200, '...[TRUNCATED]', true);
-    }
+        $memoryLimit = ini_get('memory_limit');
+        $requiredMemory = memory_get_usage(true) + RemappingMemoryBudget::CLONIO_MEMORY_LIMIT;
 
-    protected function firstJsonlFile(string $directory): ?string
-    {
-        if (! File::isDirectory($directory)) {
-            return null;
+        if ($memoryLimit !== false && $memoryLimit !== '-1' && ini_parse_quantity($memoryLimit) < $requiredMemory) {
+            ini_set('memory_limit', (string) $requiredMemory);
         }
 
-        return collect(File::files($directory))
-            ->first(fn (SplFileInfo $file): bool => strtolower($file->getExtension()) === 'jsonl')
-            ?->getPathname();
+        set_time_limit(0);
+
+        try {
+            return $callback();
+        } finally {
+            if ($memoryLimit !== false) {
+                ini_set('memory_limit', $memoryLimit);
+            }
+        }
     }
 }

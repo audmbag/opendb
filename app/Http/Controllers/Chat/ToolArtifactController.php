@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Chat;
 
 use App\Ai\Tools\Database\ExplainQuery;
+use App\Ai\Tools\Database\ExportDatabase;
 use App\Ai\Tools\Database\ProfileTable;
 use App\Ai\Tools\Database\ShowChart;
 use App\Ai\Tools\Database\ShowKpis;
@@ -25,6 +26,8 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Laravel\Ai\Models\Conversation;
 use RuntimeException;
+use Str;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -61,6 +64,7 @@ class ToolArtifactController extends Controller
 
         return $this->artifact(function () use ($conversation, $arguments, $validated, $page, $perPage, $sort, $direction) {
             $query = new SelectQuery($this->driver($conversation), (string) ($arguments['query'] ?? ''), $arguments['bindings'] ?? []);
+            $outputFileName = Str::slug($arguments['title'] ?? 'résultats').'.csv';
 
             if (($validated['format'] ?? 'json') === 'csv') {
                 $rows = $query->rows(self::MAX_CSV_ROWS, 0, $sort, $direction);
@@ -75,7 +79,7 @@ class ToolArtifactController extends Controller
                     }
 
                     fclose($output);
-                }, 'resultats.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+                }, $outputFileName, ['Content-Type' => 'text/csv; charset=UTF-8']);
             }
 
             return [
@@ -196,6 +200,26 @@ class ToolArtifactController extends Controller
             'query' => $sql,
             'affectedRows' => $this->driver($conversation)->dryRunAffectedRows($sql, $toolCall['arguments']['bindings'] ?? []),
         ]);
+    }
+
+    /**
+     * The archive written by an ExportDatabase call, read from the path the tool saved in its result.
+     * Only a file of the exports directory of the project can be downloaded.
+     */
+    public function download(Conversation $conversation, string $toolCallId): BinaryFileResponse
+    {
+        $toolCall = $this->conversationRepository->findToolCall($conversation, $toolCallId, class_basename(ExportDatabase::class));
+        $result = json_decode((string) ($toolCall['result'] ?? ''), true);
+
+        abort_unless(is_array($result) && ($result['success'] ?? false) && is_string($result['path'] ?? null), 404);
+
+        $projectPath = Project::findOrFail($conversation->project_id)->path;
+        $exportDirectory = realpath($projectPath.DIRECTORY_SEPARATOR.ExportDatabase::EXPORT_DIRECTORY);
+        $file = realpath($projectPath.DIRECTORY_SEPARATOR.$result['path']);
+
+        abort_if($exportDirectory === false || $file === false || ! is_file($file) || ! str_starts_with($file, $exportDirectory.DIRECTORY_SEPARATOR), 404);
+
+        return response()->download($file);
     }
 
     /**

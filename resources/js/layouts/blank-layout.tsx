@@ -1,19 +1,34 @@
+import React from 'react';
+import AlertDialog from '@/components/alert-dialog';
 import AppLogo from '@/components/app-logo';
+import CommandModal from '@/components/modals/command-modal';
+import SettingsDialog from '@/components/modals/settings-modal';
 import SocialButtons from '@/components/social-buttons';
+import Toaster from '@/components/toaster';
+import { CommandModalProvider } from '@/hooks/use-command-modal';
+import { SettingsProvider } from '@/hooks/use-settings-modal';
 
 
 export default function BlankLayout({ children }: { children: React.ReactNode }) {
     return (
-        <div className="flex h-screen w-full flex-col p-4">
-            <main className="flex flex-1 flex-col">
-                <div className="flex flex-1 flex-col items-center justify-center gap-4">
-                    <AppLogo icon />
-                    {children}
+        <SettingsProvider>
+            <CommandModalProvider>
+                <div className="flex h-screen w-full flex-col p-4">
+                    <main className="flex flex-1 flex-col">
+                        <div className="flex flex-1 flex-col items-center justify-center gap-4">
+                            <AppLogo icon />
+                            {children}
+                        </div>
+                    </main>
+                    <footer className="pt-4">
+                        <SocialButtons />
+                    </footer>
                 </div>
-            </main>
-            <footer className="pt-4">
-                <SocialButtons />
-            </footer>
-        </div>
+                <CommandModal />
+                <SettingsDialog />
+                <Toaster duration={5000} />
+                <AlertDialog />
+            </CommandModalProvider>
+        </SettingsProvider>
     );
 }

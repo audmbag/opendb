@@ -8,6 +8,8 @@ use App\Http\Controllers\Chat\ToolArtifactController;
 use App\Http\Controllers\ConversationController;
 use App\Http\Controllers\FileTreeController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\MailRecipientController;
+use App\Http\Controllers\MailSettingController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ProjectFileController;
 use App\Http\Controllers\ProviderController;
@@ -35,6 +37,14 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/{provider}', [ProviderController::class, 'disconnect']);
         Route::post('/toggle-model/{provider}', [ProviderController::class, 'toggleModel']);
     });
+
+    Route::controller(MailSettingController::class)->prefix('/mail-settings')->group(function () {
+        Route::get('/', 'show');
+        Route::put('/', 'update');
+        Route::post('/test', 'test');
+    });
+
+    Route::resource('/mail-recipients', MailRecipientController::class)->only(['index', 'store', 'destroy']);
 
     Route::prefix('/projects')->group(function () {
         Route::patch('/{project}', [ProjectController::class, 'update']);
@@ -76,6 +86,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/record', 'record');
             Route::get('/explain', 'explain');
             Route::get('/write-preview', 'writePreview');
+            Route::get('/download', 'download');
         });
     });
 

@@ -13,6 +13,7 @@
         "ext-pcntl": "*",
         "albertoarena/laravel-truss": "^1.11",
         "calebporzio/sushi": "^2.5",
+        "fakerphp/faker": "^1.24",
         "inertiajs/inertia-laravel": "^3.0",
         "laravel/ai": "^1.0",
         "laravel/chisel": "^0.1.0",
@@ -20,11 +21,12 @@
         "laravel/mcp": "^1.0",
         "laravel/tinker": "^3.0",
         "laravel/wayfinder": "^0.1.14",
-        "spatie/laravel-data": "^4.23"
+        "spatie/laravel-data": "^4.23",
+        "symfony/yaml": "^8.1",
+        "ext-zip": "*"
     },
     "require-dev": {
         "barryvdh/laravel-ide-helper": "^3.7",
-        "fakerphp/faker": "^1.24",
         "fruitcake/laravel-debugbar": "^4.4",
         "laravel/boost": "^2.10",
         "laravel/pail": "^1.2.5",

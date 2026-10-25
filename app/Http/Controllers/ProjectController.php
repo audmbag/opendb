@@ -62,12 +62,12 @@ class ProjectController extends Controller
         return response()->json($project);
     }
 
-    public function saveWithCloning(Project $project, SaveWithCloningRequest $request, ProjectRepository $projectRepository): JsonResponse
+    public function saveWithCloning(Project $project, SaveWithCloningRequest $request, ProjectRepository $projectRepository, CloningManager $cloningManager): JsonResponse
     {
         $data = $request->validated();
 
         try {
-            $result = CloningManager::cloneClientPayload($data);
+            $result = $cloningManager->cloneClientPayload($data);
 
             $projectRepository->switchDriverConfig($project, $data['cloningDriverConfig'], $data['agentDisabled']);
 

@@ -76,7 +76,7 @@ class DriverConfigController extends Controller
     {
         try {
             return Response::json([
-                'data' => $cloningManager->from($config)->toClientPayload(),
+                'data' => $cloningManager->clientPayload($config),
             ]);
         } catch (CloningException $e) {
             return Response::json(['error' => $e->getMessage()], 500);

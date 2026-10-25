@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Cloning;
 
+use App\Services\Cloning\Engine\Cloning\KeyTypeBoundsResolver;
+use App\Services\Cloning\Engine\Data\Schema\ColumnSchemaData;
+use App\Services\Cloning\Engine\Exceptions\UnsupportedKeyColumnTypeException;
 use App\Services\Cloning\Pii\PiiMatcherCatalog;
 use App\Services\Cloning\Strategy\CloningTransformation;
 
@@ -22,19 +25,7 @@ final readonly class CloningSourceConfig
     const array SKIPPED_TABLE = ['rows' => ['strategy' => 'skip']];
 
     /**
-     * Plafonds des types entiers acceptés par clonio pour le remapping (KeyTypeBoundsResolver), [signé, non signé].
-     */
-    const array INTEGER_CEILINGS = [
-        'tinyint' => [127, 255],
-        'smallint' => [32767, 65535],
-        'mediumint' => [8388607, 16777215],
-        'int' => [2147483647, 4294967295],
-        'integer' => [2147483647, 4294967295],
-        'bigint' => [PHP_INT_MAX, PHP_INT_MAX],
-    ];
-
-    /**
-     * Quand les nouveaux identifiants ne tiennent pas au-dessus de l'identifiant maximal, clonio cherche les trous
+     * Quand les nouveaux identifiants ne tiennent pas au-dessus de l'identifiant maximal, le moteur de clonage cherche les trous
      * de 1 à cet identifiant en les gardant tous en mémoire : au-delà de cette borne, la clé n'est pas remappée.
      */
     const int MAX_GAP_SCAN = 1_000_000;
@@ -293,14 +284,21 @@ final readonly class CloningSourceConfig
     }
 
     /**
-     * Reprend le calcul de clonio (KeyRemappingService::allocateIntegerIds) : les nouveaux identifiants sont pris
+     * Reprend le calcul du moteur (Engine\Cloning\KeyRemappingService::allocateIntegerIds) : les nouveaux identifiants sont pris
      * au-dessus de l'identifiant maximal, puis dans les trous sous celui-ci.
      */
     private function canRemap(string $table, string $type): bool
     {
-        $ceilings = self::INTEGER_CEILINGS[strtolower(strtok($type, ' ('))] ?? null;
-
-        if ($ceilings === null) {
+        try {
+            $ceiling = new KeyTypeBoundsResolver()->ceilingFor(new ColumnSchemaData(
+                name: $table,
+                type: strtolower((string) strtok($type, ' (')),
+                nullable: false,
+                default: null,
+                isPrimary: true,
+                unsigned: str_contains(strtolower($type), 'unsigned'),
+            ));
+        } catch (UnsupportedKeyColumnTypeException) {
             return false;
         }
 
@@ -314,7 +312,6 @@ final readonly class CloningSourceConfig
             return false;
         }
 
-        $ceiling = $ceilings[(int) str_contains(strtolower($type), 'unsigned')];
         $max = (int) $range['max'];
         $slotsAbove = $max >= $ceiling ? 0 : $ceiling - max($max, 0);
 

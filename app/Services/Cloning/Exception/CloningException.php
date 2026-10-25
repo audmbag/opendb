@@ -6,21 +6,6 @@ use RuntimeException;
 
 class CloningException extends RuntimeException
 {
-    public static function sourceConnectionNotSet(): self
-    {
-        return new self('Source connection is not set. Use CloningManager::from($connection) to set it.');
-    }
-
-    public static function targetConnectionNotSet(): self
-    {
-        return new self('Target connection is not set. Use CloningManager::to($connection) to set it.');
-    }
-
-    public static function cloningIdNotSet(): self
-    {
-        return new self('Cloning id is not set. Run CloningManager::cloneNow() before handling its logs.');
-    }
-
     public static function logFileNotFound(string $directory): self
     {
         return new self("No cloning log file (.jsonl) found in [{$directory}].");

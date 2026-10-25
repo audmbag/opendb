@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace App\Services\Cloning;
 
 /**
- * Mémoire demandée à clonio par le remapping des clés primaires, sous sa limite PHP fixe de 128 Mo.
+ * Mémoire demandée par le remapping des clés primaires au moteur de clonage, sous une limite de 128 Mo.
  *
- * clonio (KeyRemappingService + InMemoryKeyRemappingStore) garde les correspondances de toutes les tables
- * remappées jusqu'à la fin du clonage, et lit d'un coup les identifiants de chaque table pour les générer :
- * une table de plus de 131 072 lignes dépasse à elle seule la limite. Les coûts ci-dessous ont été mesurés
- * sur clonio 1.1.1 ; les tableaux PHP réservent leurs cases par puissances de deux.
+ * Le moteur (Engine\Cloning\KeyRemappingService + InMemoryKeyRemappingStore, porté de clonio 1.1.1) garde les
+ * correspondances de toutes les tables remappées jusqu'à la fin du clonage, et lit d'un coup les identifiants de
+ * chaque table pour les générer : une table de plus de 131 072 lignes dépasse à elle seule la limite. Les coûts
+ * ci-dessous ont été mesurés sur clonio 1.1.1 ; les tableaux PHP réservent leurs cases par puissances de deux.
+ * CloningRunnerHelper garantit au clonage ces 128 Mo au-dessus de la mémoire déjà utilisée par l'application.
  */
 final readonly class RemappingMemoryBudget
 {

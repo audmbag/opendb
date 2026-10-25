@@ -81,6 +81,8 @@ const ModelSelector = () => {
         loadData();
     }, [loadData]);
 
+    console.log(selectedModel);
+
     const handleModelSelect = useCallback(({ providerId, modelId }: ModelItemProps['selectedModel']) => {
         setSelectedModel({ providerId, modelId });
         setOpen(false);
