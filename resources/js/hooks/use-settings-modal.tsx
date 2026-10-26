@@ -1,6 +1,7 @@
 import {
     BrainIcon,
     KeyboardIcon,
+    MailIcon,
     PaletteIcon,
     Settings2Icon,
 } from 'lucide-react';
@@ -22,6 +23,7 @@ const GeneralSettings = lazy(() => import('../components/settings/general-settin
 const ThemeSettings = lazy(() => import('../components/settings/themes-settings'))
 const ShortcutsSettings = lazy(() => import('../components/settings/shortcuts-settings'))
 const ModelsSettings = lazy(() => import('../components/settings/models-settings'))
+const MailSettings = lazy(() => import('../components/settings/mail-settings'))
 
 
 export const SettingsNavItems: SmallSidebarNavItem[] = [
@@ -65,6 +67,17 @@ export const SettingsNavItems: SmallSidebarNavItem[] = [
         component: (
             <Suspense fallback="Chargement...">
                 <ModelsSettings />
+            </Suspense>
+        ),
+        group: 'Serveur',
+    },
+    {
+        value: 'mail',
+        name: 'Messagerie',
+        icon: MailIcon,
+        component: (
+            <Suspense fallback="Chargement...">
+                <MailSettings />
             </Suspense>
         ),
         group: 'Serveur',

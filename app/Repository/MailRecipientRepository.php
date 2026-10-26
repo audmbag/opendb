@@ -18,6 +18,25 @@ class MailRecipientRepository
     }
 
     /**
+     * Indique si l'utilisateur peut déjà envoyer un mail à cette adresse : un destinataire de sa liste ou sa propre adresse d'expéditeur.
+     */
+    public function isAllowed(User $user, string $email): bool
+    {
+        $email = mb_strtolower(trim($email));
+
+        return mb_strtolower((string) $user->mailSetting?->from_address) === $email
+            || $user->mailRecipients()->where('email', $email)->exists();
+    }
+
+    /**
+     * Indique si l'adresse fait partie de la liste des destinataires de l'utilisateur.
+     */
+    public function isListed(User $user, string $email): bool
+    {
+        return $user->mailRecipients()->where('email', mb_strtolower(trim($email)))->exists();
+    }
+
+    /**
      * @throws RuntimeException si l'adresse est invalide ou déjà autorisée
      */
     public function add(User $user, string $email, ?string $name = null): MailRecipient
@@ -28,7 +47,7 @@ class MailRecipientRepository
             throw new RuntimeException("L'adresse « {$email} » est invalide.");
         }
 
-        if ($user->mailRecipients()->where('email', $email)->exists()) {
+        if ($this->isAllowed($user, $email)) {
             throw new RuntimeException("L'adresse « {$email} » fait déjà partie des destinataires autorisés.");
         }
 

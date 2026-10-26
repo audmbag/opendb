@@ -75,12 +75,27 @@ it('rejects invalid parameters', function (array $arguments, string $message) {
     'unknown action' => [['action' => 'purge'], 'Action inconnue : utilise `list`, `add` ou `remove`.'],
 ]);
 
-it('asks the approval of the user to add or remove a recipient but not to list them', function (string $action, ?string $reason) {
-    $approval = recipientsTool($this->user)->shouldRequestApproval(new Request(['action' => $action, 'email' => 'paul@example.com'], 'call_1'));
+it('asks the approval of the user only to change the list of recipients', function (array $arguments, ?string $reason) {
+    MailSetting::factory()->for($this->user)->create(['from_address' => 'me@example.com']);
+    MailRecipient::factory()->for($this->user)->create(['email' => 'paul@example.com']);
+
+    $approval = recipientsTool($this->user)->shouldRequestApproval(new Request($arguments, 'call_1'));
 
     expect($reason === null ? $approval : $approval?->reason)->toBe($reason);
 })->with([
-    'add' => ['add', 'Autoriser l\'envoi de mails à « paul@example.com » ?'],
-    'remove' => ['remove', 'Retirer « paul@example.com » des destinataires autorisés ?'],
-    'list' => ['list', null],
+    'add a new address' => [['action' => 'add', 'email' => 'Jean@Example.com'], 'Autoriser l\'envoi de mails à « jean@example.com » ?'],
+    'remove a listed address' => [['action' => 'remove', 'email' => 'paul@example.com'], 'Retirer « paul@example.com » des destinataires autorisés ?'],
+    'add an address already listed' => [['action' => 'add', 'email' => 'PAUL@example.com'], null],
+    'add the sender address' => [['action' => 'add', 'email' => 'me@example.com'], null],
+    'add an invalid address' => [['action' => 'add', 'email' => 'pas-une-adresse'], null],
+    'remove an address not listed' => [['action' => 'remove', 'email' => 'jean@example.com'], null],
+    'list' => [['action' => 'list'], null],
 ]);
+
+it('answers directly that the sender address is already allowed', function () {
+    MailSetting::factory()->for($this->user)->create(['from_address' => 'me@example.com']);
+
+    expect(manageRecipients($this->user, ['action' => 'add', 'email' => 'me@example.com']))
+        ->toBe('L\'adresse « me@example.com » fait déjà partie des destinataires autorisés.')
+        ->and($this->user->mailRecipients()->exists())->toBeFalse();
+});

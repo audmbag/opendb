@@ -3,6 +3,7 @@
 use App\Http\Controllers\API\DriverConfigController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Chat\DatabaseSchemaController;
+use App\Http\Controllers\Chat\MailFormController;
 use App\Http\Controllers\Chat\TableRecordController;
 use App\Http\Controllers\Chat\ToolArtifactController;
 use App\Http\Controllers\ConversationController;
@@ -77,6 +78,8 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/{conversation}', [ConversationController::class, 'destroy']);
         Route::post('/{conversation}/chat', [ConversationController::class, 'chat']);
         Route::post('/{conversation}/tool-calls/{toolCallId}/record', [TableRecordController::class, 'store']);
+        Route::post('/{conversation}/tool-calls/{toolCallId}/mail', [MailFormController::class, 'store']);
+        Route::get('/{conversation}/tool-calls/{toolCallId}/mail/attachments', [MailFormController::class, 'attachments']);
 
         Route::controller(ToolArtifactController::class)->prefix('/{conversation}/tool-calls/{toolCallId}/artifact')->group(function () {
             Route::get('/results', 'results');

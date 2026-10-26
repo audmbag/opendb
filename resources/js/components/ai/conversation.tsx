@@ -3,6 +3,7 @@ import { RefreshCcwIcon, } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import ApprovalFormRenderer from '@/components/ai/approval-form-renderer';
 import Confirmation from '@/components/ai/confirmation';
+import MailFormRenderer from '@/components/ai/mail-form-renderer';
 import ProcessingIndicator from '@/components/ai/processing-indicator';
 import PromptInput from '@/components/ai/prompt-input';
 import Tool from '@/components/ai/tool';
@@ -200,6 +201,15 @@ const Conversation = () => {
                                     key={approvalRequestPart.toolCallId}
                                     part={approvalRequestPart}
                                     projectId={project.id}
+                                    conversationId={conversation.id}
+                                    onApprovalResponded={handleApprovalResponse}
+                                />
+                            );
+                        case 'tool-SendMail':
+                            return (
+                                <MailFormRenderer
+                                    key={approvalRequestPart.toolCallId}
+                                    part={approvalRequestPart}
                                     conversationId={conversation.id}
                                     onApprovalResponded={handleApprovalResponse}
                                 />

@@ -6,7 +6,7 @@ namespace App\Services\Mailer;
 
 use App\Models\MailSetting;
 use App\Models\User;
-use RuntimeException;
+use App\Services\Mailer\Exception\InvalidMailException;
 
 /**
  * N'autorise que les destinataires de la liste de l'utilisateur, plus sa propre adresse d'expéditeur.
@@ -22,7 +22,7 @@ class RecipientGuard
      * @param  list<string>  $to
      * @return list<string> Les adresses, normalisées en minuscules et sans doublon.
      *
-     * @throws RuntimeException si une adresse est invalide ou n'est pas autorisée
+     * @throws InvalidMailException si une adresse est invalide ou n'est pas autorisée
      */
     public function allowedRecipients(User $user, MailSetting $settings, array $to): array
     {
@@ -33,17 +33,17 @@ class RecipientGuard
             |> array_values(...);
 
         if ($recipients === []) {
-            throw new RuntimeException('Indique au moins un destinataire.');
+            throw InvalidMailException::recipients('Indiquez au moins un destinataire.');
         }
 
         if (count($recipients) > self::MAX_RECIPIENTS) {
-            throw new RuntimeException('Un mail ne peut pas avoir plus de '.self::MAX_RECIPIENTS.' destinataires.');
+            throw InvalidMailException::recipients('Un mail ne peut pas avoir plus de '.self::MAX_RECIPIENTS.' destinataires.');
         }
 
         $invalid = array_filter($recipients, fn (string $email): bool => filter_var($email, FILTER_VALIDATE_EMAIL) === false);
 
         if ($invalid !== []) {
-            throw new RuntimeException('Adresse(s) invalide(s) : '.implode(', ', $invalid).'.');
+            throw InvalidMailException::recipients('Adresse(s) invalide(s) : '.implode(', ', $invalid).'.');
         }
 
         $allowed = $user->mailRecipients()->pluck('email')
@@ -54,8 +54,8 @@ class RecipientGuard
         $refused = array_diff($recipients, $allowed);
 
         if ($refused !== []) {
-            throw new RuntimeException('Envoi refusé : '.implode(', ', $refused).' ne fait pas partie des destinataires autorisés. '
-                .'Propose à l\'utilisateur de l\'ajouter avec le tool `ManageMailRecipients`.');
+            throw InvalidMailException::recipients('Envoi refusé : '.implode(', ', $refused).' ne fait pas partie des destinataires autorisés '
+                .'(Réglages > Messagerie).');
         }
 
         return $recipients;

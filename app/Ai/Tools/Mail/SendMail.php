@@ -8,6 +8,7 @@ use App\Services\Mailer\Data\OutgoingMail;
 use App\Services\Mailer\MailerManager;
 use App\Services\Mailer\RecipientGuard;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Illuminate\Support\Facades\Cache;
 use Laravel\Ai\Approvals\Approval;
 use Laravel\Ai\Concerns\InteractsWithApprovals;
 use Laravel\Ai\Contracts\Approvable;
@@ -26,26 +27,86 @@ class SendMail implements Approvable, Tool
         protected string $projectPath,
     ) {}
 
+    /**
+     * The cache key of the mail the user submitted in the form of a tool call.
+     */
+    public static function submissionCacheKey(string $toolCallId): string
+    {
+        return "mail-submission:{$toolCallId}";
+    }
+
     public function description(): Stringable|string
     {
-        return 'Envoie un mail avec la configuration SMTP de l\'utilisateur, après son autorisation. '
+        return 'Prépare un mail envoyé avec la configuration SMTP de l\'utilisateur. '
+            .'Un formulaire prérempli avec tes valeurs est présenté à l\'utilisateur : il peut modifier les destinataires, '
+            .'l\'objet, le corps et retirer des pièces jointes, puis envoyer le mail ou annuler. '
             .'Seuls les destinataires autorisés (voir `ManageMailRecipients` avec l\'action `list`) peuvent recevoir un mail. '
             .'Les pièces jointes doivent être des fichiers du dossier `'.ExportDatabase::EXPORT_DIRECTORY.'` du projet, '
             .'par exemple une archive créée par `ExportDatabase`. '
-            .'N\'utilise ce tool que si l\'utilisateur demande un envoi dans la conversation en cours.';
+            .'N\'utilise ce tool que si l\'utilisateur demande un envoi dans la conversation en cours. '
+            .'Après l\'appel, rapporte ce qui a réellement été envoyé (tel que renvoyé par ce tool), ou que l\'utilisateur a annulé.';
     }
 
     public function handle(Request $request): Stringable|string
     {
+        $values = Cache::pull(static::submissionCacheKey((string) $request->toolCallId()));
+
+        if (! is_array($values)) {
+            return "L'utilisateur n'a pas soumis le formulaire : le mail n'a pas été envoyé.";
+        }
+
+        $submission = OutgoingMail::fromArray($values);
+
         try {
-            $result = $this->mailerManager->send($this->user, $this->outgoingMail($request), $this->projectPath, ExportDatabase::EXPORT_DIRECTORY);
+            $result = $this->mailerManager->send($this->user, $submission, $this->projectPath, ExportDatabase::EXPORT_DIRECTORY);
         } catch (RuntimeException $e) {
             return $e->getMessage();
         }
 
-        $attachments = $result['attachments'] === [] ? '' : ' avec '.implode(', ', $result['attachments']);
+        $proposal = OutgoingMail::fromArray($request->all());
+        $attachments = $result['attachments'] === [] ? 'aucune' : implode(', ', $result['attachments']);
+        $changes = $this->changes($proposal, $submission);
 
-        return 'Mail envoyé à '.implode(', ', $result['to']).$attachments.'.';
+        return implode("\n", [
+            'Mail envoyé. Voici ce qui a réellement été envoyé :',
+            '- Destinataires : '.implode(', ', $result['to']),
+            "- Objet : « {$submission->subject} »",
+            "- Pièces jointes : {$attachments}",
+            $changes === []
+                ? 'L\'utilisateur a envoyé ta proposition sans la modifier.'
+                : "L'utilisateur a modifié ta proposition dans le formulaire avant l'envoi :\n".implode("\n", $changes)."\n"
+                    .'Rapporte uniquement le mail réellement envoyé ci-dessus : ne mentionne plus les valeurs de ta proposition.',
+        ]);
+    }
+
+    /**
+     * Ce que l'utilisateur a changé dans le formulaire par rapport au mail proposé par l'agent.
+     *
+     * @return list<string>
+     */
+    protected function changes(OutgoingMail $proposal, OutgoingMail $sent): array
+    {
+        $changes = [];
+
+        if (array_diff($proposal->to, $sent->to) !== [] || array_diff($sent->to, $proposal->to) !== []) {
+            $changes[] = '- destinataires : tu avais proposé '.(implode(', ', $proposal->to) ?: 'aucun').', le mail est parti à '.implode(', ', $sent->to);
+        }
+
+        if ($proposal->subject !== $sent->subject) {
+            $changes[] = "- objet : tu avais proposé « {$proposal->subject} », l'objet envoyé est « {$sent->subject} »";
+        }
+
+        if (trim($proposal->body) !== trim($sent->body)) {
+            $changes[] = '- message : l\'utilisateur a réécrit le corps du mail';
+        }
+
+        $removed = array_diff($proposal->attachments, $sent->attachments);
+
+        if ($removed !== []) {
+            $changes[] = '- pièces jointes non envoyées : '.implode(', ', $removed);
+        }
+
+        return $changes;
     }
 
     public function schema(JsonSchema $schema): array
@@ -59,7 +120,8 @@ class SendMail implements Approvable, Tool
                 ->description('Objet du mail.')
                 ->required(),
             'body' => $schema->string()
-                ->description('Corps du mail en texte brut : un court message, les données partent en pièce jointe.')
+                ->description('Corps du mail en texte brut : un court message, les données partent en pièce jointe. '
+                    .'Sépare les paragraphes par de vrais retours à la ligne, jamais par les séquences littérales `\n` ou `\n\n`.')
                 ->required(),
             'attachments' => $schema->array()
                 ->items($schema->string())
@@ -70,19 +132,6 @@ class SendMail implements Approvable, Tool
 
     protected function needsApproval(Request $request): Approval|bool
     {
-        $mail = $this->outgoingMail($request);
-        $attachments = $mail->attachments === [] ? 'sans pièce jointe' : 'avec '.implode(', ', $mail->attachments);
-
-        return Approval::required('Envoyer un mail à '.implode(', ', $mail->to)." — objet « {$mail->subject} » — {$attachments} ?");
-    }
-
-    protected function outgoingMail(Request $request): OutgoingMail
-    {
-        return new OutgoingMail(
-            to: array_values(array_map(strval(...), (array) ($request['to'] ?? []))),
-            subject: $request->string('subject')->trim()->toString(),
-            body: $request->string('body')->toString(),
-            attachments: array_values(array_map(strval(...), (array) ($request['attachments'] ?? []))),
-        );
+        return Approval::required('Saisie utilisateur requise via formulaire.');
     }
 }

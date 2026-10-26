@@ -28,7 +28,9 @@ class ManageMailRecipients implements Approvable, Tool
     {
         return 'Gère la liste des destinataires autorisés à recevoir un mail via `SendMail`. '
             .'Le paramètre `action` vaut `list` (lister les destinataires), `add` (ajouter `email`, avec un `name` facultatif) '
-            .'ou `remove` (retirer `email`). L\'ajout et le retrait demandent l\'autorisation de l\'utilisateur.';
+            .'ou `remove` (retirer `email`). L\'ajout et le retrait demandent l\'autorisation de l\'utilisateur, '
+            .'sauf si l\'adresse est déjà autorisée (ajout) ou absente de la liste (retrait) : le tool te répond alors directement, '
+            .'transmets simplement sa réponse à l\'utilisateur.';
     }
 
     public function handle(Request $request): Stringable|string
@@ -69,13 +71,24 @@ class ManageMailRecipients implements Approvable, Tool
         ];
     }
 
+    /**
+     * Seul un ajout ou un retrait qui modifie réellement la liste demande l'autorisation : sinon le tool répond directement.
+     */
     protected function needsApproval(Request $request): Approval|bool
     {
-        $email = $request->string('email')->trim()->toString();
+        $email = mb_strtolower($request->string('email')->trim()->toString());
+
+        if (filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+            return false;
+        }
 
         return match ($request->enum('action', MailRecipientActionEnum::class)) {
-            MailRecipientActionEnum::Add => Approval::required("Autoriser l'envoi de mails à « {$email} » ?"),
-            MailRecipientActionEnum::Remove => Approval::required("Retirer « {$email} » des destinataires autorisés ?"),
+            MailRecipientActionEnum::Add => $this->recipients->isAllowed($this->user, $email)
+                ? false
+                : Approval::required("Autoriser l'envoi de mails à « {$email} » ?"),
+            MailRecipientActionEnum::Remove => $this->recipients->isListed($this->user, $email)
+                ? Approval::required("Retirer « {$email} » des destinataires autorisés ?")
+                : false,
             default => false,
         };
     }

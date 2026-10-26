@@ -31,21 +31,18 @@ use App\Services\Mailer\MailerManager;
 use App\Services\ProjectMemory;
 use Laravel\Ai\Attributes\MaxSteps;
 use Laravel\Ai\Attributes\Model;
-use Laravel\Ai\Attributes\Provider;
 use Laravel\Ai\Concerns\RemembersConversations;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\Conversational;
 use Laravel\Ai\Contracts\HasMiddleware;
 use Laravel\Ai\Contracts\HasTools;
-use Laravel\Ai\Enums\Lab;
 use Laravel\Ai\Promptable;
 use Laravel\Ai\Tools\FileStorage;
 use Laravel\Ai\Tools\Filesystem\CopyFile;
 use Laravel\Ai\Tools\Filesystem\WriteFile;
 use Stringable;
 
-#[Provider(Lab::Ollama)]
-#[Model('glm-5.2')]
+#[Model('gemini-3.5-flash-lite')]
 // #[Model('gemini-3-flash-preview')]
 // #[Model('gemini-3.1-flash-lite')]
 #[MaxSteps(15)]

@@ -10,12 +10,14 @@ import {
     FilePlus2,
     Focus,
     Gauge,
+    Mail,
     IdCard,
     Route,
     ScanSearch,
     Search,
     Pencil,
     Sheet,
+    UserCheck,
 } from 'lucide-react';
 
 export const AgentTools = {
@@ -34,6 +36,8 @@ export const AgentTools = {
     ShowRecord: 'tool-ShowRecord',
     ExplainQuery: 'tool-ExplainQuery',
     ExportDatabase: 'tool-ExportDatabase',
+    SendMail: 'tool-SendMail',
+    ManageMailRecipients: 'tool-ManageMailRecipients',
 } as const;
 
 
@@ -88,6 +92,10 @@ export function getMetadata(name: AgentToolNameType): ToolMetadata | undefined {
             return { icon: Route, color: 'text-red-500' };
         case AgentTools.ExportDatabase:
             return { icon: FileArchive, color: 'text-lime-600' };
+        case AgentTools.SendMail:
+            return { icon: Mail, color: 'text-blue-600' };
+        case AgentTools.ManageMailRecipients:
+            return { icon: UserCheck, color: 'text-blue-600' };
     }
 }
 
