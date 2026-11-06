@@ -2,10 +2,12 @@
 
 namespace App\Repository;
 
-use App\Ai\Services\ProviderManagerService;
+use App\Jobs\GenerateConversationTitle;
 use App\Models\Project;
+use App\Models\Provider;
 use App\Models\User;
 use Illuminate\Container\Attributes\CurrentUser;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -22,13 +24,19 @@ class ConversationRepository
         public User $user
     ) {}
 
-    public function create(Project $project, string $message): ?Conversation
+    /**
+     * Start a conversation without a title: it is generated in the queue, so the conversation opens at once.
+     */
+    public function create(Project $project, string $message, Provider $provider, string $model): Conversation
     {
-        return $this->user->conversations()->create([
+        $conversation = $this->user->conversations()->create([
             'id' => (string) Str::uuid(),
             'project_id' => $project->id,
-            'title' => ProviderManagerService::generateConversationTitle($message),
         ]);
+
+        GenerateConversationTitle::dispatch($conversation, $message, $provider->id, $model);
+
+        return $conversation;
     }
 
     public function get(Project $project): Collection
@@ -38,6 +46,35 @@ class ConversationRepository
             ->where('is_archived', false)
             ->latest()
             ->get();
+    }
+
+    /**
+     * Find the user's conversations in the project whose title or messages contain the search,
+     * each with an excerpt of the first message around it.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function search(Project $project, string $search, int $limit = 20): Collection
+    {
+        $pattern = "%{$search}%";
+
+        return $this->user->conversations()
+            ->where('project_id', $project->id)
+            ->where('is_archived', false)
+            ->where(fn (Builder $query) => $query
+                ->whereLike('title', $pattern)
+                ->orWhereHas('messages', fn (Builder $query) => $query->whereLike('content', $pattern)))
+            ->with(['messages' => fn (HasMany $query) => $query
+                ->select(['id', 'conversation_id', 'content'])
+                ->whereLike('content', $pattern)
+                ->oldest()])
+            ->latest('updated_at')
+            ->limit($limit)
+            ->get()
+            ->map(fn (Conversation $conversation) => [
+                ...$conversation->withoutRelations()->toArray(),
+                'excerpt' => Str::excerpt($conversation->messages->first()->content ?? '', $search, ['radius' => 60]),
+            ]);
     }
 
     public function archive(Conversation $conversation): Conversation

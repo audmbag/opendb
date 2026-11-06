@@ -146,13 +146,12 @@ export function RelationshipEdge({
                 style={{
                     ...style,
                     strokeWidth: isActive ? 2 : 1.5,
-                    ...(isActive && {
-                        strokeDasharray: '6 4',
-                        animation: 'schema-edge-flow 0.6s linear infinite',
-                    }),
+                    ...(isActive && { strokeDasharray: '6 4' }),
                 }}
                 className={cn(
-                    isActive ? 'stroke-primary' : 'stroke-muted-foreground',
+                    isActive
+                        ? 'flow-edge-animated stroke-primary'
+                        : 'stroke-muted-foreground',
                 )}
             />
             <EdgeLabelRenderer>

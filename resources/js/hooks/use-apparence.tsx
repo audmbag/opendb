@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { withoutTransitions } from '@/lib/without-transitions';
 
 export type ResolvedAppearance = 'light' | 'dark';
 export type Appearance = ResolvedAppearance | 'system';
@@ -48,8 +49,10 @@ const applyTheme = (appearance: Appearance): void => {
 
     const isDark = isDarkMode(appearance);
 
-    document.documentElement.classList.toggle('dark', isDark);
-    document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+    withoutTransitions(() => {
+        document.documentElement.classList.toggle('dark', isDark);
+        document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+    });
 };
 
 const subscribe = (callback: () => void) => {

@@ -1,12 +1,5 @@
-import {
-    AstroidIcon,
-    BrainIcon,
-    PlugIcon,
-    UnplugIcon,
-} from 'lucide-react';
-import React, {
-    useCallback,
-} from 'react';
+import { AstroidIcon, BrainIcon, PlugIcon, UnplugIcon } from 'lucide-react';
+import React, { useCallback } from 'react';
 import Button from '@/components/form/button';
 import { Badge } from '@/components/reui/badge';
 import { ProviderModelsModal } from '@/components/settings/provider-models-modal';
@@ -19,28 +12,22 @@ type Props = {
     disconnectedProcessing?: boolean;
 };
 
-
-
-
 const ProviderItem = ({
     provider,
     onConnect,
     onDisconnect,
     disconnectedProcessing,
 }: Props) => {
-
     const openModelManagerDialog = useCallback(async () => {
-        if(!provider) {
-            return
+        if (!provider) {
+            return;
         }
 
         await ProviderModelsModal.call({ provider: provider });
     }, [provider]);
 
-
     return (
         <div className="justify-between px-3 py-3">
-
             <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                     {provider ? (
@@ -93,7 +80,5 @@ const ProviderItem = ({
         </div>
     );
 };
-
-
 
 export default ProviderItem;

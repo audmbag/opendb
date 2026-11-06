@@ -6,24 +6,24 @@ import {
     UserIcon,
     RefreshCwIcon,
     CopyIcon,
-    SquarePenIcon,
     UnplugIcon,
-    FolderIcon, CheckIcon,
+    FolderIcon,
+    FolderOpenIcon,
+    CheckIcon,
 } from 'lucide-react';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback } from 'react';
 import DatabaseIconHelper from '@/components/database-icon-helper';
 import Button from '@/components/form/button';
-import EditProjectInfoModal from '@/components/modals/edit-project-info-modal';
 import Tooltip from '@/components/tooltip';
 import { H6, Muted, Small } from '@/components/typograpfy/typography';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useCopyConfig, useDriverConfigTestConnection } from '@/hooks/use-driver-config';
+import { useOpenProjectFolder } from '@/hooks/use-project';
+import { cn } from '@/lib/utils';
+import type { DriverConfig } from '@/types/databases';
 import type { Project } from '@/types/models/project';
 import HomeController from '@/wayfinder/actions/App/Http/Controllers/HomeController';
-import { DriverConfig } from '@/types/databases';
-import { cn } from '@/lib/utils';
 
 const DatabaseConnectionStatus = () => {
     return (
@@ -44,21 +44,22 @@ const DatabaseConnectionStatus = () => {
 type Props = {
     driver_config: DriverConfig;
     path?: string;
-    buttons?: ('reconnect' | 'copy' | 'edit' | 'disconnect')[];
+    projectId?: Project['id'];
+    buttons?: ('open-folder' | 'reconnect' | 'copy' | 'disconnect')[];
     showLabels?: boolean;
 } & React.ComponentProps<'div'>;
 
 export function DatabaseStatusBar({
     driver_config,
     path,
-    buttons = ['reconnect', 'copy', 'edit', 'disconnect'],
+    projectId,
+    buttons = ['open-folder', 'reconnect', 'copy', 'disconnect'],
     showLabels = true,
     className,
 }: Props) {
     const { processing, testConnection } = useDriverConfigTestConnection();
     const { copying, handleCopy } = useCopyConfig(driver_config, 5000);
-
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const { openFolder, processing: openingFolder } = useOpenProjectFolder(projectId);
 
     const handleTestConnection = useCallback(async () => {
         await testConnection(driver_config);
@@ -68,10 +69,6 @@ export function DatabaseStatusBar({
         router.visit(HomeController.url());
     }, []);
 
-    const openEditModal = useCallback(() => {
-        setIsEditModalOpen(true);
-    }, []);
-
     return (
         <div
             className={cn(
@@ -79,10 +76,6 @@ export function DatabaseStatusBar({
                 className,
             )}
         >
-            <EditProjectInfoModal
-                open={isEditModalOpen}
-                onOpenChange={setIsEditModalOpen}
-            />
             <div className="flex flex-1 flex-wrap items-center gap-4 overflow-hidden">
                 <div className="flex items-center gap-2">
                     <DatabaseIconHelper
@@ -134,6 +127,16 @@ export function DatabaseStatusBar({
                 </div>
             </div>
             <div className="flex items-center gap-1">
+                {buttons.includes('open-folder') && path && projectId && (
+                    <Button
+                        icon={FolderOpenIcon}
+                        size="icon"
+                        variant="secondary"
+                        tooltip="Ouvrir le dossier dans l'explorateur de fichiers"
+                        onClick={openFolder}
+                        processing={openingFolder}
+                    />
+                )}
                 {buttons.includes('reconnect') && (
                     <Button
                         icon={RefreshCwIcon}
@@ -156,15 +159,6 @@ export function DatabaseStatusBar({
                         }
                         onClick={handleCopy}
                         stateAppearance={copying ? 'success' : undefined}
-                    />
-                )}
-                {buttons.includes('edit') && (
-                    <Button
-                        icon={SquarePenIcon}
-                        size="icon"
-                        variant="secondary"
-                        tooltip="Modifier la configuration"
-                        onClick={openEditModal}
                     />
                 )}
                 {buttons.includes('disconnect') && (

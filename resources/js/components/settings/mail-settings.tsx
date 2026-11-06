@@ -59,25 +59,28 @@ const SmtpSettings = () => {
 
     const { setData, setDefaults, transform } = form;
 
-    const fill = useCallback((settings: MailSetting | null) => {
-        if (!settings) {
-            return;
-        }
+    const fill = useCallback(
+        (settings: MailSetting | null) => {
+            if (!settings) {
+                return;
+            }
 
-        const values: SmtpForm = {
-            host: settings.host,
-            port: String(settings.port),
-            encryption: settings.encryption ?? 'none',
-            username: settings.username ?? '',
-            password: '',
-            from_address: settings.from_address,
-            from_name: settings.from_name ?? '',
-        };
+            const values: SmtpForm = {
+                host: settings.host,
+                port: String(settings.port),
+                encryption: settings.encryption ?? 'none',
+                username: settings.username ?? '',
+                password: '',
+                from_address: settings.from_address,
+                from_name: settings.from_name ?? '',
+            };
 
-        setData(values);
-        setDefaults(values);
-        setHasPassword(settings.has_password);
-    }, [setData, setDefaults]);
+            setData(values);
+            setDefaults(values);
+            setHasPassword(settings.has_password);
+        },
+        [setData, setDefaults],
+    );
 
     useEffect(() => {
         loader.get(MailSettingController.show.url(), {
@@ -111,7 +114,9 @@ const SmtpSettings = () => {
         form.post(MailSettingController.test.url(), {
             onSuccess: (response) => {
                 toast[response.success ? 'success' : 'error'](
-                    response.success ? 'Connexion réussie' : 'Échec de la connexion',
+                    response.success
+                        ? 'Connexion réussie'
+                        : 'Échec de la connexion',
                     { description: response.message, duration: 10000 },
                 );
             },
@@ -136,7 +141,9 @@ const SmtpSettings = () => {
                             name="host"
                             placeholder="smtp.gmail.com"
                             value={form.data.host}
-                            onChange={(event) => setData('host', event.target.value)}
+                            onChange={(event) =>
+                                setData('host', event.target.value)
+                            }
                             error={form.errors.host}
                         />
                         <Input
@@ -144,7 +151,9 @@ const SmtpSettings = () => {
                             name="port"
                             type="number"
                             value={form.data.port}
-                            onChange={(event) => setData('port', event.target.value)}
+                            onChange={(event) =>
+                                setData('port', event.target.value)
+                            }
                             error={form.errors.port}
                         />
                     </div>
@@ -152,7 +161,12 @@ const SmtpSettings = () => {
                         label="Chiffrement"
                         name="encryption"
                         value={form.data.encryption}
-                        onValueChange={(value) => setData('encryption', value as SmtpForm['encryption'])}
+                        onValueChange={(value) =>
+                            setData(
+                                'encryption',
+                                value as SmtpForm['encryption'],
+                            )
+                        }
                         items={encryptionItems}
                         error={form.errors.encryption}
                     />
@@ -162,7 +176,9 @@ const SmtpSettings = () => {
                             name="username"
                             autoComplete="off"
                             value={form.data.username}
-                            onChange={(event) => setData('username', event.target.value)}
+                            onChange={(event) =>
+                                setData('username', event.target.value)
+                            }
                             error={form.errors.username}
                         />
                         <Input
@@ -171,9 +187,10 @@ const SmtpSettings = () => {
                             type="password"
                             autoComplete="new-password"
                             placeholder={hasPassword ? 'Inchangé' : undefined}
-                            description={hasPassword ? 'Laissez vide pour conserver le mot de passe enregistré.' : 'Pour Gmail ou Outlook, utilisez un mot de passe d\'application.'}
                             value={form.data.password}
-                            onChange={(event) => setData('password', event.target.value)}
+                            onChange={(event) =>
+                                setData('password', event.target.value)
+                            }
                             error={form.errors.password}
                         />
                     </div>
@@ -183,16 +200,19 @@ const SmtpSettings = () => {
                             name="from_address"
                             type="email"
                             placeholder="vous@exemple.com"
-                            description="Toujours autorisée comme destinataire."
                             value={form.data.from_address}
-                            onChange={(event) => setData('from_address', event.target.value)}
+                            onChange={(event) =>
+                                setData('from_address', event.target.value)
+                            }
                             error={form.errors.from_address}
                         />
                         <Input
                             label="Nom d'expéditeur"
                             name="from_name"
                             value={form.data.from_name}
-                            onChange={(event) => setData('from_name', event.target.value)}
+                            onChange={(event) =>
+                                setData('from_name', event.target.value)
+                            }
                             error={form.errors.from_name}
                         />
                     </div>
@@ -227,7 +247,10 @@ const MailRecipients = () => {
 
     const loader = useHttp<null, APIData<MailRecipient>>();
     const remover = useHttp<null, { success: boolean }>();
-    const form = useHttp<{ email: string; name: string }, { data: MailRecipient }>({
+    const form = useHttp<
+        { email: string; name: string },
+        { data: MailRecipient }
+    >({
         email: '',
         name: '',
     });
@@ -258,7 +281,10 @@ const MailRecipients = () => {
         setDeletingId(recipient.id);
 
         remover.delete(MailRecipientController.destroy.url(recipient.id), {
-            onSuccess: () => setRecipients((current) => current.filter(({ id }) => id !== recipient.id)),
+            onSuccess: () =>
+                setRecipients((current) =>
+                    current.filter(({ id }) => id !== recipient.id),
+                ),
             onFinish: () => setDeletingId(undefined),
         });
     };
@@ -275,17 +301,25 @@ const MailRecipients = () => {
                     type="email"
                     placeholder="adresse@exemple.com"
                     value={form.data.email}
-                    onChange={(event) => form.setData('email', event.target.value)}
+                    onChange={(event) =>
+                        form.setData('email', event.target.value)
+                    }
                     error={form.errors.email}
                 />
                 <Input
                     name="name"
                     placeholder="Nom (facultatif)"
                     value={form.data.name}
-                    onChange={(event) => form.setData('name', event.target.value)}
+                    onChange={(event) =>
+                        form.setData('name', event.target.value)
+                    }
                     error={form.errors.name}
                 />
-                <Button type="submit" icon={PlusIcon} processing={form.processing}>
+                <Button
+                    type="submit"
+                    icon={PlusIcon}
+                    processing={form.processing}
+                >
                     Ajouter
                 </Button>
             </form>
@@ -305,9 +339,13 @@ const MailRecipients = () => {
                     <Fragment key={recipient.id}>
                         <div className="flex items-center justify-between gap-2 px-3 py-2">
                             <div className="flex flex-col">
-                                <span className="text-sm">{recipient.email}</span>
+                                <span className="text-sm">
+                                    {recipient.email}
+                                </span>
                                 {recipient.name && (
-                                    <span className="text-xs text-muted-foreground">{recipient.name}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                        {recipient.name}
+                                    </span>
                                 )}
                             </div>
                             <Button
@@ -319,7 +357,8 @@ const MailRecipients = () => {
                                 processing={deletingId === recipient.id}
                                 confirmation={{
                                     title: `Retirer ${recipient.email}`,
-                                    description: "L'agent ne pourra plus envoyer de mails à cette adresse.",
+                                    description:
+                                        "L'agent ne pourra plus envoyer de mails à cette adresse.",
                                     icon: Trash2Icon,
                                 }}
                             />
@@ -335,8 +374,8 @@ const MailRecipients = () => {
 export default function MailSettings() {
     return (
         <div className="flex flex-col gap-4 pt-0.5">
-            <SmtpSettings />
             <MailRecipients />
+            <SmtpSettings />
         </div>
     );
 }

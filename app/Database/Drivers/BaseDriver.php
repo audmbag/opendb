@@ -8,8 +8,12 @@ use AlbertoArena\Truss\TrussManager;
 use App\Database\Contracts\DriverContract;
 use App\Database\Enums\DriverLabEnum;
 use App\Database\Exceptions\DatabaseCheckException;
+use App\Database\Exceptions\HiddenTableException;
+use App\Database\HiddenTableGuard;
+use App\Database\Schema\TableDefinitionBuilder;
 use App\Services\SSH\Remote;
 use App\Services\SSH\SshTunnel;
+use Closure;
 use Exception;
 use Illuminate\Database\Connection;
 use Illuminate\Support\Facades\Config;
@@ -42,6 +46,11 @@ class BaseDriver
     public readonly ?string $password;
 
     public readonly string $database;
+
+    /**
+     * @var list<string>
+     */
+    protected array $hiddenTables = [];
 
     public function __construct(private array $databaseConfig)
     {
@@ -76,10 +85,21 @@ class BaseDriver
 
     protected function createConnectionName(): string
     {
-        if ($this->isSQLite()) {
-            $database_key = str_replace(['/', '\\', '.'], '_', $this->databaseName());
+        return static::connectionNameFor($this->databaseConfig);
+    }
+
+    /**
+     * The name of the connection of a database, known without connecting to it, like the key of its cached schema.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    public static function connectionNameFor(array $config): string
+    {
+        if ($config['driver_id'] === DriverLabEnum::SQLITE->value) {
+            $database_key = str_replace(['/', '\\', '.'], '_', (string) $config['database']);
         } else {
-            $database_key = str_replace(['.', ':'], '_', $this->host.'_'.$this->port.'_'.$this->database);
+            $host = filled($config['host'] ?? null) ? self::cleanHost($config['host']) : null;
+            $database_key = str_replace(['.', ':'], '_', $host.'_'.($config['port'] ?? null).'_'.$config['database']);
         }
 
         return strtolower(config('app.name')).'_'.$database_key;
@@ -380,18 +400,69 @@ class BaseDriver
         return $host === 'localhost' ? '127.0.0.1' : $host;
     }
 
+    /**
+     * @param  list<string>  $tables
+     */
+    public function hideTables(array $tables): static
+    {
+        $this->hiddenTables = array_values($tables);
+
+        return $this;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function hiddenTables(): array
+    {
+        return $this->hiddenTables;
+    }
+
+    /**
+     * @throws HiddenTableException when the query could reach a hidden table.
+     */
+    protected function assertQueryAllowed(string $sql): void
+    {
+        HiddenTableGuard::assertQueryAllowed($sql, $this->hiddenTables);
+    }
+
     private function getExportBuilder(): ExportBuilder
     {
-        return app(TrussManager::class)->snapshot()->connection($this->connection_name);
+        return app(TrussManager::class)->snapshot()->connection($this->connection_name)->except($this->hiddenTables);
+    }
+
+    /**
+     * The tables without their foreign keys referencing a hidden table, which could not be followed.
+     *
+     * @param  list<array<string, mixed>>  $tables
+     * @return list<array<string, mixed>>
+     */
+    private function withoutHiddenReferences(array $tables): array
+    {
+        if ($this->hiddenTables === []) {
+            return $tables;
+        }
+
+        return array_map(fn (array $table): array => [
+            ...$table,
+            'foreign_keys' => array_values(array_filter(
+                $table['foreign_keys'] ?? [],
+                fn (array $foreignKey): bool => ! in_array($foreignKey['references_table'] ?? null, $this->hiddenTables, true),
+            )),
+        ], $tables);
     }
 
     public function statement(string $sql, mixed $bindings): bool
     {
+        $this->assertQueryAllowed($sql);
+
         return $this->connection->statement($sql, $bindings);
     }
 
     public function dryRunAffectedRows(string $sql, array $bindings = []): ?int
     {
+        $this->assertQueryAllowed($sql);
+
         if (! preg_match('/^\s*(UPDATE|DELETE)\b/i', $sql)) {
             return null;
         }
@@ -406,26 +477,27 @@ class BaseDriver
     }
 
     /**
-     * Une étape du plan d'exécution renvoyé par explain().
+     * Exécute le callback dans une transaction en lecture seule toujours annulée : rien de ce qu'il fait ne peut rester.
      *
-     * @param  list<array<string, mixed>>  $children
-     * @return array{label: string, detail: ?string, cost: ?float, rows: ?int, warning: ?string, children: list<array<string, mixed>>}
+     * @template T
+     *
+     * @param  Closure(Connection): T  $callback
+     * @return T
      */
-    protected function planNode(string $label, ?string $detail = null, mixed $cost = null, mixed $rows = null, ?string $warning = null, array $children = []): array
+    protected function inRolledBackReadOnlyTransaction(Closure $callback): mixed
     {
-        return [
-            'label' => $label,
-            'detail' => filled($detail) ? $detail : null,
-            'cost' => is_numeric($cost) ? round((float) $cost, 2) : null,
-            'rows' => is_numeric($rows) ? (int) $rows : null,
-            'warning' => $warning,
-            'children' => $children,
-        ];
+        $this->connection->statement('START TRANSACTION READ ONLY');
+
+        try {
+            return $callback($this->connection);
+        } finally {
+            $this->connection->statement('ROLLBACK');
+        }
     }
 
     public function listTables(bool $withDetails = true, ?callable $mapper = null): array
     {
-        $tables = $this->getExportBuilder()->toArray();
+        $tables = $this->withoutHiddenReferences($this->getExportBuilder()->toArray());
 
         return array_map(function (array $table) use ($mapper, $withDetails): string|array {
             if ($mapper) {
@@ -452,7 +524,7 @@ class BaseDriver
             $table = $this->getExportBuilder()->focus($tableName, 1);
         }
 
-        return $table->toArray();
+        return $this->withoutHiddenReferences($table->toArray());
     }
 
     public function forgetSchema(): void
@@ -467,7 +539,7 @@ class BaseDriver
             $builder = $builder->withoutAnnotations();
         }
 
-        return $builder->toArray();
+        return $this->withoutHiddenReferences($builder->toArray());
     }
 
     public function exportSchema(string $format): string
@@ -479,6 +551,16 @@ class BaseDriver
         }
 
         return $this->getExportBuilder()->render($format);
+    }
+
+    public function estimatedRowCount(string $table): ?int
+    {
+        return null;
+    }
+
+    public function showCreateTable(string $table): string
+    {
+        return app(TableDefinitionBuilder::class)->build($this->connection, $table);
     }
 
     public function isSQLite(): bool

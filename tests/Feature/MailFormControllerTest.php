@@ -12,8 +12,8 @@ use Laravel\Ai\Models\Conversation;
 
 beforeEach(function () {
     $this->projectPath = sys_get_temp_dir().DIRECTORY_SEPARATOR.uniqid('mail-form-');
-    File::ensureDirectoryExists($this->projectPath.'/exports');
-    File::put($this->projectPath.'/exports/customers.zip', 'archive');
+    File::ensureDirectoryExists($this->projectPath.'/.opendb/exports');
+    File::put($this->projectPath.'/.opendb/exports/customers.zip', 'archive');
     File::put($this->projectPath.'/.env', 'APP_KEY=secret');
 
     $this->user = User::factory()->create();
@@ -44,7 +44,7 @@ function mailForm(array $overrides = []): array
         'to' => ['Paul@Example.com'],
         'subject' => 'Export des clients',
         'body' => 'Voici l\'export.',
-        'attachments' => ['exports/customers.zip'],
+        'attachments' => ['.opendb/exports/customers.zip'],
         ...$overrides,
     ];
 }
@@ -52,7 +52,7 @@ function mailForm(array $overrides = []): array
 it('keeps the mail the user edited until the call is approved', function () {
     $response = $this->actingAs($this->user)->postJson("/conversations/{$this->conversation->id}/tool-calls/call_1/mail", mailForm());
 
-    $expected = ['to' => ['paul@example.com'], 'subject' => 'Export des clients', 'body' => 'Voici l\'export.', 'attachments' => ['exports/customers.zip']];
+    $expected = ['to' => ['paul@example.com'], 'subject' => 'Export des clients', 'body' => 'Voici l\'export.', 'attachments' => ['.opendb/exports/customers.zip']];
     $response->assertOk()->assertExactJson(['data' => $expected]);
     expect(Cache::get(SendMail::submissionCacheKey('call_1')))->toBe($expected);
 });
@@ -73,11 +73,11 @@ it('refuses a recipient that is not allowed', function () {
 
 it('refuses an attachment outside the exports directory of the project', function (string $path) {
     $this->actingAs($this->user)->postJson("/conversations/{$this->conversation->id}/tool-calls/call_1/mail", mailForm(['attachments' => [$path]]))
-        ->assertJsonValidationErrors(['attachments' => "Pièce jointe refusée : `{$path}` n'est pas un fichier du dossier `exports` du projet."]);
+        ->assertJsonValidationErrors(['attachments' => "Pièce jointe refusée : `{$path}` n'est pas un fichier du dossier `.opendb/exports` du projet."]);
 })->with([
     'project file' => '.env',
-    'path traversal' => 'exports/../.env',
-    'missing file' => 'exports/missing.zip',
+    'path traversal' => '.opendb/exports/../.env',
+    'missing file' => '.opendb/exports/missing.zip',
 ]);
 
 it('asks the user to configure SMTP first', function () {
@@ -108,7 +108,7 @@ it('describes the attachments the agent proposed, with the reason of a refused o
     $conversation = conversationWithToolCall($this->user, $this->project, [
         'id' => 'call_2',
         'name' => 'SendMail',
-        'arguments' => ['to' => ['paul@example.com'], 'subject' => 'Export', 'body' => 'Texte.', 'attachments' => ['exports/customers.zip', '.env']],
+        'arguments' => ['to' => ['paul@example.com'], 'subject' => 'Export', 'body' => 'Texte.', 'attachments' => ['.opendb/exports/customers.zip', '.env']],
         'approval_reason' => 'Saisie utilisateur requise via formulaire.',
     ]);
 
@@ -116,8 +116,8 @@ it('describes the attachments the agent proposed, with the reason of a refused o
 
     $response->assertOk()->assertExactJson(['data' => [
         'files' => [
-            ['path' => 'exports/customers.zip', 'name' => 'customers.zip', 'extension' => 'zip', 'size' => 7, 'modified_at' => date(DATE_ATOM, filemtime($this->projectPath.'/exports/customers.zip')), 'error' => null],
-            ['path' => '.env', 'name' => '.env', 'extension' => 'env', 'size' => null, 'modified_at' => null, 'error' => "Pièce jointe refusée : `.env` n'est pas un fichier du dossier `exports` du projet."],
+            ['path' => '.opendb/exports/customers.zip', 'name' => 'customers.zip', 'extension' => 'zip', 'size' => 7, 'modified_at' => date(DATE_ATOM, filemtime($this->projectPath.'/.opendb/exports/customers.zip')), 'error' => null],
+            ['path' => '.env', 'name' => '.env', 'extension' => 'env', 'size' => null, 'modified_at' => null, 'error' => "Pièce jointe refusée : `.env` n'est pas un fichier du dossier `.opendb/exports` du projet."],
         ],
         'maxTotalBytes' => 20 * 1024 * 1024,
     ]]);

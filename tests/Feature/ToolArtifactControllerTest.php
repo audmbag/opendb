@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Project;
+use App\Models\QueryPlan;
 use App\Models\User;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\File;
@@ -196,14 +197,63 @@ it('returns 404 when navigating to a table missing from the database', function 
     $response->assertNotFound();
 });
 
-it('returns the execution plan of the query as a tree', function () {
-    $conversation = conversationWithArtifact($this->user, $this->project, 'ExplainQuery', ['query' => 'SELECT * FROM orders WHERE status = :status', 'bindings' => ['status' => 'paid']]);
+it('does not run the query of an artifact citing a table disabled for the agent', function () {
+    $this->project->driver_config->update(['disabled_tables' => ['customers']]);
+    $conversation = conversationWithArtifact($this->user, $this->project, 'ShowQueryResults', ['query' => 'SELECT name FROM customers', 'bindings' => []]);
+
+    $response = $this->actingAs($this->user)->getJson("/conversations/{$conversation->id}/tool-calls/call_1/artifact/results");
+
+    $response->assertUnprocessable()->assertJsonPath('errors.query.0', fn (string $error): bool => str_contains($error, 'elle cite la table [customers]'));
+});
+
+it('does not lead from a record to a table disabled for the agent', function () {
+    $this->project->driver_config->update(['disabled_tables' => ['customers']]);
+    $conversation = conversationWithArtifact($this->user, $this->project, 'ShowRecord', ['tableName' => 'orders', 'key' => ['id' => 3]]);
+
+    $record = $this->actingAs($this->user)->getJson("/conversations/{$conversation->id}/tool-calls/call_1/artifact/record");
+    $related = $this->actingAs($this->user)->getJson("/conversations/{$conversation->id}/tool-calls/call_1/artifact/record?".http_build_query(['table' => 'customers', 'key' => ['id' => 2]]));
+
+    $record->assertOk()->assertJsonPath('data.outgoing', []);
+    $related->assertUnprocessable();
+});
+
+it('returns the execution plan stored by the call, without computing it again', function () {
+    $plan = QueryPlan::factory()->for($this->project)->create(['payload' => ['nodes' => [['id' => 'n1', 'operation' => 'result']]]]);
+    $conversation = conversationWithToolCall($this->user, $this->project, [
+        'id' => 'call_1',
+        'name' => 'ExplainQuery',
+        'arguments' => ['query' => 'SELECT * FROM orders', 'bindings' => []],
+        'result' => json_encode(['success' => true, 'planId' => $plan->id]),
+    ], MessageStatus::Completed);
+    $plan->update(['conversation_id' => $conversation->id]);
 
     $response = $this->actingAs($this->user)->getJson("/conversations/{$conversation->id}/tool-calls/call_1/artifact/explain");
 
-    $response->assertOk()->assertExactJson(['data' => [
-        ['label' => 'SCAN orders', 'detail' => null, 'cost' => null, 'rows' => null, 'warning' => 'Parcours complet de la table', 'children' => []],
-    ]]);
+    $response->assertOk()
+        ->assertJsonPath('data.planId', $plan->id)
+        ->assertJsonPath('data.nodes', [['id' => 'n1', 'operation' => 'result']]);
+});
+
+it('returns 404 for a plan stored by another conversation', function () {
+    $plan = QueryPlan::factory()->for($this->project)->create();
+    $conversation = conversationWithToolCall($this->user, $this->project, [
+        'id' => 'call_1',
+        'name' => 'ExplainQuery',
+        'arguments' => ['query' => 'SELECT * FROM orders', 'bindings' => []],
+        'result' => json_encode(['success' => true, 'planId' => $plan->id]),
+    ], MessageStatus::Completed);
+
+    $response = $this->actingAs($this->user)->getJson("/conversations/{$conversation->id}/tool-calls/call_1/artifact/explain");
+
+    $response->assertNotFound();
+});
+
+it('returns 404 for an explain call that stored no plan', function () {
+    $conversation = conversationWithArtifact($this->user, $this->project, 'ExplainQuery', ['query' => 'SELECT * FROM orders', 'bindings' => []]);
+
+    $response = $this->actingAs($this->user)->getJson("/conversations/{$conversation->id}/tool-calls/call_1/artifact/explain");
+
+    $response->assertNotFound();
 });
 
 it('counts the rows a pending write would change without changing them', function () {
@@ -254,8 +304,8 @@ it('returns 404 for the preview of a write that is no longer waiting for approva
 describe('download', function () {
     beforeEach(function () {
         $this->projectPath = realpath(sys_get_temp_dir()).DIRECTORY_SEPARATOR.uniqid('tool-artifact-project-');
-        mkdir($this->projectPath.'/exports', recursive: true);
-        file_put_contents($this->projectPath.'/exports/shop_20261025_101800.zip', 'archive');
+        mkdir($this->projectPath.'/.opendb/exports', recursive: true);
+        file_put_contents($this->projectPath.'/.opendb/exports/shop_20261025_101800.zip', 'archive');
         file_put_contents($this->projectPath.'/.env', 'APP_KEY=secret');
         $this->project->update(['path' => $this->projectPath]);
     });
@@ -274,12 +324,29 @@ describe('download', function () {
         ], MessageStatus::Completed);
     }
 
-    it('downloads the archive written by the export', function () {
-        $conversation = conversationWithExport($this->user, $this->project, 'exports/shop_20261025_101800.zip');
+    it('downloads the archive written by the export in the folder of opendb', function () {
+        $conversation = conversationWithExport($this->user, $this->project, '.opendb/exports/shop_20261025_101800.zip');
 
         $response = $this->actingAs($this->user)->get("/conversations/{$conversation->id}/tool-calls/call_1/artifact/download");
 
         $response->assertOk()->assertDownload('shop_20261025_101800.zip');
+    });
+
+    it('downloads the archive of an older conversation, moved to the folder of opendb', function () {
+        $conversation = conversationWithExport($this->user, $this->project, 'exports/shop_20261025_101800.zip');
+
+        $this->actingAs($this->user)
+            ->get("/conversations/{$conversation->id}/tool-calls/call_1/artifact/download")
+            ->assertOk()
+            ->assertDownload('shop_20261025_101800.zip');
+    });
+
+    it('never reads the exports directory at the root of the project', function () {
+        mkdir($this->projectPath.'/exports');
+        file_put_contents($this->projectPath.'/exports/shop_20261001_090000.zip', 'archive');
+        $conversation = conversationWithExport($this->user, $this->project, 'exports/shop_20261001_090000.zip');
+
+        $this->actingAs($this->user)->get("/conversations/{$conversation->id}/tool-calls/call_1/artifact/download")->assertNotFound();
     });
 
     it('returns 404 for a file outside the exports directory of the project', function (string $path) {
@@ -288,12 +355,13 @@ describe('download', function () {
         $this->actingAs($this->user)->get("/conversations/{$conversation->id}/tool-calls/call_1/artifact/download")->assertNotFound();
     })->with([
         'project file' => ['.env'],
-        'path traversal' => ['exports/../.env'],
-        'missing archive' => ['exports/missing.zip'],
+        'path traversal' => ['.opendb/exports/../../.env'],
+        'missing archive' => ['.opendb/exports/missing.zip'],
+        'sql file of the editor' => ['.opendb/sql/../../.env'],
     ]);
 
     it('returns 404 when the conversation belongs to another user', function () {
-        $conversation = conversationWithExport($this->user, $this->project, 'exports/shop_20261025_101800.zip');
+        $conversation = conversationWithExport($this->user, $this->project, '.opendb/exports/shop_20261025_101800.zip');
 
         $this->actingAs(User::factory()->create())->get("/conversations/{$conversation->id}/tool-calls/call_1/artifact/download")->assertNotFound();
     });

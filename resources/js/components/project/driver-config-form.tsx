@@ -9,7 +9,7 @@ import DatabaseDriverSelector from '@/components/project/database-driver-selecto
 import SSHConfigForm from '@/components/project/ssh-config-form';
 import TestConnectionButton from '@/components/project/test-connection-button';
 import type { ConnectionTestResult } from '@/hooks/use-driver-config';
-import type { ProjectPartFromRef} from '@/hooks/use-project';
+import type { DriverConfigSubmitTarget, ProjectPartFromRef } from '@/hooks/use-project';
 import { useProjectDriverConfig } from '@/hooks/use-project';
 import { useProjectModal } from '@/hooks/use-project-modal';
 import { useTempProjectStore } from '@/store/use-project-store';
@@ -33,6 +33,7 @@ type Props = {
     sshEnabled?: boolean;
     cloning?: boolean;
     createDatabaseIfNotExists?: boolean;
+    submitTo?: DriverConfigSubmitTarget;
 };
 
 const DriverConfigForm = ({
@@ -42,6 +43,7 @@ const DriverConfigForm = ({
     sshEnabled = true,
     cloning = false,
     createDatabaseIfNotExists = false,
+    submitTo,
 }: Props) => {
     const {
         data,
@@ -56,7 +58,7 @@ const DriverConfigForm = ({
         submit,
         processingTest,
         errors,
-    } = useProjectDriverConfig({ onStart, onFinish, sshEnabled, cloning, createDatabaseIfNotExists });
+    } = useProjectDriverConfig({ onStart, onFinish, sshEnabled, cloning, createDatabaseIfNotExists, submitTo });
 
     const { setOpen, setCloningOpen } = useProjectModal();
     const setDriverConfig = useTempProjectStore((d) => d.setDriverConfig);

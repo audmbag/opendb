@@ -13,7 +13,6 @@ const ModelItem = ({
     model: AiModel;
     onToggle: (status: boolean) => void;
 }) => {
-
     const { toggleProvider, toggleModelProcessing } = useProvider();
 
     return (
@@ -24,14 +23,14 @@ const ModelItem = ({
         >
             <div className="flex items-center gap-2">
                 <span className="text-base">{model.label}</span>
-                { model.context_window &&
+                {model.context_window && (
                     <Badge variant="outline" className="text-xs">
                         Contexte :
                         <span className="font-semibold">
                             {numberFormat(model.context_window)}
                         </span>
                     </Badge>
-                }
+                )}
             </div>
             <Switch
                 id={`switch-${model.id}`}

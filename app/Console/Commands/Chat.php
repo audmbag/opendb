@@ -4,8 +4,11 @@ namespace App\Console\Commands;
 
 use App\Ai\Agents\SQLDatabaseAgent;
 use App\Ai\Enums\AgentAccessModeEnum;
+use App\Console\Commands\Concerns\AuthenticatesUser;
 use App\Models\Project;
+use App\Models\Provider;
 use App\Models\User;
+use App\Repository\ProviderRepository;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Help;
 use Illuminate\Console\Attributes\Signature;
@@ -32,11 +35,13 @@ use function Laravel\Prompts\text;
 use function Termwind\render;
 use function Termwind\terminal;
 
-#[Signature('app:chat')]
+#[Signature('app:chat {--name= : The username to log in with; the password is always asked}')]
 #[Description('Agent that can chat with users and answer questions.')]
 #[Help("This command starts a chat agent that can answer your questions about databases. You can ask anything related to databases, and the agent will do its best to help you. Type 'exit' to quit the chat.")]
 class Chat extends Command
 {
+    use AuthenticatesUser;
+
     const array COMMANDS = [
         '/help',
         '/clear',
@@ -53,8 +58,15 @@ class Chat extends Command
 
     private ?array $approvalDecision = null;
 
-    #[NoReturn]
-    public function handle(): void
+    private User $user;
+
+    private Project $project;
+
+    private Provider $provider;
+
+    private string $model;
+
+    public function handle(ProviderRepository $providerRepository): int
     {
         Prompt::cancelUsing(function () {
             $this->close();
@@ -65,6 +77,10 @@ class Chat extends Command
         });
 
         $this->header();
+
+        if (! $this->prepareSession($providerRepository)) {
+            return self::FAILURE;
+        }
 
         $count = 0;
 
@@ -84,6 +100,50 @@ class Chat extends Command
             $this->detectCommands($input);
 
         } while ($count);
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Ask who is chatting, on which of their projects, and with which of the models they activated.
+     */
+    private function prepareSession(ProviderRepository $providerRepository): bool
+    {
+        $user = $this->authenticateUser();
+
+        if ($user === null) {
+            return false;
+        }
+
+        $projects = $user->projects()->clearDrafts()->pluck('name', 'id');
+
+        if ($projects->isEmpty()) {
+            $this->error('Aucun projet : créez-en un depuis l\'application.');
+
+            return false;
+        }
+
+        $projectId = select('Projet', $projects->all());
+
+        $models = $providerRepository->activeModels()->mapWithKeys(
+            fn (array $model): array => ["{$model['provider']}|{$model['id']}" => "{$model['provider_label']} : {$model['label']}"]
+        );
+
+        if ($models->isEmpty()) {
+            $this->error('Aucun modèle actif : connectez un fournisseur et activez un modèle dans les paramètres.');
+
+            return false;
+        }
+
+        [$providerId, $this->model] = explode('|', select('Modèle', $models->all()), 2);
+
+        $this->user = $user;
+        $this->project = $user->projects()->findOrFail($projectId);
+        $this->provider = Provider::findOrFail($providerId);
+
+        $providerRepository->activate($this->provider);
+
+        return true;
     }
 
     public function detectCommands(string $input): void
@@ -136,14 +196,14 @@ class Chat extends Command
                 };
             })->all()) : $message;
 
-            $agent = new SQLDatabaseAgent(AgentAccessModeEnum::ReadWrite, Project::first());
+            $agent = new SQLDatabaseAgent(AgentAccessModeEnum::ReadWrite, $this->project, $this->model);
 
             if ($this->agentResponse && $this->agentResponse->conversationId) {
-                $agent->continue($this->agentResponse->conversationId, as: User::first());
+                $agent->continue($this->agentResponse->conversationId, as: $this->user);
             } else {
-                $agent->forUser(User::first());
+                $agent->forUser($this->user);
             }
-            $this->agentResponse = $agent->stream($prompt);
+            $this->agentResponse = $agent->stream($prompt, provider: $this->provider->id, model: $this->model);
 
             $stream = stream();
 

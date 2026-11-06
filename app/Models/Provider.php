@@ -51,6 +51,14 @@ class Provider extends Model
         $query->whereNull(['api_key']);
     }
 
+    public function hasActiveModel(string $modelId): bool
+    {
+        return array_any(
+            $this->models ?? [],
+            fn (array $model): bool => $model['id'] === $modelId && $model['active'],
+        );
+    }
+
     public function getIconAttribute(): string
     {
         return "/assets/providers/{$this->id->value}.svg";

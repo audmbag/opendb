@@ -3,6 +3,8 @@
 namespace App\Database\Drivers;
 
 use App\Database\Contracts\DriverContract;
+use App\Database\ExplainOutput;
+use Closure;
 use Illuminate\Database\Connection;
 use Throwable;
 
@@ -79,6 +81,8 @@ class PostgresSQLDriver extends BaseDriver implements DriverContract
      */
     public function executeReadOnly(string $sql, array $bindings = []): array
     {
+        $this->assertQueryAllowed($sql);
+
         $this->connection->statement('BEGIN TRANSACTION READ ONLY');
 
         try {
@@ -92,36 +96,76 @@ class PostgresSQLDriver extends BaseDriver implements DriverContract
         }
     }
 
-    public function explain(string $sql, array $bindings = []): array
+    /**
+     * The estimate kept by ANALYZE and autovacuum, -1 for a table never analyzed.
+     */
+    public function estimatedRowCount(string $table): ?int
     {
-        $row = $this->executeReadOnly("EXPLAIN (FORMAT JSON) {$sql}", $bindings)[0];
-        $plans = json_decode((string) array_values((array) $row)[0], true);
+        $row = $this->connection->selectOne(
+            'SELECT c.reltuples::bigint AS estimate FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = current_schema() AND c.relname = ?',
+            [$table],
+        );
 
-        return array_map(fn (array $plan): array => $this->explainStep($plan['Plan']), $plans);
+        return isset($row->estimate) && (int) $row->estimate >= 0 ? (int) $row->estimate : null;
+    }
+
+    public function explain(string $sql, array $bindings = []): ExplainOutput
+    {
+        $this->assertQueryAllowed($sql);
+
+        return $this->inRolledBackReadOnlyTransaction(function (Connection $connection) use ($sql, $bindings): ExplainOutput {
+            $plans = json_decode((string) array_first((array) $connection->select("EXPLAIN (FORMAT JSON) {$sql}", $bindings)[0]), true);
+            $text = array_map(fn (object $row): string => (string) array_first((array) $row), $connection->select("EXPLAIN {$sql}", $bindings));
+
+            return new ExplainOutput(
+                raw: $plans,
+                classic: ['columns' => null, 'rows' => null, 'text' => implode("\n", $text)],
+                version: (string) $connection->getServerVersion(),
+                tableRows: $this->estimatedTableRows($connection, $plans),
+            );
+        });
+    }
+
+    protected function inRolledBackReadOnlyTransaction(Closure $callback): mixed
+    {
+        $this->connection->statement('BEGIN READ ONLY');
+
+        try {
+            return $callback($this->connection);
+        } finally {
+            $this->connection->statement('ROLLBACK');
+        }
     }
 
     /**
-     * @param  array<string, mixed>  $step
-     * @return array{label: string, detail: ?string, cost: ?float, rows: ?int, warning: ?string, children: list<array<string, mixed>>}
+     * Le nombre de lignes de chaque table lue par le plan, estimé par les statistiques du moteur : le plan JSON ne donne
+     * que les lignes gardées après le filtre. Les tables jamais analysées (reltuples négatif) sont ignorées.
+     *
+     * @return array<string, int>
      */
-    protected function explainStep(array $step): array
+    protected function estimatedTableRows(Connection $connection, mixed $plans): array
     {
-        $detail = collect([
-            isset($step['Relation Name']) ? 'sur '.$step['Relation Name'].(isset($step['Alias']) && $step['Alias'] !== $step['Relation Name'] ? " {$step['Alias']}" : '') : null,
-            isset($step['Index Name']) ? "index {$step['Index Name']}" : null,
-            isset($step['Join Type']) ? "jointure {$step['Join Type']}" : null,
-            $step['Index Cond'] ?? $step['Hash Cond'] ?? $step['Merge Cond'] ?? null,
-            isset($step['Filter']) ? "filtre {$step['Filter']}" : null,
-            isset($step['Sort Key']) ? 'tri '.implode(', ', (array) $step['Sort Key']) : null,
-        ])->filter()->implode(' · ');
+        $tables = [];
 
-        return $this->planNode(
-            label: (string) $step['Node Type'],
-            detail: $detail,
-            cost: $step['Total Cost'] ?? null,
-            rows: $step['Plan Rows'] ?? null,
-            warning: $step['Node Type'] === 'Seq Scan' ? 'Parcours complet de la table' : null,
-            children: array_map(fn (array $child): array => $this->explainStep($child), $step['Plans'] ?? []),
+        array_walk_recursive($plans, function (mixed $value, string|int $key) use (&$tables): void {
+            if ($key === 'Relation Name' && is_string($value)) {
+                $tables[$value] = true;
+            }
+        });
+
+        if ($tables === []) {
+            return [];
+        }
+
+        $names = array_keys($tables);
+        $rows = $connection->select(
+            'SELECT relname, reltuples FROM pg_class WHERE relkind IN (\'r\', \'p\', \'m\') AND relname IN ('.implode(', ', array_fill(0, count($names), '?')).')',
+            $names,
         );
+
+        return collect($rows)
+            ->filter(fn (object $row): bool => (float) $row->reltuples >= 0)
+            ->mapWithKeys(fn (object $row): array => [(string) $row->relname => (int) $row->reltuples])
+            ->all();
     }
 }

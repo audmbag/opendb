@@ -3,29 +3,13 @@
 namespace App\Database\Drivers;
 
 use App\Database\Contracts\DriverContract;
+use App\Database\ExplainOutput;
+use App\Database\Schema\Identifier;
 use Illuminate\Database\Connection;
 use Throwable;
 
 class MySQLDriver extends BaseDriver implements DriverContract
 {
-    /**
-     * Les étapes du plan JSON de MySQL et MariaDB affichées dans l'arbre, avec leur libellé.
-     */
-    private const array PLAN_STEPS = [
-        'query_block' => 'Requête',
-        'nested_loop' => 'Boucle imbriquée (jointure)',
-        'ordering_operation' => 'Tri',
-        'filesort' => 'Tri',
-        'grouping_operation' => 'Regroupement',
-        'duplicates_removal' => 'Suppression des doublons',
-        'temporary_table' => 'Table temporaire',
-        'windowing' => 'Fenêtrage',
-        'union_result' => 'Union',
-        'materialized_from_subquery' => 'Sous-requête matérialisée',
-        'attached_subqueries' => 'Sous-requêtes',
-        'optimized_away_subqueries' => 'Sous-requêtes optimisées',
-    ];
-
     public function getConnectionString(bool $escapePassword = true): string
     {
         $config = $this->getConfig();
@@ -152,6 +136,8 @@ class MySQLDriver extends BaseDriver implements DriverContract
      */
     public function executeReadOnly(string $sql, array $bindings = []): array
     {
+        $this->assertQueryAllowed($sql);
+
         $this->connection->statement('START TRANSACTION READ ONLY');
 
         try {
@@ -165,68 +151,40 @@ class MySQLDriver extends BaseDriver implements DriverContract
         }
     }
 
-    public function explain(string $sql, array $bindings = []): array
+    public function estimatedRowCount(string $table): ?int
     {
-        $row = $this->executeReadOnly("EXPLAIN FORMAT=JSON {$sql}", $bindings)[0];
+        $row = $this->connection->selectOne(
+            'SELECT TABLE_ROWS AS estimate FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?',
+            [$table],
+        );
 
-        return $this->explainSteps(json_decode((string) array_values((array) $row)[0], true));
+        return isset($row->estimate) ? (int) $row->estimate : null;
+    }
+
+    public function showCreateTable(string $table): string
+    {
+        $row = (array) $this->connection->selectOne('SHOW CREATE TABLE '.Identifier::quote($this->connection, $table));
+
+        return ($row['Create Table'] ?? $row['Create View'] ?? '').';';
+    }
+
+    public function explain(string $sql, array $bindings = []): ExplainOutput
+    {
+        $this->assertQueryAllowed($sql);
+
+        return $this->inRolledBackReadOnlyTransaction(fn (Connection $connection): ExplainOutput => new ExplainOutput(
+            raw: json_decode((string) array_first((array) $connection->select("EXPLAIN FORMAT=JSON {$sql}", $bindings)[0]), true),
+            classic: ExplainOutput::table($connection->select("{$this->traditionalExplain()} {$sql}", $bindings)),
+            version: (string) $connection->getServerVersion(),
+        ));
     }
 
     /**
-     * Les étapes contenues dans une partie du plan JSON, les clés inconnues étant traversées sans créer d'étape.
-     *
-     * @param  array<string|int, mixed>  $plan
-     * @return list<array{label: string, detail: ?string, cost: ?float, rows: ?int, warning: ?string, children: list<array<string, mixed>>}>
+     * Le mot-clé du tableau EXPLAIN classique, que MySQL n'affiche plus par défaut quand explain_format vaut TREE.
      */
-    protected function explainSteps(array $plan): array
+    protected function traditionalExplain(): string
     {
-        $steps = [];
-
-        foreach ($plan as $key => $value) {
-            if (! is_array($value)) {
-                continue;
-            }
-
-            $children = array_is_list($value)
-                ? collect($value)->filter(fn (mixed $item): bool => is_array($item))->flatMap(fn (array $item): array => $this->explainSteps($item))->values()->all()
-                : $this->explainSteps($value);
-
-            if ($key === 'table' && ! array_is_list($value)) {
-                $steps[] = $this->planNode(
-                    label: 'Table '.($value['table_name'] ?? '?'),
-                    detail: collect([
-                        isset($value['access_type']) ? "accès {$value['access_type']}" : null,
-                        isset($value['key']) ? "index {$value['key']}" : null,
-                        $value['attached_condition'] ?? null,
-                    ])->filter()->implode(' · '),
-                    cost: $value['cost_info']['prefix_cost'] ?? null,
-                    rows: $value['rows_examined_per_scan'] ?? $value['rows'] ?? null,
-                    warning: ($value['access_type'] ?? null) === 'ALL' ? 'Parcours complet de la table' : null,
-                    children: $children,
-                );
-
-                continue;
-            }
-
-            if (! is_string($key) || ! isset(self::PLAN_STEPS[$key])) {
-                array_push($steps, ...$children);
-
-                continue;
-            }
-
-            $steps[] = $this->planNode(
-                label: self::PLAN_STEPS[$key],
-                cost: $value['cost_info']['query_cost'] ?? $value['cost_info']['sort_cost'] ?? null,
-                warning: match (true) {
-                    ($value['using_filesort'] ?? false) === true => 'Tri sans index (filesort)',
-                    ($value['using_temporary_table'] ?? false) === true => 'Table temporaire',
-                    default => null,
-                },
-                children: $children,
-            );
-        }
-
-        return $steps;
+        return 'EXPLAIN FORMAT=TRADITIONAL';
     }
 
     /**

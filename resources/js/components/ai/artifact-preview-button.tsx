@@ -27,30 +27,36 @@ type Props = {
     isMessageSaved: boolean;
 };
 
+export function ArtifactPreview({ artifactable, isMessageSaved }: { artifactable: CustomOutputToolUIPart; isMessageSaved: boolean }) {
+    switch (artifactable.type) {
+        case AgentTools.ShowSchemaDiagram:
+            return <SchemaDiagramPreview part={artifactable as ShemaDiagramToolUIPart} />;
+        case AgentTools.ShowQueryResults:
+            return <QueryResultsPreview part={artifactable as QueryResultsToolUIPart} enabled={isMessageSaved} />;
+        case AgentTools.ShowKpis:
+            return <KpisPreview part={artifactable as KpisToolUIPart} enabled={isMessageSaved} />;
+        case AgentTools.ShowChart:
+            return <ChartPreview part={artifactable as ChartToolUIPart} enabled={isMessageSaved} />;
+        case AgentTools.ProfileTable:
+            return <TableProfilePreview part={artifactable as ProfileTableToolUIPart} enabled={isMessageSaved} />;
+        case AgentTools.ShowRecord:
+            return <RecordPreview part={artifactable as RecordToolUIPart} enabled={isMessageSaved} />;
+        case AgentTools.ExplainQuery:
+            return <ExplainPreview part={artifactable as ExplainQueryToolUIPart} enabled={isMessageSaved} />;
+        case AgentTools.ExportDatabase:
+            return <ExportPreview part={artifactable as ExportDatabaseToolUIPart} enabled={isMessageSaved} />;
+        default:
+            return null;
+    }
+}
+
 export default function ArtifactPreviewButton({ artifactables, isMessageSaved }: Props) {
 
     return (
         <div className="flex flex-col gap-2">
-            {artifactables.map((artifactable) => {
-                switch (artifactable.type) {
-                    case AgentTools.ShowSchemaDiagram:
-                        return <SchemaDiagramPreview key={artifactable.toolCallId} schemaDiagram={artifactable as ShemaDiagramToolUIPart} />;
-                    case AgentTools.ShowQueryResults:
-                        return <QueryResultsPreview key={artifactable.toolCallId} part={artifactable as QueryResultsToolUIPart} enabled={isMessageSaved} />;
-                    case AgentTools.ShowKpis:
-                        return <KpisPreview key={artifactable.toolCallId} part={artifactable as KpisToolUIPart} enabled={isMessageSaved} />;
-                    case AgentTools.ShowChart:
-                        return <ChartPreview key={artifactable.toolCallId} part={artifactable as ChartToolUIPart} enabled={isMessageSaved} />;
-                    case AgentTools.ProfileTable:
-                        return <TableProfilePreview key={artifactable.toolCallId} part={artifactable as ProfileTableToolUIPart} enabled={isMessageSaved} />;
-                    case AgentTools.ShowRecord:
-                        return <RecordPreview key={artifactable.toolCallId} part={artifactable as RecordToolUIPart} enabled={isMessageSaved} />;
-                    case AgentTools.ExplainQuery:
-                        return <ExplainPreview key={artifactable.toolCallId} part={artifactable as ExplainQueryToolUIPart} enabled={isMessageSaved} />;
-                    case AgentTools.ExportDatabase:
-                        return <ExportPreview key={artifactable.toolCallId} part={artifactable as ExportDatabaseToolUIPart} enabled={isMessageSaved} />;
-                }
-            })}
+            {artifactables.map((artifactable) => (
+                <ArtifactPreview key={artifactable.toolCallId} artifactable={artifactable} isMessageSaved={isMessageSaved} />
+            ))}
         </div>
     );
 }

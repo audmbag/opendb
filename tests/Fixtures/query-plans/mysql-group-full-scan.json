@@ -1,0 +1,64 @@
+{
+  "version": "8.0.36",
+  "query": "SELECT product_id, COUNT(*) as views_count FROM product_views WHERE viewed_at >= DATE_SUB(NOW(), INTERVAL :days DAY) GROUP BY product_id",
+  "raw": {
+    "query_block": {
+      "select_id": 1,
+      "cost_info": {
+        "query_cost": "6059.25"
+      },
+      "grouping_operation": {
+        "using_temporary_table": true,
+        "using_filesort": false,
+        "table": {
+          "table_name": "product_views",
+          "access_type": "ALL",
+          "rows_examined_per_scan": 60030,
+          "rows_produced_per_join": 20008,
+          "filtered": "33.33",
+          "cost_info": {
+            "read_cost": "4058.45",
+            "eval_cost": "2000.80",
+            "prefix_cost": "6059.25"
+          },
+          "used_columns": [
+            "product_id",
+            "viewed_at"
+          ],
+          "attached_condition": "(`opendb_ecommerce`.`product_views`.`viewed_at` >= <cache>((now() - interval 7 day)))"
+        }
+      }
+    }
+  },
+  "classic": {
+    "columns": [
+      "id",
+      "select_type",
+      "table",
+      "type",
+      "possible_keys",
+      "key",
+      "key_len",
+      "ref",
+      "rows",
+      "filtered",
+      "Extra"
+    ],
+    "rows": [
+      [
+        "1",
+        "SIMPLE",
+        "product_views",
+        "ALL",
+        null,
+        null,
+        null,
+        null,
+        "60030",
+        "33.33",
+        "Using where; Using temporary"
+      ]
+    ],
+    "text": null
+  }
+}

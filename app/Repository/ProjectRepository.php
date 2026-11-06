@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\ProjectMemory;
 use DB;
 use Illuminate\Container\Attributes\CurrentUser;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 
 readonly class ProjectRepository
@@ -54,6 +55,30 @@ readonly class ProjectRepository
         });
 
         return $project;
+    }
+
+    /**
+     * Change the connection of the project, without touching the tables disabled for its agent.
+     * The fields the new connection does not use, like the host of a SQLite database, are emptied.
+     *
+     * @param  array<string, mixed>  $connection
+     */
+    public function updateConnection(Project $project, array $connection): DriverConfig
+    {
+        $emptyConnection = ['host' => null, 'port' => null, 'username' => null, 'password' => null, 'ssh' => null];
+
+        return tap($project->driver_config)->update([
+            ...$emptyConnection,
+            ...Arr::except($connection, ['id', 'from_id']),
+        ])->load('driver');
+    }
+
+    /**
+     * @param  list<string>  $agentDisabled
+     */
+    public function updateAgentTables(Project $project, array $agentDisabled): DriverConfig
+    {
+        return tap($project->driver_config)->update(['disabled_tables' => array_values($agentDisabled)]);
     }
 
     public function update(Project $project, array $data): Project

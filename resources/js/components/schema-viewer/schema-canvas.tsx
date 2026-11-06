@@ -1,21 +1,13 @@
 import {
-    Background,
-    BackgroundVariant,
-    ControlButton,
-    Controls,
-    ReactFlow,
     ReactFlowProvider,
     useEdgesState,
+    useNodesInitialized,
     useNodesState,
 } from '@xyflow/react';
 import type { EdgeTypes, NodeTypes } from '@xyflow/react';
-import { ImageDownIcon, Maximize2, Minimize2, Loader2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { useHotkeys } from 'react-hotkeys-hook';
-import '@xyflow/react/dist/style.css';
-import { exportSchemaImage } from './export-schema';
-import { getLayoutedElements } from './layout';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import FlowCanvas from '@/components/flow/flow-canvas';
+import { getLayoutedNodes } from './layout';
 import { edgeTypes } from './relationship-edge';
 import { schemaExportToDbSchema } from './schema-transform';
 import { nodeTypes } from './table-node';
@@ -23,6 +15,7 @@ import { tableHandleId } from './types';
 import type {
     RelationshipEdgeType,
     SchemaCanvasProps,
+    SchemaExport,
     TableNodeType,
 } from './types';
 
@@ -77,31 +70,11 @@ function Canvas({ schema, showForeignKeys = true }: SchemaCanvasProps) {
     const [nodes, setNodes, onNodesChange] = useNodesState<TableNodeType>([]);
     const [edges, setEdges, onEdgesChange] =
         useEdgesState<RelationshipEdgeType>([]);
-    const [isFullscreen, setIsFullscreen] = useState(false);
-    const canvasContainerRef = useRef<HTMLDivElement>(null);
-    const [isExporting, setIsExporting] = useState(false);
-
-    useHotkeys(
-        'escape',
-        () => {
-            setIsFullscreen(false);
-        },
-        { enabled: isFullscreen },
+    const [layoutedSchema, setLayoutedSchema] = useState<SchemaExport | null>(
+        null,
     );
-
-    useEffect(() => {
-        if (!isFullscreen) {
-            return;
-        }
-
-        const previousOverflow = document.body.style.overflow;
-
-        document.body.style.overflow = 'hidden';
-
-        return () => {
-            document.body.style.overflow = previousOverflow;
-        };
-    }, [isFullscreen]);
+    const isLayouted = schema !== null && layoutedSchema === schema;
+    const nodesInitialized = useNodesInitialized();
 
     const handleNodesChange = useCallback(
         (changes: Parameters<typeof onNodesChange>[0]) => {
@@ -144,13 +117,40 @@ function Canvas({ schema, showForeignKeys = true }: SchemaCanvasProps) {
             }),
         );
 
-        getLayoutedElements(initialNodes, initialEdges).then(
-            ({ layoutedNodes, layoutedEdges }) => {
-                setNodes(layoutedNodes);
-                setEdges(layoutedEdges);
-            },
-        );
+        setNodes(initialNodes);
+        setEdges(initialEdges);
     }, [schema, setEdges, setNodes]);
+
+    /**
+     * The tables are first rendered hidden so React Flow measures them, then laid out with their real size.
+     */
+    useEffect(() => {
+        if (!nodesInitialized || isLayouted) {
+            return;
+        }
+
+        let isCancelled = false;
+
+        getLayoutedNodes(nodes, edges).then((layoutedNodes) => {
+            if (isCancelled) {
+                return;
+            }
+
+            setNodes(layoutedNodes);
+            setLayoutedSchema(schema);
+        });
+
+        return () => {
+            isCancelled = true;
+        };
+    }, [
+        edges,
+        isLayouted,
+        nodes,
+        nodesInitialized,
+        schema,
+        setNodes,
+    ]);
 
     const activeEdge = useMemo(
         () => edges.find((edge) => edge.selected),
@@ -223,11 +223,13 @@ function Canvas({ schema, showForeignKeys = true }: SchemaCanvasProps) {
                 const targetNode = nodes.find(
                     (node) => node.id === edge.target,
                 );
+                const isSelfReference = edge.source === edge.target;
                 const sourceIsLeft =
                     (sourceNode?.position.x ?? 0) <=
                     (targetNode?.position.x ?? 0);
                 const sourceSide = sourceIsLeft ? 'right' : 'left';
-                const targetSide = sourceIsLeft ? 'left' : 'right';
+                const targetSide =
+                    sourceIsLeft && !isSelfReference ? 'left' : 'right';
 
                 return {
                     ...edge,
@@ -247,29 +249,14 @@ function Canvas({ schema, showForeignKeys = true }: SchemaCanvasProps) {
             }),
         [activeEdgeIds, edges, nodes, showForeignKeys],
     );
-    const handleExport = useCallback(async () => {
-        if (isExporting || !canvasContainerRef.current) {
-            return;
-        }
 
-        setIsExporting(true);
-
-        try {
-            await new Promise<void>((resolve) => {
-                requestAnimationFrame(() => {
-                    requestAnimationFrame(() => resolve());
-                });
-            });
-
-            await exportSchemaImage(nodes, canvasContainerRef.current);
-        } catch (error) {
-            console.error("Erreur lors de l'export de l'image", error);
-        } finally {
-            setIsExporting(false);
-        }
-    }, [isExporting, nodes]);
-    const flow = (
-        <ReactFlow
+    return (
+        <FlowCanvas<TableNodeType, RelationshipEdgeType>
+            label="Schéma de la base de données"
+            exportFileName="schema"
+            isReady={isLayouted}
+            className="h-full"
+            canvasClassName="h-full"
             nodes={displayNodes}
             edges={displayEdges}
             onNodesChange={handleNodesChange}
@@ -277,64 +264,8 @@ function Canvas({ schema, showForeignKeys = true }: SchemaCanvasProps) {
             nodeTypes={nodeTypes as NodeTypes}
             edgeTypes={edgeTypes as EdgeTypes}
             nodesConnectable={false}
-            fitView
-            fitViewOptions={{ padding: 0.2 }}
-        >
-            <Background
-                variant={BackgroundVariant.Dots}
-                gap={16}
-                size={1}
-                color="var(--muted-foreground)"
-            />
-            <Controls
-                showInteractive={false}
-                className="overflow-hidden rounded-md border border-border bg-card"
-            >
-                <ControlButton
-                    onClick={handleExport}
-                    disabled={isExporting}
-                    title="Exporter en PNG"
-                >
-                    {isExporting ? (
-                        <Loader2 className="max-h-3.5! max-w-3.5! animate-spin fill-none!" />
-                    ) : (
-                        <ImageDownIcon className="max-h-3.5! max-w-3.5! fill-none!" />
-                    )}
-                </ControlButton>
-                <ControlButton
-                    onClick={() => setIsFullscreen((current) => !current)}
-                    title={
-                        isFullscreen
-                            ? 'Quitter le plein écran'
-                            : 'Afficher en plein écran'
-                    }
-                >
-                    {isFullscreen ? (
-                        <Minimize2 className="max-h-3.5! max-w-3.5!" />
-                    ) : (
-                        <Maximize2 className="max-h-3.5! max-w-3.5!" />
-                    )}
-                </ControlButton>
-            </Controls>
-        </ReactFlow>
-    );
-
-    if (isFullscreen) {
-        return createPortal(
-            <div
-                ref={canvasContainerRef}
-                className="fixed inset-0 z-100 h-screen w-screen bg-background"
-            >
-                {flow}
-            </div>,
-            document.body,
-        );
-    }
-
-    return (
-        <div ref={canvasContainerRef} className="h-full w-full">
-            {flow}
-        </div>
+            minZoom={0.1}
+        />
     );
 }
 
@@ -343,21 +274,7 @@ export default function SchemaCanvas({
     showForeignKeys,
 }: SchemaCanvasProps) {
     return (
-        <div className="h-full w-full bg-background">
-            <style>{`
-                @keyframes schema-edge-flow {
-                    to { stroke-dashoffset: -20; }
-                }
-
-                .react-flow {
-                    --xy-controls-button-background-color-default: hsl(var(--card));
-                    --xy-controls-button-background-color-hover-default: hsl(var(--accent));
-                    --xy-controls-button-color-default: hsl(var(--foreground));
-                    --xy-controls-button-color-hover-default: hsl(var(--foreground));
-                    --xy-controls-button-border-color-default: hsl(var(--border));
-                    --xy-controls-box-shadow-default: none;
-                }
-            `}</style>
+        <div className="h-full w-full">
             <ReactFlowProvider>
                 <Canvas schema={schema} showForeignKeys={showForeignKeys} />
             </ReactFlowProvider>

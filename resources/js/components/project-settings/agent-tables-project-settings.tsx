@@ -1,0 +1,214 @@
+import { useHttp, usePage } from '@inertiajs/react';
+import {
+    BrainCircuitIcon,
+    LoaderIcon,
+    SaveIcon,
+    Table2Icon,
+} from 'lucide-react';
+import { memo, useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
+import Alert from '@/components/alert';
+import CardFrame from '@/components/card-frame';
+import { EmptyState } from '@/components/empty-state';
+import Button from '@/components/form/button';
+import Input from '@/components/form/input';
+import Switch from '@/components/form/switch';
+import { Badge } from '@/components/reui/badge';
+import { H5, Muted } from '@/components/typograpfy/typography';
+import type { Table } from '@/types/databases';
+import type { Project } from '@/types/models/project';
+import ProjectSettingsController from '@/wayfinder/actions/App/Http/Controllers/Project/ProjectSettingsController';
+
+const plural = (count: number) => (count > 1 ? 's' : '');
+
+type TableRowProps = {
+    table: Table;
+    onToggle: (tableName: string, enabled: boolean) => void;
+};
+
+const TableRow = memo(function TableRow({ table, onToggle }: TableRowProps) {
+    return (
+        <div className="flex items-center justify-between gap-2 border-b border-border p-2 last:border-b-0">
+            <div className="flex min-w-0 items-center gap-2">
+                <Table2Icon className="size-4 shrink-0" />
+                <H5 className="truncate">{table.name}</H5>
+                <Badge variant="secondary">{`${table.columns} colonne${plural(table.columns)}`}</Badge>
+            </div>
+            <Switch
+                className="w-auto"
+                orientation="horizontal"
+                aria-label={`Rendre la table ${table.name} accessible à l'agent`}
+                checked={table.agentAccessEnabled}
+                onCheckedChange={(checked) => onToggle(table.name, checked)}
+            />
+        </div>
+    );
+});
+
+/**
+ * The tables the agent may see: a disabled table is hidden from its schema and every query citing it is rejected.
+ */
+export default function AgentTablesProjectSettings() {
+    const { project } = usePage<{ project: Project }>().props;
+
+    const [tables, setTables] = useState<Table[]>([]);
+    const [savedDisabledTables, setSavedDisabledTables] = useState<string[]>(
+        [],
+    );
+    const [search, setSearch] = useState('');
+
+    const loader = useHttp<null, { data: Table[] }>();
+    const form = useHttp<{ agentDisabled: string[] }, { message: string }>({
+        agentDisabled: [],
+    });
+
+    useEffect(() => {
+        loader.get(ProjectSettingsController.agentTables.url(project.id), {
+            onSuccess: (response) => {
+                setTables(response.data);
+                setSavedDisabledTables(
+                    response.data
+                        .filter((table) => !table.agentAccessEnabled)
+                        .map((table) => table.name),
+                );
+            },
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [project.id]);
+
+    const disabledTables = useMemo(
+        () =>
+            tables
+                .filter((table) => !table.agentAccessEnabled)
+                .map((table) => table.name),
+        [tables],
+    );
+
+    const filteredTables = useMemo(() => {
+        const query = search.trim().toLowerCase();
+
+        return query
+            ? tables.filter((table) => table.name.toLowerCase().includes(query))
+            : tables;
+    }, [search, tables]);
+
+    const toggle = (tableName: string, enabled: boolean) => {
+        setTables((current) =>
+            current.map((table) =>
+                table.name === tableName
+                    ? { ...table, agentAccessEnabled: enabled }
+                    : table,
+            ),
+        );
+    };
+
+    const toggleAll = (enabled: boolean) => {
+        setTables((current) =>
+            current.map((table) => ({ ...table, agentAccessEnabled: enabled })),
+        );
+    };
+
+    form.transform(() => ({ agentDisabled: disabledTables }));
+
+    const save = () => {
+        form.put(ProjectSettingsController.updateAgentTables.url(project.id), {
+            onSuccess: (response) => {
+                toast.success(response.message);
+                setSavedDisabledTables(disabledTables);
+            },
+        });
+    };
+
+    const isDirty =
+        [...disabledTables].sort().join('\n') !==
+        [...savedDisabledTables].sort().join('\n');
+
+    if (loader.processing) {
+        return (
+            <div className="flex justify-center py-8">
+                <LoaderIcon className="animate-spin" />
+            </div>
+        );
+    }
+
+    const connectionError = (
+        loader.errors as Record<string, string | undefined>
+    ).connection;
+
+    if (connectionError) {
+        return (
+            <Alert
+                variant="destructive"
+                title="Base de données injoignable"
+                message={connectionError}
+            />
+        );
+    }
+
+    return (
+        <CardFrame
+            title="Accès de l'agent aux tables"
+            description="L'agent ne connaît que le nom d'une table désactivée : il ne peut ni lire sa structure ou ses données, ni la modifier."
+            icon={BrainCircuitIcon}
+            innerPadding={false}
+            actions={
+                <Button
+                    icon={SaveIcon}
+                    processing={form.processing}
+                    disabled={!isDirty}
+                    onClick={save}
+                >
+                    Enregistrer
+                </Button>
+            }
+        >
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border p-2">
+                <Input
+                    placeholder="Rechercher une table..."
+                    className="w-full max-w-xs"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                />
+                <div className="flex items-center gap-2">
+                    <Muted className="text-xs">
+                        {`${tables.length - disabledTables.length} / ${tables.length} accessible${plural(tables.length - disabledTables.length)}`}
+                    </Muted>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleAll(true)}
+                    >
+                        Tout autoriser
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleAll(false)}
+                    >
+                        Tout désactiver
+                    </Button>
+                </div>
+            </div>
+            <div className="max-h-96 overflow-x-hidden overflow-y-auto">
+                {filteredTables.map((table) => (
+                    <TableRow
+                        key={table.name}
+                        table={table}
+                        onToggle={toggle}
+                    />
+                ))}
+                {filteredTables.length === 0 && (
+                    <EmptyState
+                        title="Aucune table trouvée"
+                        icon={Table2Icon}
+                        description={
+                            search
+                                ? 'Aucune table ne correspond à votre recherche.'
+                                : "La base de données n'a aucune table."
+                        }
+                    />
+                )}
+            </div>
+        </CardFrame>
+    );
+}

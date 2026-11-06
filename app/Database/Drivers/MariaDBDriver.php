@@ -12,4 +12,9 @@ class MariaDBDriver extends MySQLDriver
 
         return "mariadb://{$config['username']}:{$password}@{$config['host']}:{$config['port']}/{$config['database']}";
     }
+
+    protected function traditionalExplain(): string
+    {
+        return 'EXPLAIN';
+    }
 }

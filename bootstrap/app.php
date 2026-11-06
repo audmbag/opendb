@@ -15,7 +15,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
+        $middleware->encryptCookies(except: ['appearance', 'color_theme', 'sidebar_state']);
+
+        // The changes of the Tables tab keep their values as typed: an empty string is not NULL, and spaces are data.
+        $keepsRawValues = fn (Request $request): bool => $request->is('*/tables/*/changes', '*/tables/*/changes/*');
+        $middleware->convertEmptyStringsToNull(except: [$keepsRawValues]);
+        $middleware->trimStrings(except: [$keepsRawValues]);
 
         $middleware->web(append: [
             HandleAppearance::class,

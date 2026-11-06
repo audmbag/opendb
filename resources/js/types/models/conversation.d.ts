@@ -21,3 +21,10 @@ export interface Conversation extends BaseModel {
     project_id: string;
     messages: ConversationMessage[];
 }
+
+export interface ConversationSearchResult extends Omit<Conversation, 'messages'> {
+    /**
+     * The passage around the search in the first message containing it, null when only the title matches.
+     */
+    excerpt: string | null;
+}

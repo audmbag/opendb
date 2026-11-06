@@ -1,6 +1,7 @@
 <?php
 
 use App\Ai\Agents\SQLDatabaseAgent;
+use App\Database\ExplainOutput;
 use App\Models\Project;
 use App\Models\User;
 use Illuminate\Database\Schema\Blueprint;
@@ -129,4 +130,19 @@ function shopDatabase(Builder $schema): void
         ['customer_id' => 1, 'total' => 80, 'status' => 'pending'],
         ['customer_id' => 2, 'total' => 50, 'status' => 'paid'],
     ]);
+}
+
+/**
+ * The output of EXPLAIN saved in tests/Fixtures/query-plans, with the query it explains.
+ *
+ * @return array{output: ExplainOutput, query: string}
+ */
+function queryPlanFixture(string $name): array
+{
+    $fixture = json_decode(file_get_contents(__DIR__."/Fixtures/query-plans/{$name}.json"), true);
+
+    return [
+        'output' => new ExplainOutput($fixture['raw'], $fixture['classic'], $fixture['version'], $fixture['tableRows'] ?? []),
+        'query' => $fixture['query'],
+    ];
 }

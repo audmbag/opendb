@@ -10,6 +10,7 @@ interface ConversationStore {
     fill: (conversations: Conversation[]) => void;
     add: (conversation: Conversation) => void;
     remove: (conversation: Conversation) => void;
+    rename: (id: string, title: string) => void;
     setPendingMessage: (message: PromptInputMessage | null) => void;
     clearPendingMessage: () => void;
 }
@@ -21,6 +22,7 @@ const useConversationStore = createSelectors(
             fill: (conversations) => set({ conversations: conversations }),
             add: (conversation: Conversation) => set(state => ({ conversations: [conversation, ...state.conversations] })),
             remove: (conversation: Conversation) => set(state => ({ conversations: state.conversations.filter((c) => c.id !== conversation.id) })),
+            rename: (id: string, title: string) => set(state => ({ conversations: state.conversations.map((c) => c.id === id ? { ...c, title } : c) })),
             setPendingMessage: (message: PromptInputMessage | null) => set({ pendingMessage: message }),
             clearPendingMessage: () => set({ pendingMessage: null }),
         }), { name: 'useConversationStore' }),

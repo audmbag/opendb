@@ -10,6 +10,7 @@ import {
     ToolOutput,
 } from '@/components/ai-elements/tool';
 import { CollapsibleTrigger } from '@/components/ui/collapsible';
+import { withUppercaseQuery } from '@/lib/sql';
 import { cn } from '@/lib/utils';
 import type { AgentToolNameType, ToolMetadata } from '@/types/agent';
 import { getMetadata } from '@/types/agent';
@@ -65,7 +66,7 @@ const Tool = ({ part }: { part: ToolUIPart }) => {
                 toolMetadata={getMetadata(part.type as AgentToolNameType)}
             />
             <ToolContent>
-                <ToolInput input={part.input} />
+                <ToolInput input={withUppercaseQuery(part.input)} />
                 <ToolOutput output={part.output} errorText={part.errorText} />
             </ToolContent>
         </AIElementTool>

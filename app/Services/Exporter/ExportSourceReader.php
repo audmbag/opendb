@@ -57,8 +57,19 @@ class ExportSourceReader
             connection: $connection,
             schema: $this->inspector->inspectOpenConnection($connection->getName(), $source),
             dialect: $dialect,
-            databaseName: $this->fileSafeName($type === DatabaseConnectionType::Sqlite ? pathinfo((string) $source->database, PATHINFO_FILENAME) : (string) $source->database),
+            databaseName: $this->databaseName($driver),
         );
+    }
+
+    /**
+     * Nom de la base utilisable dans un nom de fichier.
+     */
+    public function databaseName(DriverContract $driver): string
+    {
+        $connection = $driver->getConnection();
+        $database = (string) $connection->getDatabaseName();
+
+        return $this->fileSafeName($connection->getDriverName() === DatabaseConnectionType::Sqlite->value ? pathinfo($database, PATHINFO_FILENAME) : $database);
     }
 
     private function fileSafeName(string $name): string

@@ -1,13 +1,15 @@
 import { usePage } from '@inertiajs/react';
 import {
-    ArrowUpIcon,
     BrainCircuitIcon,
     BrainIcon,
-    PaperclipIcon,
+    CornerDownLeftIcon,
     PencilIcon,
     PencilOffIcon,
+    PlusIcon,
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useHotkeys } from 'react-hotkeys-hook';
 import { toast } from 'sonner';
 import AttachmentItem from '@/components/ai/attachment-item';
 import ModelSelector from '@/components/ai/model-selector';
@@ -30,6 +32,7 @@ import Button from '@/components/form/button';
 import Select from '@/components/form/select';
 import Presence from '@/components/presence';
 import PromptSuggestions from '@/components/prompt-suggestions';
+import { InputGroupAddon } from '@/components/ui/input-group';
 import { Kbd } from '@/components/ui/kbd';
 import {
     Mention,
@@ -39,13 +42,16 @@ import {
 } from '@/components/ui/mention';
 import { getFileIcon } from '@/hooks/use-file-tree';
 import { getMentionQuery, searchProjectFiles, useProjectFiles } from '@/hooks/use-project-files';
+import { PROMPT_HOTKEY_OPTIONS } from '@/lib/hotkeys';
 import { cn } from '@/lib/utils';
+import { useAgentSettingsStore } from '@/store/use-agent-settings-store';
+import type { AgentAccessMode, AgentEffort } from '@/store/use-agent-settings-store';
 import type { Project } from '@/types/models/project';
 
 
 
 
-const PromptInputAttachmentsDisplay = () => {
+const PromptInputAttachmentsDisplay = ({ className }: { className?: string }) => {
     const attachments = usePromptInputAttachments();
 
     const handleRemove = useCallback(
@@ -58,7 +64,7 @@ const PromptInputAttachmentsDisplay = () => {
     }
 
     return (
-        <Attachments variant="grid" className="ml-0 w-full p-2">
+        <Attachments variant="grid" className={cn('ml-0 w-full p-2', className)}>
             {attachments.files.map((attachment) => (
                 <AttachmentItem
                     attachment={attachment}
@@ -70,7 +76,7 @@ const PromptInputAttachmentsDisplay = () => {
     );
 };
 
-const AttachmentButton = (props: React.ComponentProps<typeof Button>) => {
+const AttachmentButton = ({ className, size = 'sm', ...props }: React.ComponentProps<typeof Button>) => {
 
     const attachments = usePromptInputAttachments();
 
@@ -78,15 +84,17 @@ const AttachmentButton = (props: React.ComponentProps<typeof Button>) => {
         attachments.openFileDialog();
     }, [attachments]);
 
+    useHotkeys('mod+u', handleSelectAttachments, { ...PROMPT_HOTKEY_OPTIONS, enabled: !props.disabled });
+
     return (
         <Button
             {...props}
             tooltip={['Ajouter un fichier', ['Ctrl', 'U']]}
-            icon={PaperclipIcon}
+            icon={PlusIcon}
             variant="secondary"
-            className="size-10 rounded-full"
+            className={cn('size-10 rounded-full', className)}
             onClick={handleSelectAttachments}
-            size="sm"
+            size={size}
         />
     );
 }
@@ -156,6 +164,28 @@ export default function PromptInput({
     variant?: 'primary' | 'secondary';
 } & Omit<React.ComponentProps<'div'>, 'children' | 'onSubmit'>) {
     const { props: { project } } = usePage<{ project?: Project }>();
+    const isCompact = variant === 'secondary';
+
+    const accessMode = useAgentSettingsStore((state) => state.accessMode);
+    const setAccessMode = useAgentSettingsStore((state) => state.setAccessMode);
+    const effort = useAgentSettingsStore((state) => state.effort);
+    const setEffort = useAgentSettingsStore((state) => state.setEffort);
+    const hasSelectedModel = useAgentSettingsStore((state) => state.selectedModel !== null);
+
+    // The dot needs Shift on an AZERTY keyboard.
+    useHotkeys(
+        ['mod+.', 'mod+shift+.'],
+        () => setAccessMode(accessMode === 'read-only' ? 'read-write' : 'read-only'),
+        PROMPT_HOTKEY_OPTIONS,
+        [accessMode, setAccessMode],
+    );
+
+    useHotkeys(
+        'mod+shift+d',
+        () => setEffort(effort === 'default' ? 'high' : 'default'),
+        PROMPT_HOTKEY_OPTIONS,
+        [effort, setEffort],
+    );
 
     const [mentions, setMentions] = useState<string[]>([]);
     const [mentionQuery, setMentionQuery] = useState('');
@@ -163,6 +193,8 @@ export default function PromptInput({
     const [prompt, setPrompt] = useState('');
     const [isSubmitted, setIsSubmitted] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const [compactAttachmentSlot, setCompactAttachmentSlot] = useState<HTMLDivElement | null>(null);
+    const toolbarControlSize = isCompact ? 'xs' : undefined;
 
     const { paths, load: loadProjectFiles, isLoading: isLoadingProjectFiles } = useProjectFiles(project?.id);
 
@@ -213,6 +245,25 @@ export default function PromptInput({
         [onSubmit],
     );
 
+    const submitButton = (
+        <PromptInputSubmit asChild>
+            <Button
+                tooltip={
+                    hasSelectedModel
+                        ? ['Envoyer le prompt', ['⏎']]
+                        : 'Sélectionnez un modèle pour envoyer le prompt'
+                }
+                icon={CornerDownLeftIcon}
+                className={cn('size-10 rounded-full', {
+                    'size-8 rounded-lg': isCompact,
+                })}
+                disabled={!prompt || loading || !hasSelectedModel}
+                processing={loading}
+                size="sm"
+            />
+        </PromptInputSubmit>
+    );
+
     return (
         <div
             className={cn('flex w-full max-w-4xl flex-col', className)}
@@ -225,8 +276,8 @@ export default function PromptInput({
                     {
                         '*:data-[slot=input-group]:rounded-t-2xl':
                             variant === 'primary',
-                        '*:data-[slot=input-group]:rounded-t-xl *:data-[slot=input-group]:rounded-b-xl':
-                            variant === 'secondary',
+                        '*:data-[slot=input-group]:h-auto *:data-[slot=input-group]:flex-wrap *:data-[slot=input-group]:rounded-t-xl *:data-[slot=input-group]:rounded-b-xl':
+                            isCompact,
                     },
                 )}
                 globalDrop
@@ -247,11 +298,15 @@ export default function PromptInput({
                     }
                 }}
             >
-                <PromptInputAttachmentsDisplay />
+                <PromptInputAttachmentsDisplay
+                    className={cn({ 'order-first': isCompact })}
+                />
                 <PromptInputBody>
                     <FileMention
                         key={mentionKey}
-                        className="w-full"
+                        className={
+                            isCompact ? 'min-w-0 grow basis-1/2' : 'w-full'
+                        }
                         value={mentions}
                         onValueChange={setMentions}
                         inputValue={prompt}
@@ -262,7 +317,9 @@ export default function PromptInput({
                     >
                         <PromptInputTextarea
                             ref={textareaRef}
-                            className="min-h-15 py-4"
+                            className={
+                                isCompact ? 'min-h-12 py-3.5' : 'min-h-15 py-4'
+                            }
                             placeholder="Démander n'importe quoi... (@ pour mentionner un fichier)"
                             value={prompt}
                             onChange={(e) => {
@@ -275,57 +332,83 @@ export default function PromptInput({
                         />
                     </FileMention>
                 </PromptInputBody>
-                <PromptInputFooter className="p-2 pt-0">
-                    <PromptInputTools>
-                        <AttachmentButton disabled={loading} />
-                    </PromptInputTools>
-                    <PromptInputSubmit asChild>
-                        <Button
-                            tooltip={['Envoyer le prompt', ['⏎']]}
-                            icon={ArrowUpIcon}
-                            className="size-10 rounded-full"
-                            disabled={!prompt || loading}
-                            processing={loading}
-                            size="sm"
-                        />
-                    </PromptInputSubmit>
-                </PromptInputFooter>
+                {isCompact ? (
+                    <>
+                        <InputGroupAddon
+                            align="inline-end"
+                            className="self-end py-2 pr-2 has-[>button]:mr-0"
+                        >
+                            {submitButton}
+                        </InputGroupAddon>
+                        {/* Rendered in the toolbar, outside the form, while keeping the attachments context of the prompt input. */}
+                        {compactAttachmentSlot &&
+                            createPortal(
+                                <AttachmentButton
+                                    disabled={loading}
+                                    size="icon-xs"
+                                    className="size-6 rounded-sm"
+                                />,
+                                compactAttachmentSlot,
+                            )}
+                    </>
+                ) : (
+                    <PromptInputFooter className="p-2 pt-0">
+                        <PromptInputTools>
+                            <AttachmentButton disabled={loading} />
+                        </PromptInputTools>
+                        {submitButton}
+                    </PromptInputFooter>
+                )}
             </PromptInputComponent>
             <div
-                className={cn(
-                    '-mt-6 flex items-center justify-between gap-2 pt-8 pb-2',
-                    {
-                        'rounded-b-lg border border-t-0 border-border bg-sidebar px-2':
-                            variant === 'primary',
-                    },
-                )}
+                className={cn('flex items-center justify-between gap-2 pb-2', {
+                    '-mt-6 rounded-b-lg border border-t-0 border-border bg-sidebar px-2 pt-8':
+                        !isCompact,
+                    'pt-2': isCompact,
+                })}
             >
-                <Select
-                    optionsLabel="Mode d'accès"
-                    defaultValue="read-only"
-                    position="item-aligned"
-                    button
-                    tooltip={["Choisir le mode d'action", ['Ctrl', '.']]}
-                    items={[
-                        {
-                            label: 'Lecture seule',
-                            value: 'read-only',
-                            icon: PencilOffIcon,
-                        },
-                        {
-                            label: 'Lecture et écriture',
-                            value: 'read-write',
-                            icon: PencilIcon,
-                        },
-                    ]}
-                />
+                <div className="flex items-center gap-1">
+                    {isCompact && (
+                        <div
+                            ref={setCompactAttachmentSlot}
+                            className="contents"
+                        />
+                    )}
+                    <Select
+                        optionsLabel="Mode d'accès"
+                        value={accessMode}
+                        onValueChange={(value) =>
+                            setAccessMode(value as AgentAccessMode)
+                        }
+                        position={isCompact ? 'popper' : 'item-aligned'}
+                        button
+                        size={toolbarControlSize}
+                        tooltip={["Choisir le mode d'action", ['Ctrl', '.']]}
+                        items={[
+                            {
+                                label: 'Lecture seule',
+                                value: 'read-only',
+                                icon: PencilOffIcon,
+                            },
+                            {
+                                label: 'Lecture et écriture',
+                                value: 'read-write',
+                                icon: PencilIcon,
+                            },
+                        ]}
+                    />
+                </div>
                 <div className="flex items-center gap-2">
-                    <ModelSelector />
+                    <ModelSelector size={toolbarControlSize} />
                     <Select
                         optionsLabel="Effort de réflexion"
-                        defaultValue="default"
-                        position="item-aligned"
+                        value={effort}
+                        onValueChange={(value) =>
+                            setEffort(value as AgentEffort)
+                        }
+                        position={isCompact ? 'popper' : 'item-aligned'}
                         button
+                        size={toolbarControlSize}
                         tooltip={[
                             "Choisir l'effort de réflexion",
                             ['Ctrl', 'Shift', 'D'],
@@ -338,7 +421,7 @@ export default function PromptInput({
                             },
                             {
                                 label: 'Élevé',
-                                value: 'read-write',
+                                value: 'high',
                                 icon: BrainCircuitIcon,
                             },
                         ]}

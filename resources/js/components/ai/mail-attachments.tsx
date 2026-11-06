@@ -1,35 +1,15 @@
 import { useHttp } from '@inertiajs/react';
-import type { LucideIcon } from 'lucide-react';
-import {
-    CalendarClockIcon,
-    FileArchiveIcon,
-    FileCodeIcon,
-    FileIcon,
-    FileImageIcon,
-    FileJsonIcon,
-    FileSpreadsheetIcon,
-    FileTextIcon,
-    FileWarningIcon,
-    HardDriveIcon,
-    PaperclipIcon,
-    TriangleAlertIcon,
-} from 'lucide-react';
+import { PaperclipIcon, TriangleAlertIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { formatBytes } from '@/components/ai/artifacts/format';
-import { Badge } from '@/components/reui/badge';
+import type { DescribedFile } from '@/components/ai/file-row';
+import FileRow from '@/components/ai/file-row';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import MailFormController from '@/wayfinder/actions/App/Http/Controllers/Chat/MailFormController';
 
-export type MailAttachmentFile = {
-    path: string;
-    name: string;
-    extension: string;
-    size: number | null;
-    modified_at: string | null;
-    error: string | null;
-};
+export type MailAttachmentFile = DescribedFile;
 
 type Props = {
     conversationId: string;
@@ -46,48 +26,6 @@ type Props = {
     error?: string;
 };
 
-type FileKind = {
-    label: string;
-    icon: LucideIcon;
-    className: string;
-};
-
-const ARCHIVE: Omit<FileKind, 'label'> = { icon: FileArchiveIcon, className: 'bg-amber-500/10 text-amber-600' };
-
-const FILE_KINDS: Record<string, FileKind> = {
-    zip: { label: 'Archive ZIP', ...ARCHIVE },
-    tar: { label: 'Archive TAR', ...ARCHIVE },
-    'tar.gz': { label: 'Archive TAR.GZ', ...ARCHIVE },
-    gz: { label: 'Archive GZIP', ...ARCHIVE },
-    'sql.gz': { label: 'Dump SQL compressé', ...ARCHIVE },
-    'csv.gz': { label: 'CSV compressé', ...ARCHIVE },
-    sql: { label: 'Dump SQL', icon: FileCodeIcon, className: 'bg-sky-500/10 text-sky-600' },
-    csv: { label: 'Tableur CSV', icon: FileSpreadsheetIcon, className: 'bg-emerald-500/10 text-emerald-600' },
-    xlsx: { label: 'Classeur Excel', icon: FileSpreadsheetIcon, className: 'bg-emerald-500/10 text-emerald-600' },
-    json: { label: 'JSON', icon: FileJsonIcon, className: 'bg-violet-500/10 text-violet-600' },
-    pdf: { label: 'Document PDF', icon: FileTextIcon, className: 'bg-red-500/10 text-red-600' },
-    txt: { label: 'Texte', icon: FileTextIcon, className: 'bg-slate-500/10 text-slate-600' },
-    md: { label: 'Markdown', icon: FileTextIcon, className: 'bg-slate-500/10 text-slate-600' },
-    png: { label: 'Image PNG', icon: FileImageIcon, className: 'bg-pink-500/10 text-pink-600' },
-    jpg: { label: 'Image JPEG', icon: FileImageIcon, className: 'bg-pink-500/10 text-pink-600' },
-    jpeg: { label: 'Image JPEG', icon: FileImageIcon, className: 'bg-pink-500/10 text-pink-600' },
-};
-
-const fileKind = (file: MailAttachmentFile): FileKind => {
-    if (file.error) {
-        return { label: 'Indisponible', icon: FileWarningIcon, className: 'bg-destructive/10 text-destructive' };
-    }
-
-    return FILE_KINDS[file.extension] ?? {
-        label: file.extension ? `Fichier .${file.extension}` : 'Fichier',
-        icon: FileIcon,
-        className: 'bg-muted text-muted-foreground',
-    };
-};
-
-const formatDate = (value: string): string =>
-    new Date(value).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
-
 const AttachmentRow = ({
     file,
     enabled,
@@ -97,56 +35,23 @@ const AttachmentRow = ({
     enabled: boolean;
     onToggle: (enabled: boolean) => void;
 }) => {
-    const kind = fileKind(file);
     const id = `attachment-${file.path}`;
 
     return (
-        <div
-            className={cn(
-                'flex items-center gap-3 rounded-md border p-3 transition-opacity',
-                !enabled && 'opacity-60',
-                file.error && 'border-destructive/40',
-            )}
-        >
-            <div className={cn('flex size-10 shrink-0 items-center justify-center rounded-md', kind.className)}>
-                <kind.icon className="size-5" />
-            </div>
-
-            <label htmlFor={id} className="flex min-w-0 flex-1 cursor-pointer flex-col gap-1">
-                <span className={cn('truncate text-sm font-medium', !enabled && 'line-through')}>{file.name}</span>
-                {file.error ? (
-                    <span className="flex items-center gap-1 text-xs text-destructive">
-                        <TriangleAlertIcon className="size-3.5 shrink-0" />
-                        {file.error}
-                    </span>
-                ) : (
-                    <span className="flex flex-wrap items-center gap-1.5">
-                        <Badge variant="secondary" size="sm">{kind.label}</Badge>
-                        {file.size !== null && (
-                            <Badge variant="outline" size="sm">
-                                <HardDriveIcon />
-                                {formatBytes(file.size)}
-                            </Badge>
-                        )}
-                        {file.modified_at && (
-                            <Badge variant="outline" size="sm">
-                                <CalendarClockIcon />
-                                {formatDate(file.modified_at)}
-                            </Badge>
-                        )}
-                        <span className="truncate font-mono text-[0.7rem] text-muted-foreground">{file.path}</span>
-                    </span>
-                )}
-            </label>
-
-            <Switch
-                id={id}
-                checked={enabled}
-                disabled={file.error !== null}
-                onCheckedChange={onToggle}
-                aria-label={enabled ? `Ne pas joindre ${file.name}` : `Joindre ${file.name}`}
-            />
-        </div>
+        <FileRow
+            file={file}
+            inactive={!enabled}
+            labelFor={id}
+            action={
+                <Switch
+                    id={id}
+                    checked={enabled}
+                    disabled={file.error !== null}
+                    onCheckedChange={onToggle}
+                    aria-label={enabled ? `Ne pas joindre ${file.name}` : `Joindre ${file.name}`}
+                />
+            }
+        />
     );
 };
 

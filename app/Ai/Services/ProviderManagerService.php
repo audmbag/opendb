@@ -3,6 +3,7 @@
 namespace App\Ai\Services;
 
 use App\Ai\Data\AiModel;
+use App\Models\Provider;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Str;
@@ -20,6 +21,14 @@ readonly class ProviderManagerService
         private ?string $api_url = null
     ) {
         $this->setConfig();
+    }
+
+    /**
+     * Use the credentials stored for the provider. Without a stored URL, the SDK uses the default one of the provider.
+     */
+    public static function for(Provider $provider): self
+    {
+        return new self($provider->id, $provider->api_key, $provider->api_url);
     }
 
     private function setConfig(): void
@@ -54,7 +63,7 @@ readonly class ProviderManagerService
         });
     }
 
-    public static function generateConversationTitle(string $prompt): string
+    public function generateConversationTitle(string $prompt, string $model): string
     {
         try {
             $instructions = 'Generate a concise 3-5 word title for a conversation that starts with the given message. Use the same language as the message. Respond with only the title, no quotes or punctuation.';
@@ -64,7 +73,7 @@ readonly class ProviderManagerService
                 ___
                 {$prompt}
                 ___
-            PROMPT);
+            PROMPT, provider: $this->provider, model: $model);
 
             return Str::limit($response->text, 100);
 

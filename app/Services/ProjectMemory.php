@@ -72,6 +72,39 @@ class ProjectMemory
     }
 
     /**
+     * Les entrées de la mémoire, avec la date à laquelle chacune a été écrite (null pour une entrée écrite à la main dans le fichier).
+     *
+     * @return list<array{date: ?string, note: string}>
+     */
+    public function notes(): array
+    {
+        return array_map(function (string $entry): array {
+            preg_match('/^-\s*(?:\[(\d{4}-\d{2}-\d{2})\]\s*)?(.*)$/s', $entry, $matches);
+
+            return ['date' => ($matches[1] ?? '') ?: null, 'note' => trim($matches[2] ?? $entry)];
+        }, $this->entries());
+    }
+
+    /**
+     * Remplace toutes les entrées de la mémoire, dans l'ordre donné. Une entrée sans date prend celle du jour.
+     *
+     * @param  list<array{date?: ?string, note: string}>  $notes
+     *
+     * @throws RuntimeException si les entrées dépassent la taille de la mémoire
+     */
+    public function sync(array $notes): void
+    {
+        if (count($notes) > self::MAX_ENTRIES) {
+            throw new RuntimeException('La mémoire ne peut pas contenir plus de '.self::MAX_ENTRIES.' entrées.');
+        }
+
+        $this->write(fn (): array => array_map(
+            fn (array $note): string => $this->formatEntry($note['note'], $note['date'] ?? null),
+            $notes,
+        ));
+    }
+
+    /**
      * Supprime le dossier de mémoire du projet.
      */
     public function delete(): void
@@ -137,8 +170,8 @@ class ProjectMemory
         };
     }
 
-    protected function formatEntry(string $note): string
+    protected function formatEntry(string $note, ?string $date = null): string
     {
-        return '- ['.now()->toDateString().'] '.Str::squish($note);
+        return '- ['.($date ?? now()->toDateString()).'] '.Str::squish($note);
     }
 }

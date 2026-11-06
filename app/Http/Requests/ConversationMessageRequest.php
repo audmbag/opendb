@@ -2,12 +2,17 @@
 
 namespace App\Http\Requests;
 
+use App\Ai\Enums\AgentAccessModeEnum;
+use App\Ai\Enums\AgentEffortEnum;
+use App\Http\Requests\Concerns\SelectsAiModel;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class ConversationMessageRequest extends FormRequest
 {
+    use SelectsAiModel;
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -30,6 +35,22 @@ class ConversationMessageRequest extends FormRequest
             'messages.*.id' => ['required', 'string'],
             'messages.*.role' => ['required', Rule::in(['system', 'user', 'assistant'])],
             'messages.*.parts' => ['present', 'array'],
+            'access_mode' => ['sometimes', Rule::enum(AgentAccessModeEnum::class)],
+            'effort' => ['sometimes', Rule::enum(AgentEffortEnum::class)],
+            ...$this->aiModelRules(),
         ];
+    }
+
+    /**
+     * The tools of the agent stay read-only unless the request explicitly asks for writes.
+     */
+    public function accessMode(): AgentAccessModeEnum
+    {
+        return $this->enum('access_mode', AgentAccessModeEnum::class) ?? AgentAccessModeEnum::ReadOnly;
+    }
+
+    public function effort(): AgentEffortEnum
+    {
+        return $this->enum('effort', AgentEffortEnum::class) ?? AgentEffortEnum::Default;
     }
 }

@@ -1,7 +1,7 @@
+import { ScanTextIcon } from 'lucide-react';
 import { formatInteger, formatPercent, formatValue } from '@/components/ai/artifacts/table-profile/format';
 import type { DerivedColumn } from '@/components/ai/artifacts/table-profile/format';
 import { EmptyState } from '@/components/empty-state';
-import { ScanTextIcon } from 'lucide-react';
 
 type Props = {
     column: DerivedColumn;

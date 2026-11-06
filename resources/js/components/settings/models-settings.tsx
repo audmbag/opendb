@@ -1,7 +1,4 @@
-import {
-    CpuIcon,
-    LoaderIcon,
-} from 'lucide-react';
+import { CpuIcon, LoaderIcon } from 'lucide-react';
 import { Fragment, useCallback, useEffect } from 'react';
 import ConnectProviderModal from '@/components/modals/connect-provider-modal';
 import { EmptyState } from '@/components/empty-state';
@@ -12,71 +9,68 @@ import type { Provider } from '@/types/models/provider';
 import CardFrame from '../card-frame';
 import { Separator } from '../ui/separator';
 
-
 const ProviderWrapper = ({
-        processing,
-        providers,
-        onConnect,
-        onDisconnect,
-        connected = false,
-        disconnectingId,
-    }: {
-        processing: boolean;
-        providers: Provider[];
-        onConnect: (provider?: Provider) => void;
-        onDisconnect: (provider: Provider) => void;
-        connected?: boolean;
-        disconnectingId?: string;
-    }) => {
-        return (
-            <CardFrame
-                title={connected ? 'Fournisseurs connectés' : 'Fournisseurs'}
-                description={
-                    connected
-                        ? undefined
-                        : "Connecter un des fournisseurs par défaut ou ajouter un fournisseur personalisé compatible avec OpenAI via l'URL de base."
-                }
-                innerPadding={false}
-            >
-                {processing ? (
-                    <div className="flex justify-center py-4">
-                        <LoaderIcon className="animate-spin" />
-                    </div>
-                ) : (
-                    <>
-                        {!connected && (
-                            <>
-                                <ProviderItem onConnect={() => onConnect()} />
-                                <Separator />
-                            </>
-                        )}
-                        {providers.map((provider, index) => (
-                            <Fragment key={provider.id}>
-                                <ProviderItem
-                                    provider={provider}
-                                    onConnect={() => onConnect(provider)}
-                                    onDisconnect={() => onDisconnect(provider)}
-                                    disconnectedProcessing={
-                                        disconnectingId === provider.id
-                                    }
-                                />
-                                {index !== providers.length - 1 && (
-                                    <Separator />
-                                )}
-                            </Fragment>
-                        ))}
-                        {providers.length === 0 && !processing && (
-                            <EmptyState
-                                icon={CpuIcon}
-                                title="Aucun fournisseur connecté"
-                                description="Connecter un fournisseur et activer ses modèles pour les utiliser dans OpenDB"
+    processing,
+    providers,
+    onConnect,
+    onDisconnect,
+    connected = false,
+    disconnectingId,
+}: {
+    processing: boolean;
+    providers: Provider[];
+    onConnect: (provider?: Provider) => void;
+    onDisconnect: (provider: Provider) => void;
+    connected?: boolean;
+    disconnectingId?: string;
+}) => {
+    return (
+        <CardFrame
+            title={connected ? 'Fournisseurs connectés' : 'Fournisseurs'}
+            description={
+                connected
+                    ? undefined
+                    : "Connecter un des fournisseurs par défaut ou ajouter un fournisseur personalisé compatible avec OpenAI via l'URL de base."
+            }
+            innerPadding={false}
+        >
+            {processing ? (
+                <div className="flex justify-center py-4">
+                    <LoaderIcon className="animate-spin" />
+                </div>
+            ) : (
+                <>
+                    {!connected && (
+                        <>
+                            <ProviderItem onConnect={() => onConnect()} />
+                            <Separator />
+                        </>
+                    )}
+                    {providers.map((provider, index) => (
+                        <Fragment key={provider.id}>
+                            <ProviderItem
+                                provider={provider}
+                                onConnect={() => onConnect(provider)}
+                                onDisconnect={() => onDisconnect(provider)}
+                                disconnectedProcessing={
+                                    disconnectingId === provider.id
+                                }
                             />
-                        )}
-                    </>
-                )}
-            </CardFrame>
-        );
-}
+                            {index !== providers.length - 1 && <Separator />}
+                        </Fragment>
+                    ))}
+                    {providers.length === 0 && !processing && (
+                        <EmptyState
+                            icon={CpuIcon}
+                            title="Aucun fournisseur connecté"
+                            description="Connecter un fournisseur et activer ses modèles pour les utiliser dans OpenDB"
+                        />
+                    )}
+                </>
+            )}
+        </CardFrame>
+    );
+};
 
 export default function ModelsSettings() {
     const {

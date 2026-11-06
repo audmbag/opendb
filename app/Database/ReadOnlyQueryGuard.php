@@ -65,8 +65,31 @@ class ReadOnlyQueryGuard
 
         static::assertSingleSafeStatement($sql);
 
-        if (str_contains($sql, ';')) {
-            throw new RuntimeException('Requête rejetée : les requêtes multiples (empilage de statements) ne sont pas autorisées.');
+        return $sql;
+    }
+
+    /**
+     * Ensure the query is a single SELECT whose plan can be computed without running it, and return it without the EXPLAIN keyword it may start with.
+     *
+     * @throws RuntimeException when the query is not a single SELECT, asks for EXPLAIN ANALYZE, writes its rows somewhere or locks them.
+     */
+    public static function assertExplainable(string $sql): string
+    {
+        $sql = (string) preg_replace('/^(?:\s+|--[^\n]*(?:\n|$)|\/\*.*?\*\/)+/s', '', $sql);
+
+        if (preg_match('/^EXPLAIN\s+(?:\([^)]*\bANALY[SZ]E\b|ANALY[SZ]E\b)/i', $sql)) {
+            throw new RuntimeException('Requête rejetée : EXPLAIN ANALYZE exécute la requête, seul le plan estimé peut être calculé.');
+        }
+
+        $sql = (string) preg_replace('/^EXPLAIN\s+(?:QUERY\s+PLAN\s+|FORMAT\s*=\s*\w+\s+|\([^)]*\)\s*|EXTENDED\s+|PARTITIONS\s+)*/i', '', $sql);
+        $sql = static::assertSelect($sql);
+
+        if (preg_match('/\bINTO\b/i', $sql)) {
+            throw new RuntimeException('Requête rejetée : SELECT … INTO écrit le résultat ailleurs et ne peut pas être analysé.');
+        }
+
+        if (preg_match('/\bFOR\s+(?:UPDATE|SHARE|NO\s+KEY\s+UPDATE|KEY\s+SHARE)\b|\bLOCK\s+IN\s+SHARE\s+MODE\b/i', $sql)) {
+            throw new RuntimeException('Requête rejetée : une requête qui verrouille des lignes (FOR UPDATE, FOR SHARE) ne peut pas être analysée.');
         }
 
         return $sql;
@@ -82,15 +105,13 @@ class ReadOnlyQueryGuard
             }
         }
 
-        if (substr_count($sql, ';') > 1) {
-            throw new RuntimeException(
-                'Requête rejetée : les requêtes multiples (empilage de statements) ne sont pas autorisées.'
-            );
-        }
+        StackedStatementGuard::assertSingleStatement($sql);
     }
 
     private static function assertSafePragma(string $sql): void
     {
+        StackedStatementGuard::assertSingleStatement($sql);
+
         if (Str::contains($sql, '=')) {
             throw new RuntimeException(
                 "Requête rejetée : les PRAGMA de configuration (avec '=') ne sont pas autorisés en lecture seule."

@@ -23,6 +23,12 @@ class Project extends Model
     /** @use HasFactory<ProjectFactory> */
     use HasFactory, HasUlids;
 
+    /**
+     * The folder of the project directory where opendb writes its own files (SQL scripts, exports), so that they
+     * stay out of the files of the user.
+     */
+    public const string WORKSPACE_DIRECTORY = '.opendb';
+
     protected function casts(): array
     {
         return [
@@ -49,6 +55,14 @@ class Project extends Model
     public function conversation(): HasMany
     {
         return $this->hasMany(Conversation::class);
+    }
+
+    /**
+     * The absolute path of a folder of opendb in the project directory, like `.opendb/sql`.
+     */
+    public function workspacePath(string $directory): string
+    {
+        return rtrim((string) $this->path, '/\\').DIRECTORY_SEPARATOR.self::WORKSPACE_DIRECTORY.DIRECTORY_SEPARATOR.$directory;
     }
 
     public function getCreatedAtDiffForHumansAttribute(): string

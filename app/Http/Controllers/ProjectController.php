@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Database\Drivers\BaseDriver;
 use App\Database\Exceptions\DatabaseCheckException;
 use App\Http\Requests\DriverConfigRequest;
 use App\Http\Requests\Project\CloningLogsRequest;
+use App\Http\Requests\Project\ProjectDeletionRequest;
 use App\Http\Requests\Project\ProjectInfoRequest;
 use App\Http\Requests\Project\SaveWithCloningRequest;
 use App\Http\Requests\Project\SaveWithDisabledTablesRequest;
@@ -14,11 +14,14 @@ use App\Repository\ProjectRepository;
 use App\Services\Cloning\CloningManager;
 use App\Services\Cloning\CloningResult;
 use App\Services\Cloning\Exception\CloningException;
+use App\Services\FileExplorerService;
 use App\Services\SystemInfoService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 
 class ProjectController extends Controller
 {
@@ -31,19 +34,7 @@ class ProjectController extends Controller
 
     public function storeDriverConfig(Project $project, DriverConfigRequest $request, ProjectRepository $projectRepository): JsonResponse
     {
-        $data = $request->validated();
-
-        $driver = BaseDriver::for($data);
-
-        try {
-            if ($driver->shouldCreateDatabase()) {
-                $driver->createDatabaseIfNotExists();
-            } else {
-                $driver->testConnection();
-            }
-        } catch (Exception $e) {
-            throw ValidationException::withMessages(['connectionFailed' => $e->getMessage()]);
-        }
+        $request->connectedDriver();
 
         return response()->json([
             'driverConfig' => $projectRepository
@@ -98,6 +89,20 @@ class ProjectController extends Controller
         return response()->json(CloningResult::for($file)->toArray());
     }
 
+    /**
+     * Ouvre le dossier du projet dans l'explorateur de fichiers de la machine.
+     */
+    public function openFolder(Project $project, FileExplorerService $fileExplorer): Response
+    {
+        try {
+            $fileExplorer->openInSystemExplorer((string) $project->path);
+        } catch (RuntimeException $e) {
+            throw ValidationException::withMessages(['folder' => $e->getMessage()]);
+        }
+
+        return response()->noContent();
+    }
+
     public function update(Project $project, ProjectInfoRequest $request, ProjectRepository $projectRepository): RedirectResponse
     {
         $data = $request->validated();
@@ -107,7 +112,7 @@ class ProjectController extends Controller
         return back();
     }
 
-    public function delete(Project $project, ProjectRepository $projectRepository): RedirectResponse
+    public function delete(Project $project, ProjectDeletionRequest $request, ProjectRepository $projectRepository): RedirectResponse
     {
         $projectRepository->delete($project);
 

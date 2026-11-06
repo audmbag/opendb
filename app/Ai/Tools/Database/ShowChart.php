@@ -23,9 +23,7 @@ class ShowChart extends BaseTool implements Tool
     public function description(): Stringable|string
     {
         return 'Affiche un graphique (barres, lignes, aires ou camembert) dans l\'interface, sous forme d\'artefact, à '
-            .'partir d\'une requête SELECT d\'agrégation. Ce tool ne te renvoie pas les données : il sert uniquement au '
-            .'rendu. Utilise-le quand l\'utilisateur demande un graphique, une courbe, une évolution ou une répartition '
-            .'(ex. "graphique des ventes par mois", "répartition des commandes par statut"). '
+            .'partir d\'une requête SELECT d\'agrégation. Ce tool ne te renvoie pas les données. '
             .'La requête doit renvoyer une colonne d\'abscisse `xColumn` (libellé, date ou catégorie) et une ou '
             .'plusieurs colonnes numériques `yColumns`, triées dans l\'ordre d\'affichage (ORDER BY), avec au plus '
             .self::MAX_POINTS.' lignes. `chartType` : line/area pour une évolution dans le temps, bar pour comparer des '

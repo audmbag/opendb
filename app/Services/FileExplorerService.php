@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Enums\OperatingSystemEnum;
+use Illuminate\Support\Facades\Process;
 use RuntimeException;
 
 class FileExplorerService
@@ -42,6 +44,37 @@ class FileExplorerService
             'type' => 'folder',
             'children' => $this->getChildren($realPath, $depth, blank($reveal) ? null : rtrim($reveal, DIRECTORY_SEPARATOR)),
         ];
+    }
+
+    /**
+     * Ouvre un dossier dans l'explorateur de fichiers de la machine (xdg-open, Finder ou l'Explorateur Windows).
+     *
+     * @param  string  $path  Chemin absolu du dossier à ouvrir
+     *
+     * @throws RuntimeException Si le dossier n'existe pas ou si l'explorateur n'a pas pu être lancé
+     */
+    public function openInSystemExplorer(string $path): void
+    {
+        $realPath = realpath($path);
+
+        if ($realPath === false || ! is_dir($realPath)) {
+            throw new RuntimeException("Le dossier [{$path}] n'existe pas ou n'est pas accessible.");
+        }
+
+        $os = $this->systemInfo->os();
+
+        $command = match ($os) {
+            OperatingSystemEnum::LINUX => 'xdg-open',
+            OperatingSystemEnum::MAC => 'open',
+            OperatingSystemEnum::WINDOWS => 'explorer',
+        };
+
+        $result = Process::timeout(15)->run([$command, $realPath]);
+
+        // L'Explorateur Windows renvoie un code de sortie non nul même quand il s'ouvre correctement.
+        if ($result->failed() && $os !== OperatingSystemEnum::WINDOWS) {
+            throw new RuntimeException("Impossible d'ouvrir le dossier [{$realPath}] : ".trim($result->errorOutput()));
+        }
     }
 
     protected function resolveAndAuthorize(string $path): string

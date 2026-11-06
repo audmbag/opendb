@@ -1,4 +1,11 @@
-import { ArchiveIcon, ChevronDownIcon, FileTextIcon, Loader2, PencilIcon, TrashIcon } from 'lucide-react';
+import {
+    ArchiveIcon,
+    ChevronDownIcon,
+    Loader2,
+    PencilIcon,
+    ShapesIcon,
+    TrashIcon,
+} from 'lucide-react';
 import { useCallback, useState } from 'react';
 import Conversation from '@/components/ai/conversation';
 import DropdownMenu from '@/components/dropdown-menu';
@@ -10,11 +17,12 @@ import {
     EditableInput, EditablePreview,
 } from '@/components/ui/editable';
 import { SidebarTrigger } from '@/components/ui/sidebar';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useChatLayout } from '@/hooks/use-chat-layout';
 import { useConversation } from '@/hooks/use-conversation';
+import { useConversationTitle } from '@/hooks/use-conversation-title';
 import AppLayout from '@/layouts/app';
 import ChatLayout from '@/layouts/chat-layout';
-import { useConversationStore } from '@/store/use-conversation-store';
 
 const ChatDiscussion = () => {
 
@@ -24,9 +32,22 @@ const ChatDiscussion = () => {
 
     const [isEditingTitle, setIsEditingTitle] = useState(false);
 
-    const [title, setTitle] = useState(conversation.title);
+    /**
+     * Null while the queue generates the title of a conversation just started.
+     */
+    const generatedTitle = useConversationTitle(conversation);
 
-    const conversations = useConversationStore((state) => state.conversations)
+    const [title, setTitle] = useState(generatedTitle ?? '');
+
+    const [shownTitle, setShownTitle] = useState(generatedTitle);
+
+    if (generatedTitle !== shownTitle) {
+        setShownTitle(generatedTitle);
+
+        if (generatedTitle && !isEditingTitle) {
+            setTitle(generatedTitle);
+        }
+    }
 
     const handleEditTitle = useCallback(
         (value: string) => {
@@ -37,17 +58,23 @@ const ChatDiscussion = () => {
             }
 
             update(conversation, { title: value }, () => {
-                setTitle(conversation.title);
+                setTitle(generatedTitle ?? '');
             });
         },
-        [conversation, conversations],
+        [conversation, title, generatedTitle, update],
     );
 
     return (
         <>
-            <div className="flex justify-between pl-4 py-2 pr-6 absolute top-0 left-0 w-full z-10 bg-background/5 backdrop-blur-xs">
+            <div className="absolute top-0 left-0 z-10 flex w-full justify-between bg-background/5 py-2 pr-6 pl-4 backdrop-blur-xs">
                 <div className="flex items-center gap-2">
                     <SidebarTrigger className="md:hidden" />
+                    {generatedTitle === null ? (
+                        <Skeleton
+                            className="h-5 w-48"
+                            aria-label="Génération du titre"
+                        />
+                    ) : (
                     <Editable
                         value={title}
                         onValueChange={setTitle}
@@ -66,8 +93,9 @@ const ChatDiscussion = () => {
                             />
                         </EditableArea>
                     </Editable>
+                    )}
 
-                    {!isEditingTitle && (
+                    {!isEditingTitle && generatedTitle !== null && (
                         <DropdownMenu
                             items={[
                                 {
@@ -99,13 +127,13 @@ const ChatDiscussion = () => {
                     {processing && <Loader2 className="size-4 animate-spin" />}
                 </div>
                 <Button
-                    icon={FileTextIcon}
+                    icon={ShapesIcon}
                     variant="secondary"
                     size="icon-sm"
                     tooltip={
                         dataPreviewOpen
-                            ? 'Masquer les données'
-                            : 'Afficher les données'
+                            ? 'Masquer les artefacts'
+                            : 'Afficher les artefacts'
                     }
                     onClick={toggleDataPreview}
                 />

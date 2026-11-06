@@ -6,7 +6,6 @@ import { Fragment, useCallback } from 'react';
 import DropdownMenu from '@/components/dropdown-menu';
 import type { DropdownMenuItemType } from '@/components/dropdown-menu';
 import Button from '@/components/form/button';
-import Tooltip from '@/components/tooltip';
 import {
     Editable,
     EditableArea,
@@ -20,6 +19,7 @@ import {
     SidebarMenuItem as UISidebarMenuItem,
     useSidebar,
 } from '@/components/ui/sidebar';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn, limit } from '@/lib/utils';
 
 export type SidebarMenuItemType = {
@@ -38,6 +38,10 @@ export type SidebarMenuItemType = {
     editing?: boolean;
     onSubmitEditing?: (value: string) => void;
     onCancelEditing?: () => void;
+    /**
+     * Shows a placeholder instead of the label while it is not known yet, like the title being generated.
+     */
+    loading?: boolean;
 };
 
 /**
@@ -63,6 +67,8 @@ export const SidebarMenuItem = ({
     editing,
     onSubmitEditing,
     onCancelEditing,
+    loading = false,
+    onClick,
     ...pros
 }: SidebarMenuItemType & React.ComponentProps<typeof Fragment>) => {
     const { open } = useSidebar();
@@ -83,6 +89,27 @@ export const SidebarMenuItem = ({
             onSubmitEditing?.(value);
         },
         [label, onCancelEditing, onSubmitEditing],
+    );
+
+    const content = (
+        <>
+            {Icon && <Icon />}
+            {loading ? (
+                <Skeleton className="h-3.5 w-full max-w-36" />
+            ) : (
+                <span>{limit(label, 20)}</span>
+            )}
+            {external && <ExternalLinkIcon className="ml-auto" />}
+            {shortcut && (
+                <KbdGroup className="ml-auto">
+                    {shortcut.map((key) => (
+                        <Kbd key={key} className="ml-auto">
+                            {key}
+                        </Kbd>
+                    ))}
+                </KbdGroup>
+            )}
+        </>
     );
 
     return (
@@ -119,29 +146,17 @@ export const SidebarMenuItem = ({
                                         />
                                     </EditableArea>
                                 </Editable>
+                            ) : onClick && !href ? (
+                                <button type="button" onClick={onClick}>
+                                    {content}
+                                </button>
                             ) : (
                                 <Link
                                     href={href}
                                     target={external ? '_blank' : undefined}
                                     viewTransition={viewTransition}
                                 >
-                                    {Icon && <Icon />}
-                                    <span>{limit(label, 20)}</span>
-                                    {external && (
-                                        <ExternalLinkIcon className="ml-auto" />
-                                    )}
-                                    {shortcut && (
-                                        <KbdGroup className="ml-auto">
-                                            {shortcut.map((key) => (
-                                                <Kbd
-                                                    key={key}
-                                                    className="ml-auto"
-                                                >
-                                                    {key}
-                                                </Kbd>
-                                            ))}
-                                        </KbdGroup>
-                                    )}
+                                    {content}
                                     {options.length > 0 && (
                                         <DropdownMenu items={options}>
                                             <Button

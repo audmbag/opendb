@@ -9,11 +9,8 @@ import {
     Table2Icon,
 } from 'lucide-react';
 import * as React from 'react';
-import type {
-    SidebarMenuItemType} from '@/components/sidebar-menu-item';
-import {
-    SidebarMenuItem
-} from '@/components/sidebar-menu-item';
+import type { SidebarMenuItemType } from '@/components/sidebar-menu-item';
+import { SidebarMenuItem } from '@/components/sidebar-menu-item';
 import { SidebarUser } from '@/components/sidebar-user';
 import {
     Sidebar,
@@ -28,15 +25,21 @@ import {
     SidebarTrigger,
     useSidebar,
 } from '@/components/ui/sidebar';
+import { useProjectSettingsDialog } from '@/hooks/use-project-settings-modal';
 import { cn, limit } from '@/lib/utils';
 import type { Project } from '@/types/models/project';
 import ConversationController from '@/wayfinder/actions/App/Http/Controllers/ConversationController';
+import SqlEditorController from '@/wayfinder/actions/App/Http/Controllers/SqlEditor/SqlEditorController';
+import TableBrowserController from '@/wayfinder/actions/App/Http/Controllers/Tables/TableBrowserController';
 
 const getMenuItems = (
     project: Project,
     currentUrl: string,
+    openProjectSettings: () => void,
 ): SidebarMenuItemType[] => {
     const chatUrl = ConversationController.home(project.id).url;
+    const tablesUrl = TableBrowserController.index.url({ project: project.id });
+    const sqlEditorUrl = SqlEditorController.index.url({ project: project.id });
 
     return [
         {
@@ -56,10 +59,16 @@ const getMenuItems = (
         {
             label: 'Tables',
             icon: Table2Icon,
+            href: tablesUrl,
+            isActive:
+                currentUrl === tablesUrl ||
+                currentUrl.startsWith(`${tablesUrl}/`),
         },
         {
-            label: 'Editeur SQL',
+            label: 'Éditeur SQL',
             icon: Code2Icon,
+            href: sqlEditorUrl,
+            isActive: currentUrl === sqlEditorUrl,
         },
         {
             label: 'Schéma ERD',
@@ -69,6 +78,7 @@ const getMenuItems = (
         {
             label: 'Paramètres du projet',
             icon: FolderCogIcon,
+            onClick: openProjectSettings,
         },
     ];
 };
@@ -134,9 +144,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         props: { project },
     } = usePage<{ project: Project }>();
 
+    const { open: openProjectSettings } = useProjectSettingsDialog();
+
     const menuItems = React.useMemo(
-        () => getMenuItems(project, url.split('?')[0]),
-        [project, url],
+        () =>
+            getMenuItems(project, url.split('?')[0], () =>
+                openProjectSettings(),
+            ),
+        [openProjectSettings, project, url],
     );
 
     return (

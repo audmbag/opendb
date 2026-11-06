@@ -2,13 +2,17 @@
 
 namespace App\Http\Requests;
 
+use App\Database\Contracts\DriverContract;
+use App\Database\Drivers\BaseDriver;
 use App\Database\Enums\DriverLabEnum;
 use App\Models\Driver;
 use Closure;
+use Exception;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\InputBag;
 
 class DriverConfigRequest extends FormRequest
@@ -46,6 +50,28 @@ class DriverConfigRequest extends FormRequest
     public function driverData(): array
     {
         return Arr::except($this->validated(), ['create_database_if_not_exists']);
+    }
+
+    /**
+     * Le driver des données de connexion, après avoir vérifié qu'il se connecte (ou créé la base si c'est demandé).
+     *
+     * @throws ValidationException si la connexion échoue
+     */
+    public function connectedDriver(): DriverContract
+    {
+        $driver = BaseDriver::for($this->validated());
+
+        try {
+            if ($driver->shouldCreateDatabase()) {
+                $driver->createDatabaseIfNotExists();
+            } else {
+                $driver->testConnection();
+            }
+        } catch (Exception $e) {
+            throw ValidationException::withMessages(['connectionFailed' => $e->getMessage()]);
+        }
+
+        return $driver;
     }
 
     /**

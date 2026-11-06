@@ -132,10 +132,19 @@ export type DriverConfigFormPayload = Pick<DriverConfigFormData, 'driver_id' | '
         create_database_if_not_exists?: true;
     };
 
+/**
+ * Where an existing connection is saved, instead of the step of the project creation.
+ */
+export type DriverConfigSubmitTarget = {
+    url: string;
+    method: 'post' | 'put';
+};
+
 type ProjectDriverConfigProps = Pick<ProjectInfoProps, 'onStart' | 'onFinish'> & {
     sshEnabled?: boolean;
     cloning?: boolean;
     createDatabaseIfNotExists?: boolean;
+    submitTo?: DriverConfigSubmitTarget;
 };
 
 const getConnectionDefaults = (
@@ -158,6 +167,7 @@ const useProjectDriverConfig = ({
     sshEnabled = true,
     cloning = false,
     createDatabaseIfNotExists = false,
+    submitTo,
 }: ProjectDriverConfigProps) => {
 
     const tempProject = useTempProjectStore((d) => d.tmpProject);
@@ -169,7 +179,7 @@ const useProjectDriverConfig = ({
 
     const { props: { project }, } = usePage<{ project: Project }>();
 
-    const { post, optimistic, errors } = useHttp<DriverConfigFormPayload | null, { driverConfig: DriverConfig }>(null);
+    const { post, put, optimistic, errors } = useHttp<DriverConfigFormPayload | null, { driverConfig: DriverConfig }>(null);
 
     const defaults = useMemo(() => {
         return { ...tempProject?.driver_config, ...cloningDriverConfig, ...project?.driver_config };
@@ -250,7 +260,7 @@ const useProjectDriverConfig = ({
             ssh: formData.ssh || null,
         };
 
-        if (tempProject?.driver_config?.id && !isDirtyObject(oldData, newData)) {
+        if (!submitTo && tempProject?.driver_config?.id && !isDirtyObject(oldData, newData)) {
             return Promise.resolve({
                 driverConfig: tempProject?.driver_config,
             });
@@ -258,8 +268,10 @@ const useProjectDriverConfig = ({
 
         optimistic(() => formData);
 
-        return await post(
-            ProjectController.storeDriverConfig(tempProject?.id || project?.id).url,
+        const send = submitTo?.method === 'put' ? put : post;
+
+        return await send(
+            submitTo?.url ?? ProjectController.storeDriverConfig(tempProject?.id || project?.id).url,
             {
                 onStart: onStart,
                 onFinish: onFinish,
@@ -277,7 +289,7 @@ const useProjectDriverConfig = ({
             },
         );
 
-    }, [getData, onFinish, onStart, optimistic, project?.id, tempProject?.driver_config, tempProject?.id]);
+    }, [getData, onFinish, onStart, optimistic, post, project?.id, put, submitTo, tempProject?.driver_config, tempProject?.id]);
 
     const handleTestConnection = useCallback(async () => {
         setTestConnectionState(CONNECTION_TEST_DEFAULT);
@@ -389,4 +401,31 @@ const useSaveProject = () => {
     };
 };
 
-export { useProjectInfo, useProjectDriverConfig, useSaveProject };
+const useOpenProjectFolder = (projectId?: Project['id']) => {
+    const { post, processing } = useHttp<object, null>({});
+
+    const openFolder = useCallback(() => {
+        if (!projectId) {
+            return;
+        }
+
+        post(ProjectController.openFolder.url(projectId), {
+            onError: () => {
+                toast.error("Impossible d'ouvrir le dossier du projet", {
+                    id: 'open-project-folder-error',
+                });
+            },
+            onHttpException: () => {
+                toast.error("Impossible d'ouvrir le dossier du projet", {
+                    id: 'open-project-folder-error',
+                });
+
+                return false;
+            },
+        }).catch(() => null);
+    }, [post, projectId]);
+
+    return { openFolder, processing };
+};
+
+export { useProjectInfo, useProjectDriverConfig, useSaveProject, useOpenProjectFolder };

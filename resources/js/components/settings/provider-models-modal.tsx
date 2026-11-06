@@ -1,9 +1,5 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import {
-    BrainIcon,
-    SearchIcon,
-    XIcon,
-} from 'lucide-react';
+import { BrainIcon, SearchIcon, XIcon } from 'lucide-react';
 import React, {
     useCallback,
     useDeferredValue,
@@ -56,18 +52,20 @@ const ProviderModelsContainer = ({ provider }: { provider: Provider }) => {
         }
     }, []);
 
+    const handleModelChangeStatus = useCallback(
+        (modelId: string, status: boolean) => {
+            setModels((mdls) => {
+                return mdls.map((model) => {
+                    if (model.id === modelId) {
+                        return { ...model, active: status };
+                    }
 
-    const handleModelChangeStatus = useCallback((modelId: string, status: boolean) => {
-        setModels(mdls => {
-            return mdls.map((model) => {
-                if (model.id === modelId) {
-                    return { ...model, active: status };
-                }
-
-                return model;
+                    return model;
+                });
             });
-        });
-    }, []);
+        },
+        [],
+    );
 
     return (
         <div className="flex flex-1 flex-col overflow-hidden">
@@ -127,7 +125,10 @@ const ProviderModelsContainer = ({ provider }: { provider: Provider }) => {
                                     model={model}
                                     providerId={provider.id}
                                     onToggle={(status) =>
-                                        handleModelChangeStatus(model.id, status)
+                                        handleModelChangeStatus(
+                                            model.id,
+                                            status,
+                                        )
                                     }
                                 />
                             </div>

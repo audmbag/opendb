@@ -40,13 +40,15 @@ type Props = {
     tooltip?: TooltipProps['value'];
     align?: React.ComponentProps<typeof UISelectContent>['align'];
     size?: ButtonProps['size'];
+    variant?: ButtonProps['variant'];
     position?: React.ComponentProps<typeof UISelectContent>['position'];
 } & React.ComponentProps<typeof UISelect> &
     Omit<React.ComponentProps<typeof NativeSelect>, 'size'>;
 
 
 
-const SelectContent = ({ label, items, button = false, native = false, tooltip, align = "center", size = 'sm', position = 'popper', onValueChange, ...props }: Props) => {
+
+const SelectContent = ({ label, items, button = false, native = false, tooltip, align = "center", size = 'sm', variant = 'secondary', position = 'popper', onValueChange, ...props }: Props) => {
     if (native) {
         return (
             <Tooltip value={tooltip}>
@@ -78,9 +80,12 @@ const SelectContent = ({ label, items, button = false, native = false, tooltip, 
         <UISelect {...props} onValueChange={onValueChange}>
             <Tooltip value={tooltip}>
                 <SelectTrigger
+                    size={size === 'xs' ? 'xs' : undefined}
+                    data-variant={button ? variant : undefined}
                     className={cn(
                         'w-full [&_.description]:hidden!',
-                        button && buttonVariants({ variant: 'ghost', size }),
+                        button && buttonVariants({ variant, size }),
+                        size === 'xs' && '[&>svg:last-child]:size-3 [&_svg]:size-3',
                         button && 'justify-between shadow-none',
                         {
                             'bg-transparent! border-0!': !button,
@@ -146,7 +151,12 @@ export default function Select({
                 </FieldLabel>
             )}
 
-            <InputGroup>
+            <InputGroup
+                className={cn({
+                    'h-6': props.size === 'xs',
+                    'border-0 bg-transparent shadow-none dark:bg-transparent': props.button,
+                })}
+            >
                 {Icon && !error && (
                     <InputGroupAddon>
                         <Icon className={'size-4'} />

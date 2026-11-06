@@ -18,17 +18,8 @@ class ShowSchemaDiagram extends BaseTool implements Tool
     public function description(): Stringable|string
     {
         return 'Affiche un diagramme visuel du schéma de la base de données dans l\'interface, sous forme '
-            .'d\'artefact. Ce tool ne renvoie AUCUNE donnée à analyser en profondeur : il sert '
-            .'uniquement à déclencher un rendu graphique pour l\'utilisateur, jamais à comprendre ou '
-            .'décrire la structure de la base toi-même (utilise ListTables, FocusTable ou DatabaseSchema '
-            .'pour ça). Utilise ce tool uniquement quand l\'utilisateur demande explicitement à VOIR un '
-            .'diagramme, un schéma visuel ou une représentation graphique (ex. "affiche-moi le diagramme '
-            .'de la base", "montre-moi le schéma visuel de la table users"). '
-            .'Le paramètre `focusedTable` est un objet nullable : laisse-le à null pour afficher le '
-            .'diagramme complet de la base, ou renseigne-le pour centrer le diagramme sur une seule table. '
-            .'`focusedTable.tableName` (obligatoire si focusedTable est renseigné) est le nom exact de la '
-            .'table cible. `focusedTable.withRelatedTables` (booléen) indique si les tables liées par clé '
-            .'étrangère (entrante ou sortante) doivent aussi apparaître dans le diagramme.';
+            .'d\'artefact. Ce tool ne renvoie AUCUNE donnée à analyser : utilise-le uniquement quand '
+            .'l\'utilisateur demande explicitement à VOIR un diagramme ou un schéma visuel.';
     }
 
     public function handle(Request $request): Stringable|string

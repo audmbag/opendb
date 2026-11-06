@@ -3,6 +3,7 @@
 namespace App\Ai\Agents;
 
 use App\Ai\Enums\AgentAccessModeEnum;
+use App\Ai\Enums\AgentEffortEnum;
 use App\Ai\Middleware\LogAgentActivity;
 use App\Ai\Tools\Database\CreateRecord;
 use App\Ai\Tools\Database\DatabaseSchema;
@@ -29,24 +30,25 @@ use App\Repository\MailRecipientRepository;
 use App\Services\Exporter\ExporterManager;
 use App\Services\Mailer\MailerManager;
 use App\Services\ProjectMemory;
-use Laravel\Ai\Attributes\MaxSteps;
-use Laravel\Ai\Attributes\Model;
+use App\Services\QueryPlan\QueryPlanManager;
+use Laravel\Ai\Attributes\CacheInstructions;
+use Laravel\Ai\Attributes\CacheToolDefinitions;
 use Laravel\Ai\Concerns\RemembersConversations;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\Conversational;
 use Laravel\Ai\Contracts\HasMiddleware;
+use Laravel\Ai\Contracts\HasProviderOptions;
 use Laravel\Ai\Contracts\HasTools;
+use Laravel\Ai\Enums\Lab;
 use Laravel\Ai\Promptable;
 use Laravel\Ai\Tools\FileStorage;
 use Laravel\Ai\Tools\Filesystem\CopyFile;
 use Laravel\Ai\Tools\Filesystem\WriteFile;
 use Stringable;
 
-#[Model('gemini-3.5-flash-lite')]
-// #[Model('gemini-3-flash-preview')]
-// #[Model('gemini-3.1-flash-lite')]
-#[MaxSteps(15)]
-class SQLDatabaseAgent implements Agent, Conversational, HasMiddleware, HasTools
+#[CacheToolDefinitions]
+#[CacheInstructions]
+class SQLDatabaseAgent implements Agent, Conversational, HasMiddleware, HasProviderOptions, HasTools
 {
     use Promptable, RemembersConversations;
 
@@ -61,11 +63,13 @@ class SQLDatabaseAgent implements Agent, Conversational, HasMiddleware, HasTools
     public function __construct(
         public readonly AgentAccessModeEnum $accessMode,
         public readonly Project $project,
+        public readonly ?string $selectedModel = null,
+        public readonly AgentEffortEnum $effort = AgentEffortEnum::Default,
     ) {
         $this->configureDisk();
 
         $this->project->loadMissing(['driver_config.driver', 'user']);
-        $this->driver = $this->project->driver_config->getDriver();
+        $this->driver = $this->project->driver_config->getAgentDriver();
         $this->memory = new ProjectMemory($this->project);
 
         $this->exporterManager = app(ExporterManager::class);
@@ -86,12 +90,16 @@ class SQLDatabaseAgent implements Agent, Conversational, HasMiddleware, HasTools
     public function instructions(): Stringable|string
     {
         return view('agent.instructions.base', [
-            'project' => $this->project,
-            'accessMode' => $this->accessMode,
             'drivers' => Driver::pluck('name'),
         ])->render()
             ."\n\n"
             .view($this->accessMode->instructionsView())->render()
+            ."\n\n"
+            .view('agent.instructions.context', [
+                'project' => $this->project,
+                'accessMode' => $this->accessMode,
+                'hiddenTables' => $this->driver->hiddenTables(),
+            ])->render()
             ."\n\n"
             .view('agent.instructions.memory', [
                 'memory' => $this->memory->content(),
@@ -103,7 +111,7 @@ class SQLDatabaseAgent implements Agent, Conversational, HasMiddleware, HasTools
     {
         return match ($this->accessMode) {
             AgentAccessModeEnum::ReadOnly => [
-                new ReadQuery($this->driver),
+                new ReadQuery($this->driver, $this->project->user->settings->agentMaxRows),
                 new DatabaseSchema($this->driver),
                 new FocusTable($this->driver),
                 new ListTables($this->driver),
@@ -113,12 +121,12 @@ class SQLDatabaseAgent implements Agent, Conversational, HasMiddleware, HasTools
                 new ShowChart($this->driver),
                 new ProfileTable($this->driver),
                 new ShowRecord($this->driver),
-                new ExplainQuery($this->driver),
+                new ExplainQuery($this->driver, app(QueryPlanManager::class), $this->project->id, $this->currentConversation()),
                 new UpdateProjectMemory($this->memory),
                 ...FileStorage::readOnly(self::FILE_DISK),
             ],
             AgentAccessModeEnum::ReadWrite => [
-                new ReadQuery($this->driver),
+                new ReadQuery($this->driver, $this->project->user->settings->agentMaxRows),
                 new WriteQuery($this->driver),
                 new DatabaseSchema($this->driver),
                 new FocusTable($this->driver),
@@ -130,9 +138,9 @@ class SQLDatabaseAgent implements Agent, Conversational, HasMiddleware, HasTools
                 new ShowChart($this->driver),
                 new ProfileTable($this->driver),
                 new ShowRecord($this->driver),
-                new ExplainQuery($this->driver),
+                new ExplainQuery($this->driver, app(QueryPlanManager::class), $this->project->id, $this->currentConversation()),
                 new UpdateProjectMemory($this->memory),
-                new ExportDatabase($this->driver, $this->exporterManager, $this->project->path),
+                new ExportDatabase($this->driver, $this->exporterManager, $this->project->path, $this->project->user->settings),
                 new SendMail($this->project->user, app(MailerManager::class), $this->project->path),
                 new ManageMailRecipients($this->project->user, app(MailRecipientRepository::class)),
                 ...FileStorage::readOnly(self::FILE_DISK)
@@ -143,6 +151,21 @@ class SQLDatabaseAgent implements Agent, Conversational, HasMiddleware, HasTools
                     ]),
             ]
         };
+    }
+
+    /**
+     * The number of steps the agent may take to answer, as chosen by the user in the settings.
+     */
+    public function maxSteps(): int
+    {
+        return $this->project->user->settings->agentMaxSteps;
+    }
+
+    public function providerOptions(Lab|string $provider): array
+    {
+        return $this->selectedModel === null
+            ? []
+            : $this->effort->providerOptions($provider, $this->selectedModel);
     }
 
     public function middleware(): array

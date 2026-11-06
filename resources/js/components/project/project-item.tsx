@@ -1,9 +1,10 @@
-import { Form, Link } from '@inertiajs/react';
+import { Link, router } from '@inertiajs/react';
 import { PlugIcon, TrashIcon } from 'lucide-react';
-import React, { memo, useCallback, useRef } from 'react';
+import React, { memo, useCallback, useState } from 'react';
 import { toast } from 'sonner';
 import DatabaseIconHelper from '@/components/database-icon-helper';
 import Button from '@/components/form/button';
+import DeleteProjectDialog from '@/components/project/delete-project-dialog';
 import { FramePanel } from '@/components/reui/frame';
 import Tooltip from '@/components/tooltip';
 import { H6, Muted } from '@/components/typograpfy/typography';
@@ -14,10 +15,7 @@ import type { Project } from '@/types/models/project';
 import ConversationController from '@/wayfinder/actions/App/Http/Controllers/ConversationController';
 import ProjectController from '@/wayfinder/actions/App/Http/Controllers/ProjectController';
 
-
 type Props = { project: Project } & React.ComponentProps<typeof FramePanel>;
-
-
 
 export const ProjectItemSkeleton = memo(({ count = 3 }: { count?: number }) => (
     <>
@@ -49,17 +47,31 @@ export const ProjectItemSkeleton = memo(({ count = 3 }: { count?: number }) => (
 ));
 
 const ProjectItem = ({ project, className, ...props }: Props) => {
-    const formRef = useRef<React.ComponentRef<typeof Form>>(null);
+    const [confirming, setConfirming] = useState(false);
+    const [processing, setProcessing] = useState(false);
+    const [error, setError] = useState<string | undefined>(undefined);
 
-    const showToast = useCallback(() => {
-        toast.success(`Le projet ${project.name} a été supprimé avec succès.`, {
-            duration: 5000,
-        });
-    }, [project.name]);
-
-    const handleSubmit = useCallback(() => {
-        formRef.current?.submit();
-    }, []);
+    const deleteProject = useCallback(
+        (name: string) => {
+            router.delete(ProjectController.delete.url(project.id as string), {
+                data: { name },
+                preserveScroll: true,
+                onStart: () => setProcessing(true),
+                onFinish: () => setProcessing(false),
+                onError: (errors) => setError(errors.name),
+                onSuccess: () => {
+                    setConfirming(false);
+                    toast.success(
+                        `Le projet ${project.name} a été supprimé avec succès.`,
+                        {
+                            duration: 5000,
+                        },
+                    );
+                },
+            });
+        },
+        [project.id, project.name],
+    );
 
     return (
         <FramePanel
@@ -103,35 +115,28 @@ const ProjectItem = ({ project, className, ...props }: Props) => {
                     <PlugIcon />
                     Se connecter
                 </Link>
-                <Form
-                    ref={formRef}
-                    onSuccess={showToast}
-                    method="DELETE"
-                    action={ProjectController.delete(project.id as string)}
-                >
-                    {({ processing }) => {
-                        return (
-                            <Button
-                                variant="destructive"
-                                size="icon"
-                                icon={TrashIcon}
-                                tooltip={'Supprimer le projet'}
-                                processing={processing}
-                                onClick={handleSubmit}
-                                confirmation={{
-                                    title: 'Suppression',
-                                    description: `Vous ête sur de vouloir supprimer le projet : ${project.name} ?`,
-                                    confirmText: 'Supprimer',
-                                    icon: TrashIcon,
-                                }}
-                            />
-                        );
-                    }}
-                </Form>
+                <Button
+                    variant="destructive"
+                    size="icon"
+                    icon={TrashIcon}
+                    tooltip={'Supprimer le projet'}
+                    processing={processing}
+                    onClick={() => setConfirming(true)}
+                />
             </div>
+            <DeleteProjectDialog
+                projectName={project.name}
+                open={confirming}
+                onOpenChange={(open) => {
+                    setConfirming(open);
+                    setError(undefined);
+                }}
+                onConfirm={deleteProject}
+                processing={processing}
+                error={error}
+            />
         </FramePanel>
     );
 };
 
-
-export default ProjectItem
+export default ProjectItem;

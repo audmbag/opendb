@@ -43,9 +43,11 @@ class SnapshotBuilder extends TrussSnapshotBuilder
      */
     public function describe(Connection $connection, string $name, ?string $schema = null): array
     {
+        // The schema grammar is only set once a schema builder is made: with the tables already cached, nothing else made one.
+        $builder = $connection->getSchemaBuilder();
         $grammar = $connection->getSchemaGrammar();
         $processor = $connection->getPostProcessor();
-        $schema ??= $connection->getSchemaBuilder()->getCurrentSchemaName();
+        $schema ??= $builder->getCurrentSchemaName();
 
         return [
             'columns' => $processor->processColumns($connection->selectFromWriteConnection($grammar->compileColumns($schema, $name))),

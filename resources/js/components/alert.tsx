@@ -4,6 +4,7 @@ import {
     TriangleAlertIcon,
 } from 'lucide-react';
 import React, { useMemo } from 'react';
+import CardFrame from '@/components/card-frame';
 import type { ButtonProps } from '@/components/form/button';
 import Button from '@/components/form/button';
 import {
@@ -13,7 +14,6 @@ import {
     AlertTitle,
 } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
-import CardFrame from '@/components/card-frame';
 
 type Props = {
     variant?: 'default' | 'destructive' | 'success' | 'warning';
@@ -21,7 +21,11 @@ type Props = {
     title: string;
     message: string;
     buttons?: (ButtonProps & { label: string })[];
-} & Omit<React.ComponentProps<typeof UiAlert>, 'variant'>;
+    /**
+     * Shown under the message, like the statement a database refused.
+     */
+    children?: React.ReactNode;
+} & Omit<React.ComponentProps<typeof UiAlert>, 'variant' | 'children'>;
 
 const variantClass = {
     success: "bg-green-50 text-green-800 dark:bg-green-900 dark:text-green-200",
@@ -29,7 +33,7 @@ const variantClass = {
     destructive: "bg-red-50 text-red-800 dark:bg-red-900/10 dark:text-red-200",
 };
 
-export default function Alert({ variant, title, message, className, buttons, mode = 'default', ...props }: Props) {
+export default function Alert({ variant, title, message, className, buttons, mode = 'default', children, ...props }: Props) {
 
     const alertVariant = useMemo(() => {
         return variant === 'destructive' || variant === 'default'
@@ -76,16 +80,19 @@ export default function Alert({ variant, title, message, className, buttons, mod
             {...props}
         >
             {Icon}
-            <div className="flex flex-col gap-2">
+            <div className="flex min-w-0 flex-col gap-2">
                 <AlertTitle>{title}</AlertTitle>
                 <AlertDescription className={color}>{message}</AlertDescription>
-                <AlertAction className="relative top-0 right-0 pt-2">
-                    {buttons?.map((button, index) => (
-                        <Button key={index} {...button}>
-                            {button.label}
-                        </Button>
-                    ))}
-                </AlertAction>
+                {children}
+                {buttons && buttons.length > 0 && (
+                    <AlertAction className="relative top-0 right-0 pt-2">
+                        {buttons.map((button, index) => (
+                            <Button key={index} {...button}>
+                                {button.label}
+                            </Button>
+                        ))}
+                    </AlertAction>
+                )}
             </div>
         </UiAlert>
     );

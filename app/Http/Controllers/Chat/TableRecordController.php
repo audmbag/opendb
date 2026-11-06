@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Chat;
 
 use App\Ai\Tools\Database\CreateRecord;
+use App\Database\Exceptions\HiddenTableException;
 use App\Database\Exceptions\TableNotFoundException;
 use App\Database\TableRecordForm;
 use App\Http\Controllers\Controller;
@@ -12,6 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Laravel\Ai\Models\Conversation;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class TableRecordController extends Controller
@@ -60,7 +62,9 @@ class TableRecordController extends Controller
     protected function recordForm(Project $project, string $table): TableRecordForm
     {
         try {
-            return new TableRecordForm($project->driver_config->getDriver(), $table);
+            return new TableRecordForm($project->driver_config->getAgentDriver(), $table);
+        } catch (HiddenTableException $exception) {
+            throw new AccessDeniedHttpException($exception->getMessage(), $exception);
         } catch (TableNotFoundException $exception) {
             throw new NotFoundHttpException($exception->getMessage(), $exception);
         }

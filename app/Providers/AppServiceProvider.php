@@ -79,6 +79,6 @@ class AppServiceProvider extends ServiceProvider
             : null,
         );
 
-        DevCommands::only('server', 'vite');
+        DevCommands::only('server', 'vite', 'queue');
     }
 }

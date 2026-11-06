@@ -4,6 +4,7 @@ namespace App\Ai\Tools\Database;
 
 use App\Ai\Enums\AgentAccessModeEnum;
 use App\Database\Contracts\DriverContract;
+use App\Database\HiddenTableGuard;
 use Closure;
 use Illuminate\Contracts\JsonSchema\JsonSchema as JsonSchemaContract;
 use Illuminate\Database\QueryException;
@@ -56,10 +57,12 @@ class BaseTool
     }
 
     /**
-     * @throws RuntimeException if the table does not exist in the database.
+     * @throws RuntimeException if the table is hidden from the agent or does not exist in the database.
      */
     protected function validateTable(string $tableName, DriverContract $driver): array
     {
+        HiddenTableGuard::assertTableAllowed($tableName, $driver->hiddenTables());
+
         $listTables = $driver->listTables(false);
 
         if (! in_array($tableName, $listTables)) {

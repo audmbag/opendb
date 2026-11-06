@@ -7,6 +7,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import type { PromptInputMessage } from '@/components/ai-elements/prompt-input';
 import AlertDialog from '@/components/alert-dialog';
+import { useAgentSettingsStore } from '@/store/use-agent-settings-store';
 import { useConversationStore } from '@/store/use-conversation-store';
 import type { APIData } from '@/types/global';
 import type { Conversation } from '@/types/models/conversation';
@@ -32,6 +33,17 @@ const useConversationMessage = (
             api: ConversationController.chat(conversation.id).url,
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '',
+            },
+            // Read on every request, so retries and approval responses use the current settings too.
+            body: () => {
+                const { accessMode, effort, selectedModel } = useAgentSettingsStore.getState();
+
+                return {
+                    access_mode: accessMode,
+                    effort,
+                    provider: selectedModel?.providerId ?? null,
+                    model: selectedModel?.modelId ?? null,
+                };
             },
         });
     }, [conversation.id]);
@@ -152,8 +164,10 @@ const useConversation = () => {
     const page = usePage<{project: Project}>()
 
     const loadConversationsRequest = useHttp<null, APIData<Conversation>>();
-    const startConversationRequest = useHttp<{message: string}, SingleConversationResponse>({
+    const startConversationRequest = useHttp<{message: string, provider: string | null, model: string | null}, SingleConversationResponse>({
         message: '',
+        provider: null,
+        model: null,
     });
     const archiveConversationsRequest = useHttp<null, null>();
     const updateConversationsRequest = useHttp<{ title: string }, SingleConversationResponse>({
@@ -171,7 +185,13 @@ const useConversation = () => {
     const startConversation = useCallback((message: PromptInputMessage) => {
         setPendingMessage(message);
 
-        startConversationRequest.setData('message', message.text)
+        const { selectedModel } = useAgentSettingsStore.getState();
+
+        startConversationRequest.setData({
+            message: message.text,
+            provider: selectedModel?.providerId ?? null,
+            model: selectedModel?.modelId ?? null,
+        });
 
         startConversationRequest.post(
             ConversationController.store.url(page.props.project.id),
@@ -187,6 +207,12 @@ const useConversation = () => {
                             viewTransition: true,
                         },
                     );
+                },
+                onError: () => {
+                    setPendingMessage(null);
+                    toast.error('Impossible de démarrer la conversation', {
+                        description: 'Vérifiez le modèle sélectionné puis réessayez.',
+                    });
                 },
             },
         );

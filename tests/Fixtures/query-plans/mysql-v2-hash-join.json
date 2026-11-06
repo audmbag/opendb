@@ -1,0 +1,77 @@
+{
+  "version": "8.4.0",
+  "query": "SELECT o.id, c.name FROM orders o JOIN customers c ON c.city = o.city WHERE o.total > 100",
+  "raw": {
+    "query": "/* select#1 */ select `o`.`id` AS `id`,`c`.`name` AS `name` from `shop`.`orders` `o` join `shop`.`customers` `c` where ((`c`.`city` = `o`.`city`) and (`o`.`total` > 100))",
+    "inputs": [
+      {
+        "inputs": [
+          {
+            "operation": "Table scan on o",
+            "table_name": "o",
+            "access_type": "table",
+            "schema_name": "shop",
+            "used_columns": [
+              "id",
+              "city",
+              "total"
+            ],
+            "estimated_rows": 1000.0,
+            "estimated_total_cost": 101.5
+          }
+        ],
+        "condition": "(o.total > 100)",
+        "operation": "Filter: (o.total > 100)",
+        "access_type": "filter",
+        "estimated_rows": 333.3,
+        "estimated_total_cost": 101.5
+      },
+      {
+        "operation": "Table scan on c",
+        "table_name": "c",
+        "access_type": "table",
+        "schema_name": "shop",
+        "used_columns": [
+          "name",
+          "city"
+        ],
+        "estimated_rows": 50.0,
+        "estimated_total_cost": 5.25
+      }
+    ],
+    "join_type": "inner join",
+    "operation": "Inner hash join (c.city = o.city)",
+    "access_type": "join",
+    "join_algorithm": "hash",
+    "hash_condition": [
+      "(c.city = o.city)"
+    ],
+    "estimated_rows": 1666.5,
+    "estimated_total_cost": 1772.0,
+    "query_type": "select",
+    "json_schema_version": "2.0"
+  },
+  "classic": {
+    "columns": [
+      "id",
+      "select_type",
+      "table",
+      "type"
+    ],
+    "rows": [
+      [
+        "1",
+        "SIMPLE",
+        "o",
+        "ALL"
+      ],
+      [
+        "1",
+        "SIMPLE",
+        "c",
+        "ALL"
+      ]
+    ],
+    "text": null
+  }
+}

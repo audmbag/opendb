@@ -1,0 +1,82 @@
+{
+  "version": "16.4",
+  "query": "SELECT o.reference, c.name, o.total_amount FROM orders o JOIN customers c ON c.id = o.customer_id WHERE o.status = 'paid' ORDER BY o.created_at DESC LIMIT 20",
+  "raw": [
+    {
+      "Plan": {
+        "Node Type": "Limit",
+        "Startup Cost": 2930.0,
+        "Total Cost": 2987.41,
+        "Plan Rows": 20,
+        "Plan Width": 48,
+        "Plans": [
+          {
+            "Node Type": "Sort",
+            "Parent Relationship": "Outer",
+            "Startup Cost": 2930.0,
+            "Total Cost": 2987.41,
+            "Plan Rows": 21400,
+            "Plan Width": 48,
+            "Sort Key": [
+              "o.created_at DESC"
+            ],
+            "Plans": [
+              {
+                "Node Type": "Hash Join",
+                "Parent Relationship": "Outer",
+                "Join Type": "Inner",
+                "Startup Cost": 171.0,
+                "Total Cost": 2142.1,
+                "Plan Rows": 21400,
+                "Plan Width": 48,
+                "Hash Cond": "(o.customer_id = c.id)",
+                "Plans": [
+                  {
+                    "Node Type": "Seq Scan",
+                    "Parent Relationship": "Outer",
+                    "Relation Name": "orders",
+                    "Alias": "o",
+                    "Startup Cost": 0.0,
+                    "Total Cost": 1630.0,
+                    "Plan Rows": 21400,
+                    "Plan Width": 36,
+                    "Filter": "((status)::text = 'paid'::text)"
+                  },
+                  {
+                    "Node Type": "Hash",
+                    "Parent Relationship": "Inner",
+                    "Startup Cost": 106.0,
+                    "Total Cost": 106.0,
+                    "Plan Rows": 5200,
+                    "Plan Width": 20,
+                    "Plans": [
+                      {
+                        "Node Type": "Seq Scan",
+                        "Parent Relationship": "Outer",
+                        "Relation Name": "customers",
+                        "Alias": "c",
+                        "Startup Cost": 0.0,
+                        "Total Cost": 106.0,
+                        "Plan Rows": 5200,
+                        "Plan Width": 20
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "classic": {
+    "columns": null,
+    "rows": null,
+    "text": "Limit  (cost=2930.00..2987.41 rows=20 width=48)\n  ->  Sort  (cost=2930.00..2987.41 rows=21400 width=48)\n        Sort Key: o.created_at DESC\n        ->  Hash Join  (cost=171.00..2142.10 rows=21400 width=48)\n              Hash Cond: (o.customer_id = c.id)\n              ->  Seq Scan on orders o  (cost=0.00..1630.00 rows=21400 width=36)\n                    Filter: ((status)::text = 'paid'::text)\n              ->  Hash  (cost=106.00..106.00 rows=5200 width=20)\n                    ->  Seq Scan on customers c  (cost=0.00..106.00 rows=5200 width=20)"
+  },
+  "tableRows": {
+    "orders": 60000,
+    "customers": 5200
+  }
+}

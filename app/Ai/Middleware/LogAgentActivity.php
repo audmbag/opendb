@@ -36,6 +36,8 @@ class LogAgentActivity
                 'step' => $step->number,
                 'text' => $response->text,
                 'pending_approvals' => $response->pendingApprovals !== [],
+                'input_tokens' => $response->usage->inputTokens,
+                'cached_input_tokens' => $response->usage->cacheReadInputTokens,
             ]);
         });
     }

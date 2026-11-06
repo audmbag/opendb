@@ -30,3 +30,6 @@ de la base de données, clé API, etc.)
 
 - Liste noire de champs et des tables à ne jamais exposer aux LLM
 ⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️
+
+
+A faire : Annulation d'une réponse d'un agent, Hors périmètre : requêtes paramétrées, édition des cellules du résultat, graphiques, annulation d'une requête, transactions manuelles.

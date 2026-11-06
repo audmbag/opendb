@@ -1,7 +1,9 @@
-import type { DataUIPart, DynamicToolUIPart, FileUIPart, ToolUIPart } from 'ai';
+import type { DataUIPart, DynamicToolUIPart, FileUIPart, ToolUIPart, UIMessage as AiUIMessage } from 'ai';
 import { RefreshCcwIcon, } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import ApprovalFormRenderer from '@/components/ai/approval-form-renderer';
+import ArtifactPanel from '@/components/ai/artifacts/artifact-panel';
 import Confirmation from '@/components/ai/confirmation';
 import MailFormRenderer from '@/components/ai/mail-form-renderer';
 import ProcessingIndicator from '@/components/ai/processing-indicator';
@@ -10,9 +12,12 @@ import Tool from '@/components/ai/tool';
 import UIMessage from '@/components/ai/ui-message';
 import { Conversation as AiElementConversation, ConversationContent, ConversationScrollButton, } from '@/components/ai-elements/conversation';
 import Alert from '@/components/alert';
+import { useChatLayout } from '@/hooks/use-chat-layout';
 import { useConversation, useConversationMessage } from '@/hooks/use-conversation';
+import { ConversationPromptProvider } from '@/hooks/use-conversation-prompt';
+import { useAgentSettingsStore } from '@/store/use-agent-settings-store';
 import type { CustomOutputToolUIPart } from '@/types/agent';
-import { ArtifactableTools } from '@/types/agent';
+import { AgentTools, ArtifactableTools } from '@/types/agent';
 
 /**
  * The SDK keeps a streamed request reason as `requestReason`, while messages hydrated by Vercel::toUiMessages() carry it as `reason`.
@@ -23,9 +28,41 @@ const getApprovalReason = (part: ToolUIPart): string | undefined => {
     return approval?.requestReason ?? approval?.reason;
 };
 
+/**
+ * The artifacts of a message, with the output of their tool call decoded.
+ */
+const messageArtifactables = (message: AiUIMessage): CustomOutputToolUIPart[] => {
+    const artifactables: CustomOutputToolUIPart[] = [];
+
+    message.parts.forEach((part) => {
+        if (!ArtifactableTools.includes((part as ToolUIPart).type as any)) {
+            return;
+        }
+
+        let output = {};
+
+        try {
+            output = JSON.parse((part as ToolUIPart).output as string);
+        } catch {
+            /* empty */
+        }
+
+        const withFormatedOutput = { ...part, output } as CustomOutputToolUIPart;
+
+        // A plan that could not be computed is still shown, with the error of the engine.
+        if (withFormatedOutput.output.success || part.type === AgentTools.ExplainQuery) {
+            artifactables.push(withFormatedOutput);
+        }
+    });
+
+    return artifactables;
+};
+
 const Conversation = () => {
 
     const { project, conversation, initialMessages } = useConversation();
+
+    const { dataPreviewElement } = useChatLayout();
 
     const {
         pendingMessage,
@@ -38,6 +75,8 @@ const Conversation = () => {
         regenerate,
         addToolApprovalResponse,
     } = useConversationMessage(conversation, initialMessages);
+
+    const hasSelectedModel = useAgentSettingsStore((state) => state.selectedModel !== null);
 
     const hasAutoSent = useRef(false);
 
@@ -63,12 +102,30 @@ const Conversation = () => {
         ) as ToolUIPart | undefined;
     }, [messages])
 
+    const conversationArtifacts = useMemo(
+        () => messages.flatMap((message, messageIndex) => {
+            const isMessageSaved = messageIndex !== messages.length - 1 || status === 'ready';
+
+            return messageArtifactables(message)
+                .filter((part) => part.state === 'output-available' && part.output.success)
+                .map((part) => ({ part, isMessageSaved }));
+        }),
+        [messages, status],
+    );
+
+    const conversationPrompt = useMemo(
+        () => ({
+            sendPrompt: status === 'ready' && hasSelectedModel ? (text: string) => void submitPromptMessage({ text, files: [] }) : null,
+        }),
+        [hasSelectedModel, status, submitPromptMessage],
+    );
+
     const handleApprovalResponse = useCallback(({id, approved}: {id: string, approved: boolean}) =>
         addToolApprovalResponse({ id, approved})
     , [addToolApprovalResponse]);
 
     return (
-        <>
+        <ConversationPromptProvider value={conversationPrompt}>
             <AiElementConversation
                 resize="instant"
                 initial="instant"
@@ -79,7 +136,7 @@ const Conversation = () => {
                         const isLast = messageIndex === messages.length - 1;
 
                         const attachments: FileUIPart[] = [];
-                        const artifactables: CustomOutputToolUIPart[] = [];
+                        const artifactables = messageArtifactables(message);
                         const fromInfo: DataUIPart<{
                             [key: string]: string;
                         }>[] = [];
@@ -95,33 +152,6 @@ const Conversation = () => {
                                         [key: string]: string;
                                     }>,
                                 );
-                            }
-
-                            if (
-                                ArtifactableTools.includes(
-                                    (part as ToolUIPart).type as any,
-                                )
-                            ) {
-                                let output = {};
-
-                                try {
-                                    output = JSON.parse(
-                                        (part as ToolUIPart).output as string,
-                                    );
-                                } catch {
-                                    /* empty */
-                                }
-
-                                const withFormatedOutput = {
-                                    ...part,
-                                    output,
-                                } as CustomOutputToolUIPart;
-
-                                if (withFormatedOutput.output.success) {
-                                    artifactables.push(
-                                        withFormatedOutput as CustomOutputToolUIPart,
-                                    );
-                                }
                             }
                         });
 
@@ -156,7 +186,7 @@ const Conversation = () => {
                         });
                     })}
 
-                    <ProcessingIndicator status={status} />
+                    <ProcessingIndicator status={status} latestMessage={messages[messages.length - 1]} />
 
                     {(status === 'error' || error) && (
                         <Alert
@@ -227,7 +257,9 @@ const Conversation = () => {
                     }
                 })()}
             </div>
-        </>
+
+            {dataPreviewElement && createPortal(<ArtifactPanel artifacts={conversationArtifacts} />, dataPreviewElement)}
+        </ConversationPromptProvider>
     );
 };
 

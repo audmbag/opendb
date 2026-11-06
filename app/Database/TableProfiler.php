@@ -4,6 +4,7 @@ namespace App\Database;
 
 use App\Database\Concerns\QuotesIdentifiers;
 use App\Database\Contracts\DriverContract;
+use App\Database\Exceptions\HiddenTableException;
 use App\Database\Exceptions\TableNotFoundException;
 use App\Database\Schema\SnapshotBuilder;
 
@@ -19,12 +20,15 @@ class TableProfiler
     public const int TOP_VALUES = 5;
 
     /**
-     * @throws TableNotFoundException when the table is missing or hidden from the project.
+     * @throws HiddenTableException when the table is hidden from the agent.
+     * @throws TableNotFoundException when the table is missing.
      */
     public function __construct(
         protected DriverContract $driver,
         public readonly string $table,
     ) {
+        HiddenTableGuard::assertTableAllowed($table, $driver->hiddenTables());
+
         if (! in_array($table, $driver->listTables(false), true)) {
             throw TableNotFoundException::named($table);
         }

@@ -7,6 +7,7 @@ import SocialButtons from '@/components/social-buttons';
 import Toaster from '@/components/toaster';
 import { CommandModalProvider } from '@/hooks/use-command-modal';
 import { SettingsProvider } from '@/hooks/use-settings-modal';
+import SelectFileModal from '@/components/modals/select-file-modal';
 
 
 export default function BlankLayout({ children }: { children: React.ReactNode }) {
@@ -28,6 +29,7 @@ export default function BlankLayout({ children }: { children: React.ReactNode })
                 <SettingsDialog />
                 <Toaster duration={5000} />
                 <AlertDialog />
+                <SelectFileModal />
             </CommandModalProvider>
         </SettingsProvider>
     );

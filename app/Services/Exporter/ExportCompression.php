@@ -13,6 +13,11 @@ enum ExportCompression: string
     case Gzip = 'gzip';
 
     /**
+     * Le fichier tel quel quand l'export n'en produit qu'un, une archive zip sinon.
+     */
+    case None = 'none';
+
+    /**
      * @throws RuntimeException
      */
     public static function parse(string $output): self

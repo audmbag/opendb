@@ -2,15 +2,21 @@
 
 namespace App\Http\Requests\Project;
 
+use App\Models\Project;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class ProjectInfoRequest extends FormRequest
 {
+    /**
+     * A new project may be created by anyone, an existing one only changed by its owner.
+     */
     public function authorize(): bool
     {
-        return true;
+        $project = $this->filled('id') ? Project::find($this->input('id')) : null;
+
+        return $project === null || $this->user()->can('update', $project);
     }
 
     public function rules(): array

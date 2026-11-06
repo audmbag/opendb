@@ -1,0 +1,73 @@
+{
+  "version": "8.0.36",
+  "query": "SELECT product_id, COUNT(*) as views_count FROM product_views WHERE viewed_at >= DATE_SUB(NOW(), INTERVAL :days DAY) GROUP BY product_id",
+  "raw": {
+    "query_block": {
+      "select_id": 1,
+      "cost_info": {
+        "query_cost": "1694.60"
+      },
+      "grouping_operation": {
+        "using_temporary_table": true,
+        "using_filesort": false,
+        "table": {
+          "table_name": "product_views",
+          "access_type": "range",
+          "possible_keys": [
+            "idx_product_views_viewed_at_product_id"
+          ],
+          "key": "idx_product_views_viewed_at_product_id",
+          "used_key_parts": [
+            "viewed_at"
+          ],
+          "key_length": "5",
+          "rows_examined_per_scan": 8412,
+          "rows_produced_per_join": 8412,
+          "filtered": "100.00",
+          "using_index": true,
+          "cost_info": {
+            "read_cost": "853.40",
+            "eval_cost": "841.20",
+            "prefix_cost": "1694.60"
+          },
+          "used_columns": [
+            "product_id",
+            "viewed_at"
+          ],
+          "attached_condition": "(`opendb_ecommerce`.`product_views`.`viewed_at` >= <cache>((now() - interval 7 day)))"
+        }
+      }
+    }
+  },
+  "classic": {
+    "columns": [
+      "id",
+      "select_type",
+      "table",
+      "type",
+      "possible_keys",
+      "key",
+      "key_len",
+      "ref",
+      "rows",
+      "filtered",
+      "Extra"
+    ],
+    "rows": [
+      [
+        "1",
+        "SIMPLE",
+        "product_views",
+        "range",
+        "idx_product_views_viewed_at_product_id",
+        "idx_product_views_viewed_at_product_id",
+        "5",
+        null,
+        "8412",
+        "100.00",
+        "Using where; Using index; Using temporary"
+      ]
+    ],
+    "text": null
+  }
+}

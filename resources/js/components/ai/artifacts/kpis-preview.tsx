@@ -1,11 +1,11 @@
 import { GaugeIcon, TriangleAlertIcon } from 'lucide-react';
 import ArtifactFrame from '@/components/ai/artifacts/artifact-frame';
 import { formatKpi, useConversationId } from '@/components/ai/artifacts/format';
+import CardFrame from '@/components/card-frame';
 import { useToolArtifact } from '@/hooks/use-tool-artifact';
+import { chartColor } from '@/lib/utils';
 import type { KpiCard, KpisToolUIPart } from '@/types/agent';
 import { kpis } from '@/wayfinder/actions/App/Http/Controllers/Chat/ToolArtifactController';
-import CardFrame from '@/components/card-frame';
-import { chartColor } from '@/lib/utils';
 
 type Props = {
     part: KpisToolUIPart;

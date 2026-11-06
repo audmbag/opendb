@@ -4,6 +4,7 @@ namespace App\Database;
 
 use App\Database\Concerns\QuotesIdentifiers;
 use App\Database\Contracts\DriverContract;
+use App\Database\Exceptions\HiddenTableException;
 use App\Database\Exceptions\TableNotFoundException;
 use RuntimeException;
 
@@ -27,12 +28,15 @@ class RecordInspector
     protected array $schema;
 
     /**
-     * @throws TableNotFoundException when the table is missing or hidden from the project.
+     * @throws HiddenTableException when the table is hidden from the agent.
+     * @throws TableNotFoundException when the table is missing.
      */
     public function __construct(
         protected DriverContract $driver,
         public readonly string $table,
     ) {
+        HiddenTableGuard::assertTableAllowed($table, $driver->hiddenTables());
+
         $this->schema = $driver->getSchema();
         $definition = collect($this->schema)->firstWhere('name', $table);
 

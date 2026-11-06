@@ -1,7 +1,7 @@
 import type { ToolUIPart } from 'ai';
 import { ShieldAlertIcon } from 'lucide-react';
 import WriteImpactBadge from '@/components/ai/artifacts/write-impact-badge';
-import { CodeBlock } from '@/components/ai-elements/code-block';
+import { CodeBlock } from '@/components/code-block';
 import {
     Confirmation as AIElementConfirmation,
     ConfirmationAction,
@@ -11,6 +11,7 @@ import {
 } from '@/components/ai-elements/confirmation';
 import CardFrame from '@/components/card-frame';
 import { Badge } from '@/components/reui/badge';
+import { uppercaseSqlKeywords } from '@/lib/sql';
 
 type ApprovalInput = {
     query?: string;
@@ -34,7 +35,10 @@ const Confirmation = ({
 
     const toolName = part.type.split('-').slice(1).join('-');
     const input = (part.input ?? {}) as ApprovalInput;
-    const query = typeof input.query === 'string' ? input.query.trim() : null;
+    const query =
+        typeof input.query === 'string'
+            ? uppercaseSqlKeywords(input.query.trim())
+            : null;
     const bindings = input.bindings;
 
     return (

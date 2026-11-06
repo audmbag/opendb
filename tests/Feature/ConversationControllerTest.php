@@ -1,10 +1,19 @@
 <?php
 
 use App\Ai\Agents\SQLDatabaseAgent;
+use App\Ai\Enums\AgentAccessModeEnum;
+use App\Ai\Enums\AgentEffortEnum;
+use App\Ai\Services\ProviderManagerService;
+use App\Jobs\GenerateConversationTitle;
 use App\Models\Project;
+use App\Models\Provider;
 use App\Models\User;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
+use Illuminate\Testing\TestResponse;
 use Inertia\Testing\AssertableInertia as Assert;
+use Laravel\Ai\AnonymousAgent;
+use Laravel\Ai\Enums\Lab;
 use Laravel\Ai\Enums\MessageStatus;
 use Laravel\Ai\Exceptions\InsufficientCreditsException;
 use Laravel\Ai\Exceptions\ProviderConnectionException;
@@ -13,6 +22,7 @@ use Laravel\Ai\Exceptions\RateLimitedException;
 use Laravel\Ai\Exceptions\StreamErrorException;
 use Laravel\Ai\Models\Conversation;
 use Laravel\Ai\Models\ConversationMessage;
+use Laravel\Ai\Prompts\AgentPrompt;
 use Laravel\Ai\Streaming\Events\Error;
 
 /**
@@ -37,6 +47,38 @@ function storeAssistantTurn(Conversation $conversation, array $toolCalls, Messag
         'usage' => [],
         'meta' => [],
         'status' => $status,
+    ]);
+}
+
+/**
+ * @param  array<string, mixed>  $settings
+ */
+function postChatMessage(User $user, Conversation $conversation, array $settings = []): TestResponse
+{
+    connectAnthropic();
+
+    return test()->actingAs($user)->postJson("/conversations/{$conversation->id}/chat", [
+        'id' => $conversation->id,
+        'trigger' => 'submit-message',
+        'messages' => [
+            ['id' => 'msg_1', 'role' => 'user', 'parts' => [['type' => 'text', 'text' => 'Salut']]],
+        ],
+        'provider' => 'anthropic',
+        'model' => 'claude-opus-5-5',
+        ...$settings,
+    ]);
+}
+
+function connectAnthropic(?string $apiUrl = 'https://anthropic.test/v1'): void
+{
+    Provider::query()->updateOrCreate(['id' => 'anthropic'], [
+        'label' => 'Anthropic',
+        'api_key' => 'stored-anthropic-key',
+        'api_url' => $apiUrl,
+        'models' => [
+            ['id' => 'claude-opus-5-5', 'label' => 'Claude Opus 5.5', 'context_window' => 1000000, 'active' => true],
+            ['id' => 'claude-haiku-5-5', 'label' => 'Claude Haiku 5.5', 'context_window' => 1000000, 'active' => false],
+        ],
     ]);
 }
 
@@ -123,13 +165,7 @@ it('streams the provider and the model of the answer and stores the exchange in 
     $conversation = $user->conversations()->create(['id' => (string) Str::uuid(), 'project_id' => $project->id]);
     SQLDatabaseAgent::fake(['Bonjour !']);
 
-    $response = $this->actingAs($user)->postJson("/conversations/{$conversation->id}/chat", [
-        'id' => $conversation->id,
-        'trigger' => 'submit-message',
-        'messages' => [
-            ['id' => 'msg_1', 'role' => 'user', 'parts' => [['type' => 'text', 'text' => 'Salut']]],
-        ],
-    ]);
+    $response = postChatMessage($user, $conversation);
 
     $response->assertOk();
     expect($response->streamedContent())
@@ -141,6 +177,184 @@ it('streams the provider and the model of the answer and stores the exchange in 
     ]);
 });
 
+it('answers with the selected provider and model, using the stored credentials', function () {
+    $user = User::factory()->create();
+    $project = Project::factory()->for($user)->create();
+    $project->driver_config()->create(['driver_id' => 'sqlite', 'database' => ':memory:']);
+    $conversation = $user->conversations()->create(['id' => (string) Str::uuid(), 'project_id' => $project->id]);
+    config(['ai.providers.anthropic.key' => 'key-from-the-environment']);
+    SQLDatabaseAgent::fake(['Bonjour !']);
+
+    $response = postChatMessage($user, $conversation);
+
+    $response->assertOk();
+    expect($response->streamedContent())
+        ->toContain('"type":"data-provider","id":"provider","data":"anthropic"')
+        ->toContain('"type":"data-model","id":"model","data":"claude-opus-5-5"')
+        ->and(config('ai.providers.anthropic.key'))->toBe('stored-anthropic-key')
+        ->and(config('ai.providers.anthropic.url'))->toBe('https://anthropic.test/v1');
+});
+
+it('gives the agent the selected access mode and effort', function () {
+    $user = User::factory()->create();
+    $project = Project::factory()->for($user)->create();
+    $project->driver_config()->create(['driver_id' => 'sqlite', 'database' => ':memory:']);
+    $conversation = $user->conversations()->create(['id' => (string) Str::uuid(), 'project_id' => $project->id]);
+    SQLDatabaseAgent::fake(['Bonjour !']);
+
+    $response = postChatMessage($user, $conversation, [
+        'access_mode' => 'read-write',
+        'effort' => 'high',
+    ]);
+
+    $response->assertOk();
+    $response->streamedContent();
+    SQLDatabaseAgent::assertPrompted(fn (AgentPrompt $prompt): bool => $prompt->agent->accessMode === AgentAccessModeEnum::ReadWrite
+        && $prompt->agent->effort === AgentEffortEnum::High
+        && $prompt->agent->providerOptions(Lab::Anthropic) === [
+            'thinking' => ['type' => 'adaptive'],
+            'output_config' => ['effort' => 'high'],
+        ]);
+});
+
+it('keeps the agent read-only at the default effort unless the request asks otherwise', function () {
+    $user = User::factory()->create();
+    $project = Project::factory()->for($user)->create();
+    $project->driver_config()->create(['driver_id' => 'sqlite', 'database' => ':memory:']);
+    $conversation = $user->conversations()->create(['id' => (string) Str::uuid(), 'project_id' => $project->id]);
+    SQLDatabaseAgent::fake(['Bonjour !']);
+
+    $response = postChatMessage($user, $conversation);
+
+    $response->assertOk();
+    $response->streamedContent();
+    SQLDatabaseAgent::assertPrompted(fn (AgentPrompt $prompt): bool => $prompt->agent->accessMode === AgentAccessModeEnum::ReadOnly
+        && $prompt->agent->effort === AgentEffortEnum::Default);
+});
+
+it('rejects settings the agent cannot run with', function (array $settings, string $invalidField) {
+    $user = User::factory()->create();
+    $project = Project::factory()->for($user)->create();
+    $conversation = $user->conversations()->create(['id' => (string) Str::uuid(), 'project_id' => $project->id]);
+    Provider::query()->updateOrCreate(['id' => 'openai'], ['label' => 'Openai', 'api_key' => null, 'models' => null]);
+
+    $response = postChatMessage($user, $conversation, $settings);
+
+    $response->assertUnprocessable()->assertJsonValidationErrors([$invalidField]);
+})->with([
+    'unknown access mode' => [['access_mode' => 'admin'], 'access_mode'],
+    'unknown effort' => [['effort' => 'extreme'], 'effort'],
+    'provider without API key' => [['provider' => 'openai', 'model' => 'gpt-5.1'], 'provider'],
+    'no provider' => [['provider' => null, 'model' => null], 'provider'],
+    'provider without model' => [['model' => null], 'model'],
+    'model of another provider' => [['provider' => 'anthropic', 'model' => 'gpt-5.1'], 'model'],
+    'deactivated model' => [['provider' => 'anthropic', 'model' => 'claude-haiku-5-5'], 'model'],
+]);
+
+it('lets the SDK use the default URL of a provider without a stored one', function () {
+    $user = User::factory()->create();
+    $project = Project::factory()->for($user)->create();
+    $project->driver_config()->create(['driver_id' => 'sqlite', 'database' => ':memory:']);
+    $conversation = $user->conversations()->create(['id' => (string) Str::uuid(), 'project_id' => $project->id]);
+    SQLDatabaseAgent::fake(['Bonjour !']);
+    connectAnthropic(apiUrl: null);
+    ProviderManagerService::for(Provider::find('anthropic'));
+
+    expect(config('ai.providers.anthropic'))->toBe(['driver' => 'anthropic', 'key' => 'stored-anthropic-key']);
+});
+
+it('titles a new conversation with the provider and the model selected by the user', function () {
+    $user = User::factory()->create();
+    $project = Project::factory()->for($user)->create();
+    connectAnthropic();
+    AnonymousAgent::fake(['Liste des tables']);
+
+    $response = $this->actingAs($user)->postJson("/{$project->id}/conversations", [
+        'message' => 'Quelles sont les tables ?',
+        'provider' => 'anthropic',
+        'model' => 'claude-opus-5-5',
+    ]);
+
+    $response->assertOk();
+    expect(Conversation::find($response->json('conversation.id'))->title)->toBe('Liste des tables')
+        ->and(config('ai.providers.anthropic.key'))->toBe('stored-anthropic-key');
+    AnonymousAgent::assertPrompted(fn (AgentPrompt $prompt): bool => $prompt->provider->name() === 'anthropic'
+        && $prompt->model === 'claude-opus-5-5');
+});
+
+it('titles a new conversation with its message when the provider fails', function () {
+    $user = User::factory()->create();
+    $project = Project::factory()->for($user)->create();
+    connectAnthropic();
+    AnonymousAgent::fake([fn () => throw new RuntimeException('Provider down')]);
+
+    $response = $this->actingAs($user)->postJson("/{$project->id}/conversations", [
+        'message' => 'Quelles sont les tables ?',
+        'provider' => 'anthropic',
+        'model' => 'claude-opus-5-5',
+    ]);
+
+    $response->assertOk();
+    expect(Conversation::find($response->json('conversation.id'))->title)->toBe('Quelles sont les tables ?');
+});
+
+it('starts a conversation without waiting for its title', function () {
+    Queue::fake();
+    $user = User::factory()->create();
+    $project = Project::factory()->for($user)->create();
+    connectAnthropic();
+
+    $response = $this->actingAs($user)->postJson("/{$project->id}/conversations", [
+        'message' => 'Quelles sont les tables ?',
+        'provider' => 'anthropic',
+        'model' => 'claude-opus-5-5',
+    ]);
+
+    $response->assertOk()->assertJsonPath('conversation.title', null);
+    Queue::assertPushed(GenerateConversationTitle::class, fn (GenerateConversationTitle $job): bool => $job->conversation->id === $response->json('conversation.id')
+        && $job->message === 'Quelles sont les tables ?'
+        && $job->provider === Lab::Anthropic
+        && $job->model === 'claude-opus-5-5');
+});
+
+it('titles a conversation with its message when the title job fails', function () {
+    $user = User::factory()->create();
+    $project = Project::factory()->for($user)->create();
+    connectAnthropic();
+    $conversation = $user->conversations()->create(['id' => (string) Str::uuid(), 'project_id' => $project->id]);
+
+    new GenerateConversationTitle($conversation, 'Quelles sont les tables ?', Lab::Anthropic, 'claude-opus-5-5')
+        ->failed(new RuntimeException('Worker killed'));
+
+    expect($conversation->fresh()->title)->toBe('Quelles sont les tables ?');
+});
+
+it('returns the conversation so the page can show its title once generated', function () {
+    $user = User::factory()->create();
+    $project = Project::factory()->for($user)->create();
+    $conversation = $user->conversations()->create(['id' => (string) Str::uuid(), 'project_id' => $project->id, 'title' => 'Liste des tables']);
+
+    $this->actingAs($user)->getJson("/conversations/{$conversation->id}")
+        ->assertOk()
+        ->assertJsonPath('conversation.title', 'Liste des tables');
+});
+
+it('refuses to start a conversation without a usable model', function (array $selection, string $invalidField) {
+    $user = User::factory()->create();
+    $project = Project::factory()->for($user)->create();
+    connectAnthropic();
+
+    $response = $this->actingAs($user)->postJson("/{$project->id}/conversations", [
+        'message' => 'Quelles sont les tables ?',
+        ...$selection,
+    ]);
+
+    $response->assertUnprocessable()->assertJsonValidationErrors([$invalidField]);
+})->with([
+    'nothing selected' => [[], 'provider'],
+    'deactivated model' => [['provider' => 'anthropic', 'model' => 'claude-haiku-5-5'], 'model'],
+]);
+
 it('streams the message explaining a provider error just before the error part', function (?Error $error, string $message) {
     $user = User::factory()->create();
     $project = Project::factory()->for($user)->create();
@@ -148,13 +362,7 @@ it('streams the message explaining a provider error just before the error part',
     $conversation = $user->conversations()->create(['id' => (string) Str::uuid(), 'project_id' => $project->id]);
     SQLDatabaseAgent::fake([fn () => throw new StreamErrorException($error)]);
 
-    $response = $this->actingAs($user)->postJson("/conversations/{$conversation->id}/chat", [
-        'id' => $conversation->id,
-        'trigger' => 'submit-message',
-        'messages' => [
-            ['id' => 'msg_1', 'role' => 'user', 'parts' => [['type' => 'text', 'text' => 'Salut']]],
-        ],
-    ]);
+    $response = postChatMessage($user, $conversation);
 
     $response->assertOk();
     $parts = collect(explode("\n\n", trim($response->streamedContent())))
@@ -184,13 +392,7 @@ it('streams the message explaining a provider failure just before the masked err
     $conversation = $user->conversations()->create(['id' => (string) Str::uuid(), 'project_id' => $project->id]);
     SQLDatabaseAgent::fake([fn () => throw $exception]);
 
-    $response = $this->actingAs($user)->postJson("/conversations/{$conversation->id}/chat", [
-        'id' => $conversation->id,
-        'trigger' => 'submit-message',
-        'messages' => [
-            ['id' => 'msg_1', 'role' => 'user', 'parts' => [['type' => 'text', 'text' => 'Salut']]],
-        ],
-    ]);
+    $response = postChatMessage($user, $conversation);
 
     $response->assertOk();
     $parts = collect(explode("\n\n", trim($response->streamedContent())))
@@ -228,13 +430,7 @@ it('keeps any other failure masked without explaining it', function () {
     $conversation = $user->conversations()->create(['id' => (string) Str::uuid(), 'project_id' => $project->id]);
     SQLDatabaseAgent::fake([fn () => throw new RuntimeException('SQLSTATE secret detail')]);
 
-    $response = $this->actingAs($user)->postJson("/conversations/{$conversation->id}/chat", [
-        'id' => $conversation->id,
-        'trigger' => 'submit-message',
-        'messages' => [
-            ['id' => 'msg_1', 'role' => 'user', 'parts' => [['type' => 'text', 'text' => 'Salut']]],
-        ],
-    ]);
+    $response = postChatMessage($user, $conversation);
 
     $response->assertOk();
     expect($response->streamedContent())
@@ -272,4 +468,52 @@ it('renders an answer after its tool calls, followed by the provider and the mod
             ->where('initialMessages.0.parts.2', ['type' => 'data-provider', 'id' => "data-provider-{$message->id}-gemini", 'data' => 'gemini'])
             ->where('initialMessages.0.parts.3', ['type' => 'data-model', 'id' => "data-model-{$message->id}-gemini-3.5-flash-lite", 'data' => 'gemini-3.5-flash-lite'])
         );
+});
+
+function storeUserMessage(Conversation $conversation, string $content): void
+{
+    ConversationMessage::create([
+        'id' => (string) Str::uuid7(),
+        'conversation_id' => $conversation->id,
+        'agent' => SQLDatabaseAgent::class,
+        'role' => 'user',
+        'content' => $content,
+        'attachments' => [],
+        'steps' => [],
+        'usage' => [],
+        'meta' => [],
+        'status' => MessageStatus::Completed,
+    ]);
+}
+
+it('finds the conversations of the project whose title or messages contain the search', function () {
+    $user = User::factory()->create();
+    $project = Project::factory()->for($user)->create();
+    $byTitle = $user->conversations()->create(['id' => (string) Str::uuid(), 'project_id' => $project->id, 'title' => 'Ventes de Janvier']);
+    $byMessage = $user->conversations()->create(['id' => (string) Str::uuid(), 'project_id' => $project->id, 'title' => 'Analyse']);
+    storeUserMessage($byMessage, 'Quel est le total des ventes par client ?');
+    $user->conversations()->create(['id' => (string) Str::uuid(), 'project_id' => $project->id, 'title' => 'Liste des tables']);
+    $user->conversations()->create(['id' => (string) Str::uuid(), 'project_id' => $project->id, 'title' => 'Ventes archivées', 'is_archived' => true]);
+    $user->conversations()->create(['id' => (string) Str::uuid(), 'project_id' => Project::factory()->for($user)->create()->id, 'title' => 'Ventes ailleurs']);
+    $otherUser = User::factory()->create();
+    $otherUser->conversations()->create(['id' => (string) Str::uuid(), 'project_id' => $project->id, 'title' => 'Ventes d\'un autre']);
+
+    $response = $this->actingAs($user)->getJson("/{$project->id}/conversations/search?search=ventes");
+
+    $response->assertOk();
+    expect($response->json('data'))->toHaveCount(2)
+        ->and(collect($response->json('data'))->pluck('excerpt', 'id')->all())->toEqual([
+            $byTitle->id => null,
+            $byMessage->id => 'Quel est le total des ventes par client ?',
+        ]);
+});
+
+it('refuses a search without terms', function () {
+    $user = User::factory()->create();
+    $project = Project::factory()->for($user)->create();
+
+    $this->actingAs($user)
+        ->getJson("/{$project->id}/conversations/search")
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['search']);
 });

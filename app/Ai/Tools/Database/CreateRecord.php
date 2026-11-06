@@ -3,6 +3,7 @@
 namespace App\Ai\Tools\Database;
 
 use App\Database\Contracts\DriverContract;
+use App\Database\Exceptions\HiddenTableException;
 use App\Database\Exceptions\TableNotFoundException;
 use App\Database\TableRecordForm;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -56,7 +57,7 @@ class CreateRecord extends BaseTool implements Approvable, Tool
 
         try {
             $record = new TableRecordForm($this->driver, $table)->insert($submission['values']);
-        } catch (TableNotFoundException $e) {
+        } catch (HiddenTableException|TableNotFoundException $e) {
             return $e->getMessage();
         } catch (QueryException $e) {
             return $this->formatQueryError($e);

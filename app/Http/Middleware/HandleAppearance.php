@@ -17,7 +17,20 @@ class HandleAppearance
     public function handle(Request $request, Closure $next): Response
     {
         View::share('appearance', $request->cookie('appearance') ?? 'system');
+        View::share('colorTheme', $this->colorTheme($request));
 
         return $next($request);
+    }
+
+    /**
+     * The shadcn color theme chosen in the settings, kept by the browser, or null for the neutral one.
+     */
+    private function colorTheme(Request $request): ?string
+    {
+        $colorTheme = $request->cookie('color_theme');
+
+        return is_string($colorTheme) && $colorTheme !== 'neutral' && preg_match('/^[a-z]+$/', $colorTheme) === 1
+            ? $colorTheme
+            : null;
     }
 }

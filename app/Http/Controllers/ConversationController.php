@@ -3,14 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Ai\Agents\SQLDatabaseAgent;
-use App\Ai\Enums\AgentAccessModeEnum;
 use App\Ai\Protocols\VercelDataProtocolWithModel;
 use App\Http\Requests\ConversationMessageRequest;
 use App\Http\Requests\ConversationRequest;
+use App\Http\Requests\ConversationSearchRequest;
+use App\Http\Requests\ConversationStoreRequest;
 use App\Models\Project;
 use App\Repository\ConversationRepository;
+use App\Repository\ProviderRepository;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
 use Inertia\Response;
 use Laravel\Ai\Models\Conversation;
@@ -23,6 +24,13 @@ class ConversationController extends Controller
     {
         return response()->json([
             'data' => $conversationRepository->get($project),
+        ]);
+    }
+
+    public function search(Project $project, ConversationRepository $conversationRepository, ConversationSearchRequest $request): JsonResponse
+    {
+        return response()->json([
+            'data' => $conversationRepository->search($project, $request->validated('search')),
         ]);
     }
 
@@ -44,14 +52,25 @@ class ConversationController extends Controller
         ]);
     }
 
-    public function store(Project $project, ConversationRepository $conversationRepository, Request $request): JsonResponse
+    public function store(Project $project, ConversationRepository $conversationRepository, ConversationStoreRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'message' => 'required|string',
+        $conversation = $conversationRepository->create(
+            $project,
+            $request->validated('message'),
+            $request->selectedProvider(),
+            $request->selectedModel(),
+        );
+
+        return response()->json([
+            'conversation' => $conversation,
         ]);
+    }
 
-        $conversation = $conversationRepository->create($project, $data['message']);
-
+    /**
+     * The conversation, read again by the page while its title is being generated.
+     */
+    public function show(Conversation $conversation): JsonResponse
+    {
         return response()->json([
             'conversation' => $conversation,
         ]);
@@ -80,13 +99,17 @@ class ConversationController extends Controller
         return response()->noContent();
     }
 
-    public function chat(Conversation $conversation, ConversationMessageRequest $request): StreamableAgentResponse
+    public function chat(Conversation $conversation, ConversationMessageRequest $request, ProviderRepository $providerRepository): StreamableAgentResponse
     {
         $chat = Vercel::chat($request);
+        $provider = $request->selectedProvider();
+        $model = $request->selectedModel();
 
-        return new SQLDatabaseAgent(AgentAccessModeEnum::ReadWrite, Project::firstWhere('id', $conversation->project_id))
+        $providerRepository->activate($provider);
+
+        return new SQLDatabaseAgent($request->accessMode(), Project::firstWhere('id', $conversation->project_id), $model, $request->effort())
             ->continue($conversation->id, $request->user())
-            ->stream($chat)
+            ->stream($chat, provider: $provider->id, model: $model)
             ->usingProtocol(new VercelDataProtocolWithModel($chat->messageId()));
     }
 }

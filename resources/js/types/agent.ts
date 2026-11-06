@@ -12,7 +12,6 @@ import {
     Gauge,
     Mail,
     IdCard,
-    Route,
     ScanSearch,
     Search,
     Pencil,
@@ -58,44 +57,48 @@ export type AgentToolNameType = `tool-${keyof typeof AgentTools}`;
 export type ToolMetadata = {
     icon: LucideIcon;
     color: string;
+    /**
+     * What the processing indicator tells the user while the tool is running.
+     */
+    activityLabel: string;
 };
 
 export function getMetadata(name: AgentToolNameType): ToolMetadata | undefined {
     switch (name) {
         case AgentTools.DatabaseSchema:
-            return { icon: Database, color: 'text-purple-500' };
+            return { icon: Database, color: 'text-purple-500', activityLabel: 'Lecture du schéma' };
         case AgentTools.ListTables:
-            return { icon: Table2, color: 'text-blue-500' };
+            return { icon: Table2, color: 'text-blue-500', activityLabel: 'Récupération des tables' };
         case AgentTools.ShowSchemaDiagram:
-            return { icon: Workflow, color: 'text-indigo-500' };
+            return { icon: Workflow, color: 'text-indigo-500', activityLabel: 'Création du diagramme' };
         case AgentTools.CreateRecord:
-            return { icon: FilePlus2, color: 'text-green-500' };
+            return { icon: FilePlus2, color: 'text-green-500', activityLabel: "Création de l'enregistrement" };
         case AgentTools.FocusTable:
-            return { icon: Focus, color: 'text-cyan-500' };
+            return { icon: Focus, color: 'text-cyan-500', activityLabel: 'Inspection de la table' };
         case AgentTools.ReadQuery:
-            return { icon: Search, color: 'text-sky-500' };
+            return { icon: Search, color: 'text-sky-500', activityLabel: 'Exécution de la requête' };
         case AgentTools.UpdateProjectMemory:
-            return { icon: HardDriveDownloadIcon, color: 'text-green-500' };
+            return { icon: HardDriveDownloadIcon, color: 'text-green-500', activityLabel: 'Mise à jour de la mémoire du projet' };
         case AgentTools.WriteQuery:
-            return { icon: Pencil, color: 'text-orange-500' };
+            return { icon: Pencil, color: 'text-orange-500', activityLabel: 'Modification des données' };
         case AgentTools.ShowQueryResults:
-            return { icon: Sheet, color: 'text-emerald-500' };
+            return { icon: Sheet, color: 'text-emerald-500', activityLabel: 'Préparation des résultats' };
         case AgentTools.ShowKpis:
-            return { icon: Gauge, color: 'text-amber-500' };
+            return { icon: Gauge, color: 'text-amber-500', activityLabel: 'Calcul des indicateurs' };
         case AgentTools.ShowChart:
-            return { icon: ChartColumnBig, color: 'text-pink-500' };
+            return { icon: ChartColumnBig, color: 'text-pink-500', activityLabel: 'Création du graphique' };
         case AgentTools.ProfileTable:
-            return { icon: ScanSearch, color: 'text-teal-500' };
+            return { icon: ScanSearch, color: 'text-teal-500', activityLabel: 'Analyse de la table' };
         case AgentTools.ShowRecord:
-            return { icon: IdCard, color: 'text-violet-500' };
+            return { icon: IdCard, color: 'text-violet-500', activityLabel: "Chargement de l'enregistrement" };
         case AgentTools.ExplainQuery:
-            return { icon: Route, color: 'text-red-500' };
+            return { icon: Workflow, color: 'text-red-500', activityLabel: "Analyse du plan d'exécution" };
         case AgentTools.ExportDatabase:
-            return { icon: FileArchive, color: 'text-lime-600' };
+            return { icon: FileArchive, color: 'text-lime-600', activityLabel: 'Export de la base de données' };
         case AgentTools.SendMail:
-            return { icon: Mail, color: 'text-blue-600' };
+            return { icon: Mail, color: 'text-blue-600', activityLabel: "Envoi de l'e-mail" };
         case AgentTools.ManageMailRecipients:
-            return { icon: UserCheck, color: 'text-blue-600' };
+            return { icon: UserCheck, color: 'text-blue-600', activityLabel: 'Mise à jour des destinataires' };
     }
 }
 
@@ -148,8 +151,15 @@ export type RecordToolUIPart = CustomOutputToolUIPart<{
     key: Record<string, unknown>;
 }>;
 
+export type QueryPlanErrorCode = 'not_select' | 'syntax_error' | 'unknown_table' | 'hidden_table' | 'unsupported_driver' | 'other';
+
+/**
+ * What the agent receives for an ExplainQuery call: the id of the stored plan, or the error preventing it.
+ */
 export type ExplainQueryToolUIPart = CustomOutputToolUIPart<{
-    steps: string[];
+    planId?: string;
+    error?: QueryPlanErrorCode;
+    message?: string;
 }>;
 
 export type ExportFormat = 'sql' | 'csv';
@@ -163,8 +173,19 @@ export type ExportDatabaseToolUIPart = CustomOutputToolUIPart<{
     path: string;
     format: ExportFormat;
     output: ExportCompression;
-    tables: string[] | 'all';
+    /**
+     * The exported tables, or 'query' when the archive holds the result of a query.
+     */
+    tables: string[] | 'all' | 'query';
+    /**
+     * The number of exported rows, only when the archive holds the result of a query.
+     */
+    rows?: number;
     bytes: number;
+    /**
+     * When the archive was written, missing from the exports saved before this was returned.
+     */
+    modified_at?: string;
 }>;
 
 
@@ -234,13 +255,107 @@ export type InspectedRecord = {
     incoming: { table: string; columns: string[]; key: RecordKey; count: number }[];
 };
 
+export type PlanOperation =
+    | 'result'
+    | 'full_scan'
+    | 'index_full_scan'
+    | 'range_scan'
+    | 'index_lookup'
+    | 'unique_lookup'
+    | 'nested_loop'
+    | 'hash_join'
+    | 'merge_join'
+    | 'hash'
+    | 'group'
+    | 'sort'
+    | 'distinct'
+    | 'limit'
+    | 'subquery'
+    | 'materialize'
+    | 'union'
+    | 'other';
+
+export type PlanAlertSeverity = 'danger' | 'warn';
+
+export type PlanAlert = {
+    code: string;
+    severity: PlanAlertSeverity;
+    message: string;
+    table: string | null;
+    columns: string[];
+    status?: 'remaining' | 'new';
+};
+
 export type PlanNode = {
+    id: string;
+    parentId: string | null;
+    operation: PlanOperation;
     label: string;
-    detail: string | null;
+    subtitle: string | null;
+    table: string | null;
+    index: string | null;
+    badge: string | null;
+    /**
+     * The rows read by a step that reads a table.
+     */
+    rowsExamined: number | null;
+    /**
+     * The rows sent to the parent step, null when the engine does not estimate them.
+     */
+    estimatedRows: number | null;
+    /**
+     * Shown on the edge to the parent when the rows are not estimated (« 1 ligne par product_id »).
+     */
+    outputLabel: string | null;
     cost: number | null;
-    rows: number | null;
-    warning: string | null;
-    children: PlanNode[];
+    selfCost: number | null;
+    costShare: number | null;
+    condition: { label: string; value: string } | null;
+    explanation: string;
+    alerts: PlanAlert[];
+    details: { label: string; value: string; mono?: boolean; tone?: 'danger' | 'good' }[];
+    before: { label: string; rowsExamined: number | null; cost: number | null } | null;
+};
+
+export type PlanTotals = {
+    cost: number | null;
+    rowsRead: number;
+    alerts: { danger: number; warn: number };
+};
+
+export type ClassicPlan = {
+    columns: string[] | null;
+    rows: CellValue[][] | null;
+    text: string | null;
+};
+
+export type PlanAlertReference = { code: string; table: string | null };
+
+export type QueryPlan = {
+    planId: string;
+    driver: 'mysql' | 'mariadb' | 'pgsql' | 'sqlite';
+    driverLabel: string;
+    query: string;
+    bindings: Record<string, CellValue>;
+    fingerprint: string;
+    createdAt: string;
+    hasCosts: boolean;
+    totals: PlanTotals;
+    nodes: PlanNode[];
+    classic: ClassicPlan;
+    raw: unknown;
+    previous: { planId: string; createdAt: string; totals: PlanTotals; nodes: PlanNode[]; classic: ClassicPlan; raw: unknown } | null;
+    comparison: {
+        previousPlanId: string;
+        costBefore: number | null;
+        costAfter: number | null;
+        costChange: number | null;
+        rowsReadBefore: number;
+        rowsReadAfter: number;
+        resolvedAlerts: PlanAlertReference[];
+        remainingAlerts: PlanAlertReference[];
+        newAlerts: PlanAlertReference[];
+    } | null;
 };
 
 export type WritePreview = {

@@ -1,0 +1,80 @@
+{
+  "version": "8.0.36",
+  "query": "SELECT o.id, c.name FROM orders o JOIN customers c ON c.id = o.customer_id WHERE o.status = 'paid' ORDER BY o.total",
+  "raw": {
+    "query_block": {
+      "select_id": 1,
+      "cost_info": {
+        "query_cost": "301.30"
+      },
+      "ordering_operation": {
+        "using_filesort": true,
+        "nested_loop": [
+          {
+            "table": {
+              "table_name": "o",
+              "access_type": "ALL",
+              "possible_keys": [
+                "orders_customer_id_foreign"
+              ],
+              "rows_examined_per_scan": 1884,
+              "rows_produced_per_join": 188,
+              "filtered": "10.00",
+              "cost_info": {
+                "read_cost": "172.56",
+                "eval_cost": "18.84",
+                "prefix_cost": "191.40"
+              },
+              "attached_condition": "((`shop`.`o`.`status` = 'paid') and (`shop`.`o`.`customer_id` is not null))"
+            }
+          },
+          {
+            "table": {
+              "table_name": "c",
+              "access_type": "eq_ref",
+              "possible_keys": [
+                "PRIMARY"
+              ],
+              "key": "PRIMARY",
+              "used_key_parts": [
+                "id"
+              ],
+              "ref": [
+                "shop.o.customer_id"
+              ],
+              "rows_examined_per_scan": 1,
+              "rows_produced_per_join": 188,
+              "filtered": "100.00",
+              "cost_info": {
+                "prefix_cost": "301.30"
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "classic": {
+    "columns": [
+      "id",
+      "select_type",
+      "table",
+      "type"
+    ],
+    "rows": [
+      [
+        "1",
+        "SIMPLE",
+        "o",
+        "ALL"
+      ],
+      [
+        "1",
+        "SIMPLE",
+        "c",
+        "eq_ref"
+      ]
+    ],
+    "text": null
+  }
+}

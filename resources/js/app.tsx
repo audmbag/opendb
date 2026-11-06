@@ -1,6 +1,8 @@
 import { createInertiaApp } from '@inertiajs/react';
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { initializeTheme } from '@/hooks/use-apparence';
+import { initializeColorTheme } from '@/hooks/use-color-theme';
+import { initializeSyntaxTheme } from '@/hooks/use-syntax-theme';
 import AppLayout from '@/layouts/app';
 import BlankLayout from '@/layouts/blank-layout';
 
@@ -35,3 +37,5 @@ createInertiaApp({
 
 
 initializeTheme();
+initializeColorTheme();
+initializeSyntaxTheme();

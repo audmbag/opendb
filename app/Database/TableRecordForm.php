@@ -3,10 +3,10 @@
 namespace App\Database;
 
 use App\Database\Contracts\DriverContract;
+use App\Database\Exceptions\HiddenTableException;
 use App\Database\Exceptions\TableNotFoundException;
+use App\Database\Schema\ColumnType;
 use App\Database\Schema\SnapshotBuilder;
-use Illuminate\Support\Arr;
-use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 
 /**
@@ -25,12 +25,15 @@ class TableRecordForm
     protected ?string $autoIncrementColumn = null;
 
     /**
-     * @throws TableNotFoundException when the table is missing or hidden from the project.
+     * @throws HiddenTableException when the table is hidden from the agent.
+     * @throws TableNotFoundException when the table is missing.
      */
     public function __construct(
         protected DriverContract $driver,
         public readonly string $table,
     ) {
+        HiddenTableGuard::assertTableAllowed($table, $driver->hiddenTables());
+
         if (! in_array($table, $driver->listTables(false), true)) {
             throw TableNotFoundException::named($table);
         }
@@ -59,17 +62,7 @@ class TableRecordForm
 
         return collect($this->fields)->mapWithKeys(fn (array $field) => [$field['name'] => array_values(array_filter([
             $field['required'] ? 'required' : 'nullable',
-            ...match ($field['type']) {
-                'integer' => ['integer'],
-                'decimal' => ['numeric'],
-                'boolean' => ['boolean'],
-                'date', 'datetime' => ['date'],
-                'time' => ['date_format:H:i,H:i:s'],
-                'json' => ['json'],
-                'uuid' => ['uuid'],
-                'enum' => [Rule::in($field['options'])],
-                default => ['string'],
-            },
+            ...ColumnType::rules($field['type'], $field['options']),
             $field['max_length'] !== null ? "max:{$field['max_length']}" : null,
             $field['unique'] ? Rule::unique("{$connection}.{$this->table}", $field['name']) : null,
             $field['references'] !== null ? Rule::exists("{$connection}.{$field['references']['table']}", $field['references']['column']) : null,
@@ -86,14 +79,7 @@ class TableRecordForm
     {
         return collect($this->fields)
             ->filter(fn (array $field) => array_key_exists($field['name'], $values) && $values[$field['name']] !== null)
-            ->mapWithKeys(fn (array $field) => [$field['name'] => match ($field['type']) {
-                'integer' => (int) $values[$field['name']],
-                'boolean' => filter_var($values[$field['name']], FILTER_VALIDATE_BOOLEAN),
-                'date' => Carbon::parse($values[$field['name']])->format('Y-m-d'),
-                'datetime' => Carbon::parse($values[$field['name']])->format('Y-m-d H:i:s'),
-                'time' => Carbon::parse($values[$field['name']])->format('H:i:s'),
-                default => $values[$field['name']],
-            }])
+            ->mapWithKeys(fn (array $field) => [$field['name'] => ColumnType::normalize($field['type'], $values[$field['name']])])
             ->all();
     }
 
@@ -149,8 +135,8 @@ class TableRecordForm
                 continue;
             }
 
-            $type = $this->fieldType($column);
-            $default = $this->defaultValue($column['default'] ?? null);
+            $type = ColumnType::of($column);
+            $default = ColumnType::defaultValue($column['default'] ?? null);
 
             $fields[] = [
                 'name' => $column['name'],
@@ -159,69 +145,13 @@ class TableRecordForm
                 'required' => ! $column['nullable'] && $default === null,
                 'nullable' => (bool) $column['nullable'],
                 'default' => $default,
-                'max_length' => in_array($type, ['string', 'uuid'], true) ? $this->maxLength($column['type']) : null,
-                'options' => $type === 'enum' ? $this->enumOptions($column['type']) : null,
+                'max_length' => in_array($type, ['string', 'uuid'], true) ? ColumnType::maxLength($column['type']) : null,
+                'options' => $type === 'enum' ? ColumnType::enumOptions($column['type']) : null,
                 'unique' => in_array($column['name'], $uniqueColumns, true),
                 'references' => $references[$column['name']] ?? null,
             ];
         }
 
         return $fields;
-    }
-
-    /**
-     * The kind of form field matching a column type, across MySQL, MariaDB, PostgreSQL and SQLite.
-     *
-     * @param  array<string, mixed>  $column
-     */
-    protected function fieldType(array $column): string
-    {
-        $typeName = strtolower((string) $column['type_name']);
-        $type = strtolower((string) $column['type']);
-
-        return match (true) {
-            $type === 'tinyint(1)', in_array($typeName, ['bool', 'boolean'], true) => 'boolean',
-            in_array($typeName, ['tinyint', 'smallint', 'mediumint', 'int', 'integer', 'bigint', 'int2', 'int4', 'int8', 'year'], true) => 'integer',
-            in_array($typeName, ['decimal', 'numeric', 'float', 'double', 'real', 'float4', 'float8', 'money'], true) => 'decimal',
-            in_array($typeName, ['datetime', 'timestamp', 'timestamptz'], true) => 'datetime',
-            $typeName === 'date' => 'date',
-            in_array($typeName, ['time', 'timetz'], true) => 'time',
-            in_array($typeName, ['json', 'jsonb'], true) => 'json',
-            $typeName === 'uuid' => 'uuid',
-            $typeName === 'enum' => 'enum',
-            in_array($typeName, ['text', 'tinytext', 'mediumtext', 'longtext', 'clob'], true) => 'text',
-            default => 'string',
-        };
-    }
-
-    /**
-     * The default of a column without its SQL quoting, or the expression computed by the database (e.g. CURRENT_TIMESTAMP).
-     */
-    protected function defaultValue(mixed $default): ?string
-    {
-        if ($default === null) {
-            return null;
-        }
-
-        $default = (string) $default;
-
-        return preg_match("/^'(.*)'(::[\w\s]+)?$/s", $default, $matches)
-            ? str_replace("''", "'", $matches[1])
-            : $default;
-    }
-
-    protected function maxLength(string $type): ?int
-    {
-        return preg_match('/^(?:var)?char(?:acter)?(?: varying)?\((\d+)\)/i', $type, $matches) ? (int) $matches[1] : null;
-    }
-
-    /**
-     * @return list<string>
-     */
-    protected function enumOptions(string $type): array
-    {
-        preg_match_all("/'((?:[^']|'')*)'/", $type, $matches);
-
-        return Arr::map($matches[1], fn (string $option) => str_replace("''", "'", $option));
     }
 }

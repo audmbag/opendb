@@ -16,8 +16,8 @@ beforeEach(function () {
     Mail::fake();
 
     $this->projectPath = sys_get_temp_dir().DIRECTORY_SEPARATOR.uniqid('send-mail-');
-    File::ensureDirectoryExists($this->projectPath.'/exports');
-    File::put($this->projectPath.'/exports/customers.zip', 'archive');
+    File::ensureDirectoryExists($this->projectPath.'/.opendb/exports');
+    File::put($this->projectPath.'/.opendb/exports/customers.zip', 'archive');
 
     $this->user = User::factory()->create();
     MailSetting::factory()->for($this->user)->create(['from_address' => 'me@example.com']);
@@ -46,7 +46,7 @@ it('sends the mail the user submitted in the form, not the one the agent propose
         'to' => ['me@example.com'],
         'subject' => 'Export des clients',
         'body' => 'Voici l\'export.',
-        'attachments' => ['exports/customers.zip'],
+        'attachments' => ['.opendb/exports/customers.zip'],
     ]);
 
     $result = (string) sendMailTool($this->user, $this->projectPath)->handle(new Request(proposedMail(), 'call_1'));
@@ -68,19 +68,19 @@ it('sends the mail the user submitted in the form, not the one the agent propose
         && $mail->hasSubject('Export des clients')
         && $mail->body === 'Voici l\'export.'
         && $mail->usesMailer("user-smtp-{$this->user->id}")
-        && $mail->attachmentPaths === [realpath($this->projectPath.'/exports/customers.zip')]);
+        && $mail->attachmentPaths === [realpath($this->projectPath.'/.opendb/exports/customers.zip')]);
 });
 
 it('tells the agent when the user sent its proposal unchanged, or left out an attachment', function (array $attachments, string $lastLine) {
-    $proposal = [...proposedMail(), 'body' => 'Bonjour,\n\nVoici l\'export.', 'attachments' => ['exports/customers.zip']];
+    $proposal = [...proposedMail(), 'body' => 'Bonjour,\n\nVoici l\'export.', 'attachments' => ['.opendb/exports/customers.zip']];
     Cache::put(SendMail::submissionCacheKey('call_1'), [...$proposal, 'body' => "Bonjour,\n\nVoici l'export.", 'attachments' => $attachments]);
 
     $result = (string) sendMailTool($this->user, $this->projectPath)->handle(new Request($proposal, 'call_1'));
 
     expect($result)->toEndWith($lastLine);
 })->with([
-    'unchanged' => [['exports/customers.zip'], "- Pièces jointes : customers.zip\nL'utilisateur a envoyé ta proposition sans la modifier."],
-    'attachment left out' => [[], "- pièces jointes non envoyées : exports/customers.zip\nRapporte uniquement le mail réellement envoyé ci-dessus : ne mentionne plus les valeurs de ta proposition."],
+    'unchanged' => [['.opendb/exports/customers.zip'], "- Pièces jointes : customers.zip\nL'utilisateur a envoyé ta proposition sans la modifier."],
+    'attachment left out' => [[], "- pièces jointes non envoyées : .opendb/exports/customers.zip\nRapporte uniquement le mail réellement envoyé ci-dessus : ne mentionne plus les valeurs de ta proposition."],
 ]);
 
 it('sends nothing when the user did not submit the form of the call', function () {

@@ -2,67 +2,54 @@
 
 namespace App\Console\Commands;
 
-use App\Ai\Data\AiModel;
-use App\Ai\Services\ModelRegistry;
+use App\Console\Commands\Concerns\AuthenticatesUser;
+use App\Repository\ProviderRepository;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
-use InvalidArgumentException;
-use Laravel\Ai\Exceptions\AiException;
 
 #[Signature('ai:models
-    {provider? : Limit output to a single provider (its config/ai.php name, e.g. openai)}
-    {--refresh : Bypass and rebuild the cache}
+    {provider? : Limit output to a single provider (e.g. openai)}
+    {--name= : The username to log in with; the password is always asked}
     {--json : Output raw JSON instead of a table}')]
-#[Description('List the currently-available models for each configured AI provider')]
+#[Description('List the AI models the user activated on their connected providers')]
 class ListAiModels extends Command
 {
-    public function handle(ModelRegistry $registry): int
+    use AuthenticatesUser;
+
+    public function handle(ProviderRepository $providerRepository): int
     {
-        $provider = $this->argument('provider');
-        $fresh = (bool) $this->option('refresh');
-
-        try {
-            $models = $provider !== null
-                ? $registry->provider($provider, $fresh)
-                : $registry->all($fresh);
-        } catch (InvalidArgumentException $e) {
-            $this->error($e->getMessage());
-            $this->line('Configured providers: '.$registry->configuredProviders()->implode(', '));
-
-            return self::FAILURE;
-        } catch (AiException $e) {
-            $this->error($e->getMessage());
-
+        if ($this->authenticateUser() === null) {
             return self::FAILURE;
         }
 
+        $models = $providerRepository->activeModels()
+            ->when(
+                $this->argument('provider') !== null,
+                fn ($models) => $models->where('provider', $this->argument('provider'))->values(),
+            );
+
         if ($models->isEmpty()) {
-            $this->warn('No models found. Check that the relevant API keys are set in config/ai.php.');
+            $this->warn('Aucun modèle actif : connectez un fournisseur et activez un modèle dans les paramètres.');
 
             return self::SUCCESS;
         }
 
         if ($this->option('json')) {
-            $this->line($models->map->toArray()->toJson(JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line($models->toJson(JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
             return self::SUCCESS;
         }
 
         $this->table(
-            ['Provider', 'Driver', 'Model ID', 'Name', 'Context', 'Created'],
-            $models->map(fn (AiModel $model): array => [
-                $model->provider,
-                $model->driver->value,
-                $model->id,
-                $model->name,
-                $model->contextWindow !== null ? number_format($model->contextWindow) : '—',
-                $model->createdAt?->format('Y-m-d') ?? '—',
+            ['Provider', 'Model ID', 'Name', 'Context'],
+            $models->map(fn (array $model): array => [
+                $model['provider'],
+                $model['id'],
+                $model['label'],
+                $model['context_window'] !== null ? number_format($model['context_window']) : '—',
             ])->all(),
         );
-
-        $this->newLine();
-        $this->info(sprintf('%d models across %d provider(s).', $models->count(), $models->pluck('provider')->unique()->count()));
 
         return self::SUCCESS;
     }

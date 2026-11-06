@@ -12,13 +12,13 @@ use App\Ai\Tools\Database\ShowRecord;
 use App\Ai\Tools\Database\WriteQuery;
 use App\Database\Contracts\DriverContract;
 use App\Database\Exceptions\TableNotFoundException;
-use App\Database\ReadOnlyQueryGuard;
 use App\Database\RecordInspector;
 use App\Database\SelectQuery;
 use App\Database\TableProfiler;
 use App\Http\Controllers\Controller;
 use App\Models\Project;
 use App\Repository\ConversationRepository;
+use App\Services\QueryPlan\QueryPlanManager;
 use Closure;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
@@ -173,16 +173,21 @@ class ToolArtifactController extends Controller
     }
 
     /**
-     * The execution plan of the query of an ExplainQuery call.
+     * The execution plan stored by an ExplainQuery call, as it was when the agent asked for it: it is never computed again,
+     * so a plan made before an index was created still shows the plan from before.
      */
-    public function explain(Conversation $conversation, string $toolCallId): JsonResponse
+    public function explain(Conversation $conversation, string $toolCallId, QueryPlanManager $queryPlans): JsonResponse
     {
-        $arguments = $this->toolArguments($conversation, $toolCallId, ExplainQuery::class);
+        $toolCall = $this->conversationRepository->findToolCall($conversation, $toolCallId, class_basename(ExplainQuery::class));
+        $planId = json_decode((string) ($toolCall['result'] ?? ''), true)['planId'] ?? null;
 
-        return $this->artifact(fn (): array => $this->driver($conversation)->explain(
-            ReadOnlyQueryGuard::assertSelect((string) ($arguments['query'] ?? '')),
-            $arguments['bindings'] ?? [],
-        ));
+        abort_unless(is_string($planId), 404);
+
+        $plan = $queryPlans->find($conversation->id, $planId);
+
+        abort_if($plan === null, 404);
+
+        return response()->json(['data' => $plan]);
     }
 
     /**
@@ -204,7 +209,7 @@ class ToolArtifactController extends Controller
 
     /**
      * The archive written by an ExportDatabase call, read from the path the tool saved in its result.
-     * Only a file of the exports directory of the project can be downloaded.
+     * Only a file of the exports directory of the project, `.opendb/exports`, can be downloaded.
      */
     public function download(Conversation $conversation, string $toolCallId): BinaryFileResponse
     {
@@ -213,11 +218,12 @@ class ToolArtifactController extends Controller
 
         abort_unless(is_array($result) && ($result['success'] ?? false) && is_string($result['path'] ?? null), 404);
 
-        $projectPath = Project::findOrFail($conversation->project_id)->path;
-        $exportDirectory = realpath($projectPath.DIRECTORY_SEPARATOR.ExportDatabase::EXPORT_DIRECTORY);
-        $file = realpath($projectPath.DIRECTORY_SEPARATOR.$result['path']);
+        // Only the name of the archive is kept: it is looked for in the exports directory, where the archives of the
+        // older conversations were moved too, and a path cannot lead elsewhere.
+        $exportDirectory = Project::findOrFail($conversation->project_id)->path.DIRECTORY_SEPARATOR.ExportDatabase::EXPORT_DIRECTORY;
+        $file = realpath($exportDirectory.DIRECTORY_SEPARATOR.basename($result['path']));
 
-        abort_if($exportDirectory === false || $file === false || ! is_file($file) || ! str_starts_with($file, $exportDirectory.DIRECTORY_SEPARATOR), 404);
+        abort_if($file === false || ! is_file($file) || ! str_starts_with($file, realpath($exportDirectory).DIRECTORY_SEPARATOR), 404);
 
         return response()->download($file);
     }
@@ -235,9 +241,12 @@ class ToolArtifactController extends Controller
         return (array) ($toolCall['arguments'] ?? []);
     }
 
+    /**
+     * The driver of the agent, since every artifact displays what the agent asked for.
+     */
     protected function driver(Conversation $conversation): DriverContract
     {
-        return Project::findOrFail($conversation->project_id)->driver_config->getDriver();
+        return Project::findOrFail($conversation->project_id)->driver_config->getAgentDriver();
     }
 
     /**

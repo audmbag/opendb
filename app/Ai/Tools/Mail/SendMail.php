@@ -38,9 +38,6 @@ class SendMail implements Approvable, Tool
     public function description(): Stringable|string
     {
         return 'Prépare un mail envoyé avec la configuration SMTP de l\'utilisateur. '
-            .'Un formulaire prérempli avec tes valeurs est présenté à l\'utilisateur : il peut modifier les destinataires, '
-            .'l\'objet, le corps et retirer des pièces jointes, puis envoyer le mail ou annuler. '
-            .'Seuls les destinataires autorisés (voir `ManageMailRecipients` avec l\'action `list`) peuvent recevoir un mail. '
             .'Les pièces jointes doivent être des fichiers du dossier `'.ExportDatabase::EXPORT_DIRECTORY.'` du projet, '
             .'par exemple une archive créée par `ExportDatabase`. '
             .'N\'utilise ce tool que si l\'utilisateur demande un envoi dans la conversation en cours. '

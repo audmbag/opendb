@@ -24,11 +24,8 @@ class ShowKpis extends BaseTool implements Tool
     {
         return 'Affiche des cartes de métriques (KPI) dans l\'interface, sous forme d\'artefact. Chaque carte exécute '
             .'sa propre requête SELECT qui doit renvoyer UNE seule valeur (une ligne, une colonne, ex. '
-            .'`SELECT COUNT(*) FROM orders WHERE created_at >= :since`). Ce tool ne te renvoie pas les valeurs : il sert '
-            .'uniquement à les montrer à l\'utilisateur. Utilise-le quand l\'utilisateur demande un tableau de bord, des '
-            .'chiffres clés ou un résumé chiffré (ex. "donne-moi les KPI des ventes", "combien de clients, de commandes et '
-            .'de CA ce mois-ci ?"). Au maximum '.self::MAX_KPIS.' cartes. `format` vaut number, currency, percent (la valeur '
-            .'est déjà un pourcentage, ex. 12.5) ou duration (en secondes) ; `unit` est un suffixe optionnel. Avec le format '
+            .'`SELECT COUNT(*) FROM orders WHERE created_at >= :since`). Ce tool ne te renvoie pas les valeurs. '
+            .'Avec `format`, percent attend une valeur déjà en pourcentage (ex. 12.5) et duration une valeur en secondes. Avec le format '
             .'currency, `currency` est obligatoire : le code ISO 4217 de la devise (EUR, USD, CHF, XOF…), tel que précisé par '
             .'l\'utilisateur ou par les données (colonne `currency`, nom de colonne explicite). Ne suppose jamais une devise : '
             .'si elle est inconnue, demande-la à l\'utilisateur avant d\'appeler ce tool.';

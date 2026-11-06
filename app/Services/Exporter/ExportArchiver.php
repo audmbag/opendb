@@ -30,6 +30,9 @@ class ExportArchiver
             ExportCompression::Gzip => count($files) === 1
                 ? $this->gzip($files[0], $basePath.'.'.pathinfo($files[0], PATHINFO_EXTENSION).'.gz')
                 : $this->tarGz($files, $basePath),
+            ExportCompression::None => count($files) === 1
+                ? $this->copy($files[0], $basePath.'.'.pathinfo($files[0], PATHINFO_EXTENSION))
+                : $this->zip($files, $basePath.'.zip'),
         };
     }
 
@@ -89,6 +92,15 @@ class ExportArchiver
         } finally {
             @unlink($tarPath);
         }
+    }
+
+    protected function copy(string $file, string $path): string
+    {
+        if (! copy($file, $path)) {
+            throw new RuntimeException("Impossible d'écrire le fichier {$path}.");
+        }
+
+        return $path;
     }
 
     protected function gzip(string $file, string $path): string

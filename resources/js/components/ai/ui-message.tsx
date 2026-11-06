@@ -17,6 +17,8 @@ import {
     MessageContent,
     MessageResponse,
 } from '@/components/ai-elements/message';
+import { useSyntaxTheme } from '@/hooks/use-syntax-theme';
+import { uppercaseSqlBlocks } from '@/lib/sql';
 import { cn } from '@/lib/utils';
 import type { CustomOutputToolUIPart } from '@/types/agent';
 
@@ -77,6 +79,8 @@ const UIMessage = ({
     artifactables,
     messageIndex,
 }: Props) => {
+    const { definition: syntaxTheme } = useSyntaxTheme();
+
     return (
         <Message from={message.role} className={cn('group', {'mt-8': messageIndex === 0})}>
             {attachments.length > 0 && (
@@ -98,7 +102,13 @@ const UIMessage = ({
                 </Attachments>
             )}
             <MessageContent>
-                <MessageResponse>{(part as TextUIPart).text}</MessageResponse>
+                {/* MessageResponse redraws only for a new text: the key redraws it for a new syntax theme. */}
+                <MessageResponse
+                    key={syntaxTheme.value}
+                    shikiTheme={[syntaxTheme.light, syntaxTheme.dark]}
+                >
+                    {uppercaseSqlBlocks((part as TextUIPart).text)}
+                </MessageResponse>
             </MessageContent>
 
             {artifactables && artifactables.length > 0 && (

@@ -3,7 +3,8 @@
 namespace App\Ai\Tools\Database;
 
 use App\Database\Contracts\DriverContract;
-use App\Database\ReadOnlyQueryGuard;
+use App\Services\QueryPlan\Exception\QueryPlanException;
+use App\Services\QueryPlan\QueryPlanManager;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
@@ -11,8 +12,14 @@ use Stringable;
 
 class ExplainQuery extends BaseTool implements Tool
 {
+    /**
+     * @param  ?string  $conversationId  La conversation de l'appel, pour comparer le plan au précédent plan de la même requête.
+     */
     public function __construct(
         public DriverContract $driver,
+        public QueryPlanManager $queryPlans,
+        public string $projectId,
+        public ?string $conversationId = null,
     ) {}
 
     public function description(): Stringable|string
@@ -27,42 +34,17 @@ class ExplainQuery extends BaseTool implements Tool
 
     public function handle(Request $request): Stringable|string
     {
-        return $this->artifactOutput(function () use ($request): array {
-            $sql = ReadOnlyQueryGuard::assertSelect((string) $request['query']);
+        try {
+            $plan = $this->queryPlans->explain($this->driver, $this->projectId, $this->conversationId, (string) $request['query'], (array) ($request['bindings'] ?? []));
+        } catch (QueryPlanException $e) {
+            return $this->toJson($e->toArray());
+        }
 
-            $plan = $this->driver->explain($sql, $request['bindings'] ?? []);
-
-            return [
-                'steps' => $this->summarize($plan),
-            ];
-        });
+        return $this->toJson($this->queryPlans->summarize($plan));
     }
 
     public function schema(JsonSchema $schema): array
     {
         return $this->selectQuerySchema($schema);
-    }
-
-    /**
-     * The steps of the plan, one line each, indented by depth, for the agent to explain it.
-     *
-     * @param  list<array{label: string, detail: ?string, cost: ?float, rows: ?int, warning: ?string, children: list<array<string, mixed>>}>  $nodes
-     * @return list<string>
-     */
-    protected function summarize(array $nodes, int $depth = 0): array
-    {
-        $steps = [];
-
-        foreach ($nodes as $node) {
-            $steps[] = str_repeat('  ', $depth).$node['label']
-                .($node['detail'] ? " ({$node['detail']})" : '')
-                .($node['rows'] !== null ? " · ~{$node['rows']} lignes" : '')
-                .($node['cost'] !== null ? " · coût {$node['cost']}" : '')
-                .($node['warning'] ? " ⚠ {$node['warning']}" : '');
-
-            array_push($steps, ...$this->summarize($node['children'], $depth + 1));
-        }
-
-        return $steps;
     }
 }

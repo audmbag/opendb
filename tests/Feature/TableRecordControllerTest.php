@@ -60,6 +60,16 @@ it('returns 404 for a table missing from the project database', function () {
     $response->assertNotFound();
 });
 
+it('returns 403 for a table disabled for the agent', function () {
+    $user = User::factory()->create();
+    $project = projectWithSqliteDatabase($user, $this->databasePath, customersTable(...));
+    $project->driver_config->update(['disabled_tables' => ['customers']]);
+
+    $response = $this->actingAs($user)->getJson("/{$project->id}/tables/customers/record-form");
+
+    $response->assertForbidden();
+});
+
 it('keeps the submitted values of a pending call, converted for the database, until the call is approved', function () {
     $user = User::factory()->create();
     $project = projectWithSqliteDatabase($user, $this->databasePath, customersTable(...));

@@ -1,5 +1,6 @@
 import { AstroidIcon, BrainIcon, CheckIcon, SettingsIcon } from 'lucide-react';
 import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { useHotkeys } from 'react-hotkeys-hook';
 import {
     ModelSelector as AIElementModelSelector,
     ModelSelectorContent,
@@ -13,16 +14,21 @@ import {
 } from '@/components/ai-elements/model-selector';
 import { EmptyState } from '@/components/empty-state';
 import Button from '@/components/form/button';
+import type { ButtonProps } from '@/components/form/button';
 import { useProvider } from '@/hooks/use-provider';
 import { useSettingsDialog } from '@/hooks/use-settings-modal';
+import { PROMPT_HOTKEY_OPTIONS } from '@/lib/hotkeys';
 import { cn } from '@/lib/utils';
+import { useAgentSettingsStore } from '@/store/use-agent-settings-store';
+import type { SelectedModel } from '@/store/use-agent-settings-store';
+import { useProviderStore } from '@/store/use-provider-store';
 import type { AiModel, Provider } from '@/types/models/provider';
 
 interface ModelItemProps {
     providerId: string;
     model: AiModel;
-    selectedModel: { providerId: string, modelId: string };
-    onSelect: (value: ModelItemProps['selectedModel']) => void;
+    selectedModel: SelectedModel | null;
+    onSelect: (value: SelectedModel) => void;
 }
 export const ModelSelectorLogo = ({
     providerId,
@@ -55,7 +61,7 @@ const ModelItem = memo(({ providerId, model, selectedModel, onSelect }: ModelIte
         >
             <ModelSelectorLogo providerId={providerId} />
             <ModelSelectorName>{model.label}</ModelSelectorName>
-            {selectedModel.modelId === model.id ? (
+            {selectedModel?.providerId === providerId && selectedModel.modelId === model.id ? (
                 <CheckIcon className="ml-auto size-4" />
             ) : (
                 <div className="ml-auto size-4" />
@@ -66,12 +72,11 @@ const ModelItem = memo(({ providerId, model, selectedModel, onSelect }: ModelIte
 
 ModelItem.displayName = 'ModelItem';
 
-const ModelSelector = () => {
+const ModelSelector = ({ size = 'default' }: { size?: ButtonProps['size'] }) => {
     const [open, setOpen] = useState(false);
-    const [selectedModel, setSelectedModel] = useState<ModelItemProps['selectedModel']>({
-        providerId: 'gemini',
-        modelId: 'gemini-2.5-pro',
-    });
+    const selectedModel = useAgentSettingsStore((state) => state.selectedModel);
+    const setSelectedModel = useAgentSettingsStore((state) => state.setSelectedModel);
+    const hasLoadedProviders = useProviderStore((state) => state.providers.length > 0);
 
     const { loadData, connectedProviders: providers, processing } = useProvider();
 
@@ -81,22 +86,20 @@ const ModelSelector = () => {
         loadData();
     }, [loadData]);
 
-    console.log(selectedModel);
-
-    const handleModelSelect = useCallback(({ providerId, modelId }: ModelItemProps['selectedModel']) => {
-        setSelectedModel({ providerId, modelId });
+    const handleModelSelect = useCallback((model: SelectedModel) => {
+        setSelectedModel(model);
         setOpen(false);
-    }, []);
+    }, [setSelectedModel]);
 
     const selectedModelData = useMemo(() => {
-        const provider = providers.find((provider) => provider.id === selectedModel.providerId)
-        const model = provider?.models.find((model) => model.id === selectedModel.modelId)
+        const provider = providers.find((provider) => provider.id === selectedModel?.providerId)
+        const model = provider?.models.find((model) => model.id === selectedModel?.modelId && model.active)
 
         return {
             provider,
             model
         }
-    }, [providers, selectedModel.modelId, selectedModel.providerId]);
+    }, [providers, selectedModel?.modelId, selectedModel?.providerId]);
 
     const normalizedPoviders = useMemo(() => {
         const ps: Provider[] = []
@@ -112,6 +115,19 @@ const ModelSelector = () => {
         return ps;
     }, [providers]);
 
+    /**
+     * The server refuses a model that is no longer usable, so a remembered one is replaced as soon as the providers tell it is gone.
+     */
+    useEffect(() => {
+        if (!hasLoadedProviders || selectedModelData.model) {
+            return;
+        }
+
+        const firstProvider = normalizedPoviders[0];
+
+        setSelectedModel(firstProvider ? { providerId: firstProvider.id, modelId: firstProvider.models[0].id } : null);
+    }, [hasLoadedProviders, normalizedPoviders, selectedModelData.model, setSelectedModel]);
+
     const openSettingsModal = useCallback(() => {
         setOpen(false)
         openSettingsDialog('models');
@@ -126,22 +142,25 @@ const ModelSelector = () => {
         }
     }, [openSettingsDialog, selectedModelData]);
 
+    useHotkeys("mod+'", () => (open ? setOpen(false) : handleOpen()), PROMPT_HOTKEY_OPTIONS, [open, handleOpen]);
+
 
     return (
         <AIElementModelSelector onOpenChange={setOpen} open={open}>
             <Button
                 tooltip={['Choisir un mode', ['Ctrl', "'"]]}
-                variant="ghost"
+                variant="secondary"
                 processing={processing}
                 onClick={handleOpen}
-                size={"sm"}
+                size={size}
             >
                 <span className="flex items-center gap-1">
                     {selectedModelData?.provider ? (
                         <ModelSelectorLogo
                             providerId={selectedModelData.provider.id}
+                            className={cn({ 'size-3': size === 'xs' })}
                         />
-                    ) : <AstroidIcon className="size-4" />}
+                    ) : <AstroidIcon className={size === 'xs' ? 'size-3' : 'size-4'} />}
                     <ModelSelectorName>
                         {selectedModelData?.model?.label || "Configurer un fournisseur"}
                     </ModelSelectorName>

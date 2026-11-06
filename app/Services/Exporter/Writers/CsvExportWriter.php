@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Exporter\Writers;
 
+use App\Database\SelectQuery;
 use App\Services\Exporter\Data\ExportSource;
 use App\Services\Exporter\Data\TableExport;
 use App\Services\Exporter\TableRowReader;
@@ -39,6 +40,38 @@ class CsvExportWriter implements ExportWriter
         }
 
         return $files;
+    }
+
+    /**
+     * Écrit le résultat d'une requête dans un fichier CSV et renvoie le nombre de lignes écrites.
+     * Sans ligne, le fichier reste vide : les colonnes d'un résultat vide ne sont pas connues.
+     *
+     * @throws RuntimeException
+     */
+    public function writeQuery(SelectQuery $query, string $path): int
+    {
+        $file = fopen($path, 'wb') ?: throw new RuntimeException("Impossible d'écrire le fichier d'export {$path}.");
+        $rowCount = 0;
+
+        try {
+            do {
+                $rows = $query->rows(TableRowReader::CHUNK_SIZE, $rowCount);
+
+                if ($rowCount === 0 && $rows !== []) {
+                    fputcsv($file, array_keys($rows[0]), escape: '');
+                }
+
+                foreach ($rows as $row) {
+                    fputcsv($file, $row, escape: '');
+                }
+
+                $rowCount += count($rows);
+            } while (count($rows) === TableRowReader::CHUNK_SIZE);
+        } finally {
+            fclose($file);
+        }
+
+        return $rowCount;
     }
 
     private function writeTable(ExportSource $source, TableExport $export, string $path): string

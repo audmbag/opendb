@@ -28,6 +28,11 @@ class DriverConfig extends Model
         ];
     }
 
+    public function project(): BelongsTo
+    {
+        return $this->belongsTo(Project::class);
+    }
+
     public function driver(): BelongsTo
     {
         return $this->belongsTo(Driver::class, 'driver_id', 'id');
@@ -44,6 +49,14 @@ class DriverConfig extends Model
             'driver_id' => $this->driver_id,
             'ssh' => $this->ssh,
         ]);
+    }
+
+    /**
+     * Le driver de l'agent : les tables désactivées dans les paramètres du projet lui sont cachées.
+     */
+    public function getAgentDriver(): DriverContract
+    {
+        return $this->getDriver()->hideTables($this->disabled_tables ?? []);
     }
 
     public function getConnectionStringAttribute(): string

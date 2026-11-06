@@ -4,6 +4,9 @@ namespace App\Database\Drivers;
 
 use App\Database\Contracts\DriverContract;
 use App\Database\Exceptions\DatabaseCheckException;
+use App\Database\ExplainOutput;
+use Closure;
+use Illuminate\Database\Connection;
 use Illuminate\Support\Facades\File;
 
 class SQLiteDriver extends BaseDriver implements DriverContract
@@ -66,8 +69,23 @@ class SQLiteDriver extends BaseDriver implements DriverContract
         });
     }
 
+    /**
+     * The statements SQLite kept when the table and its indexes were created.
+     */
+    public function showCreateTable(string $table): string
+    {
+        $statements = $this->connection->select(
+            "SELECT sql FROM sqlite_master WHERE tbl_name = ? AND sql IS NOT NULL ORDER BY CASE type WHEN 'table' THEN 0 ELSE 1 END, name",
+            [$table],
+        );
+
+        return collect($statements)->map(fn (object $row): string => rtrim((string) $row->sql, ';').';')->implode("\n\n");
+    }
+
     public function executeReadOnly(string $sql, array $bindings = []): array
     {
+        $this->assertQueryAllowed($sql);
+
         $this->connection->statement('PRAGMA query_only = ON;');
 
         try {
@@ -77,25 +95,32 @@ class SQLiteDriver extends BaseDriver implements DriverContract
         }
     }
 
-    public function explain(string $sql, array $bindings = []): array
+    public function explain(string $sql, array $bindings = []): ExplainOutput
     {
-        $steps = collect($this->executeReadOnly("EXPLAIN QUERY PLAN {$sql}", $bindings))->groupBy('parent');
+        $this->assertQueryAllowed($sql);
 
-        $build = function (int $parent) use (&$build, $steps): array {
-            return $steps->get($parent, collect())
-                ->map(fn (object $step): array => $this->planNode(
-                    label: (string) $step->detail,
-                    warning: match (true) {
-                        (bool) preg_match('/^SCAN (?!.*USING (?:COVERING )?INDEX)/', (string) $step->detail) => 'Parcours complet de la table',
-                        str_contains((string) $step->detail, 'USE TEMP B-TREE') => 'Tri ou regroupement dans une structure temporaire',
-                        default => null,
-                    },
-                    children: $build((int) $step->id),
-                ))
-                ->values()
-                ->all();
-        };
+        return $this->inRolledBackReadOnlyTransaction(function (Connection $connection) use ($sql, $bindings): ExplainOutput {
+            $rows = array_map(fn (object $row): array => (array) $row, $connection->select("EXPLAIN QUERY PLAN {$sql}", $bindings));
 
-        return $build(0);
+            return new ExplainOutput(
+                raw: $rows,
+                classic: ExplainOutput::table(array_map(fn (array $row): object => (object) $row, $rows), ['id', 'parent', 'detail']),
+                version: (string) $connection->getServerVersion(),
+            );
+        });
+    }
+
+    /**
+     * SQLite n'a pas de transaction en lecture seule : le pragma query_only refuse toute écriture le temps du callback.
+     */
+    protected function inRolledBackReadOnlyTransaction(Closure $callback): mixed
+    {
+        $this->connection->statement('PRAGMA query_only = ON;');
+
+        try {
+            return $callback($this->connection);
+        } finally {
+            $this->connection->statement('PRAGMA query_only = OFF;');
+        }
     }
 }

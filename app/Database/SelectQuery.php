@@ -18,7 +18,7 @@ class SelectQuery
     /**
      * @param  array<string|int, mixed>  $bindings
      *
-     * @throws RuntimeException when the query is not a single SELECT statement.
+     * @throws RuntimeException when the query is not a single SELECT statement, or could reach a table hidden from the agent.
      */
     public function __construct(
         protected DriverContract $driver,
@@ -26,6 +26,8 @@ class SelectQuery
         protected array $bindings = [],
     ) {
         $this->sql = ReadOnlyQueryGuard::assertSelect($sql);
+
+        HiddenTableGuard::assertQueryAllowed($this->sql, $driver->hiddenTables());
     }
 
     public function count(): int
