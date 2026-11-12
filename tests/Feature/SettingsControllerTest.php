@@ -2,6 +2,7 @@
 
 use AlbertoArena\Truss\Cache\SchemaCacheRepository;
 use App\Ai\Enums\AgentAccessModeEnum;
+use App\Ai\Enums\SchemaChangeApplyModeEnum;
 use App\Database\Drivers\BaseDriver;
 use App\Models\Project;
 use App\Models\User;
@@ -21,12 +22,14 @@ it('saves how the agent behaves by default', function () {
         'effort' => 'high',
         'maxSteps' => 25,
         'maxRows' => 500,
-    ])->assertOk()->assertJsonPath('data.agent', ['accessMode' => 'read-write', 'effort' => 'high', 'maxSteps' => 25, 'maxRows' => 500]);
+        'schemaApplyMode' => 'additions',
+    ])->assertOk()->assertJsonPath('data.agent', ['accessMode' => 'read-write', 'effort' => 'high', 'maxSteps' => 25, 'maxRows' => 500, 'schemaApplyMode' => 'additions']);
 
     expect($this->user->refresh()->settings)
         ->agentAccessMode->toBe(AgentAccessModeEnum::ReadWrite)
         ->agentMaxSteps->toBe(25)
-        ->agentMaxRows->toBe(500);
+        ->agentMaxRows->toBe(500)
+        ->schemaApplyMode->toBe(SchemaChangeApplyModeEnum::Additions);
 });
 
 it('rejects agent settings outside of their limits', function (array $values, string $field) {
@@ -41,6 +44,7 @@ it('rejects agent settings outside of their limits', function (array $values, st
     'unknown access mode' => [['accessMode' => 'admin'], 'accessMode'],
     'too many steps' => [['maxSteps' => 51], 'maxSteps'],
     'too few rows' => [['maxRows' => 5], 'maxRows'],
+    'unknown apply mode' => [['schemaApplyMode' => 'always'], 'schemaApplyMode'],
 ]);
 
 it('saves the default format of the exports without changing the agent settings', function () {

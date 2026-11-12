@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { CheckIcon } from 'lucide-react';
 import { COLOR_THEMES, useColorTheme } from '@/hooks/use-color-theme';
 import { cn } from '@/lib/utils';
@@ -43,13 +44,14 @@ export default function ColorThemePicker({
 }: {
     className?: string;
 }) {
+    const { t } = useLaravelReactI18n();
     const { colorTheme, updateColorTheme } = useColorTheme();
 
     return (
         <div className={cn('@container', className)}>
             <div
                 role="radiogroup"
-                aria-label="Thème de couleurs"
+                aria-label={t('settings.general.color_theme')}
                 className="grid grid-cols-2 gap-2 @sm:grid-cols-3 @xl:grid-cols-5"
             >
                 {COLOR_THEMES.map((theme) => {
@@ -61,7 +63,7 @@ export default function ColorThemePicker({
                             type="button"
                             role="radio"
                             aria-checked={isChecked}
-                            aria-label={theme.label}
+                            aria-label={t(theme.label)}
                             onClick={() => updateColorTheme(theme.value)}
                             className={cn(
                                 'flex flex-col gap-1.5 rounded-xl p-1 text-left ring-1 ring-transparent transition-shadow outline-none hover:ring-border focus-visible:ring-2 focus-visible:ring-ring',
@@ -71,7 +73,7 @@ export default function ColorThemePicker({
                         >
                             <ThemePreview theme={theme.value} />
                             <span className="flex items-center justify-between gap-1 px-0.5 text-xs font-medium">
-                                {theme.label}
+                                {t(theme.label)}
                                 {isChecked && (
                                     <CheckIcon className="size-3.5 text-primary" />
                                 )}

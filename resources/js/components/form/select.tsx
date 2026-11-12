@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import type { LucideIcon} from 'lucide-react';
 import  { TriangleAlertIcon } from 'lucide-react';
 import React from 'react';
@@ -49,6 +50,8 @@ type Props = {
 
 
 const SelectContent = ({ label, items, button = false, native = false, tooltip, align = "center", size = 'sm', variant = 'secondary', position = 'popper', onValueChange, ...props }: Props) => {
+    const { t } = useLaravelReactI18n();
+
     if (native) {
         return (
             <Tooltip value={tooltip}>
@@ -93,7 +96,7 @@ const SelectContent = ({ label, items, button = false, native = false, tooltip, 
                     )}
                 >
                     <SelectValue
-                        placeholder={label || 'Sélectionner une option'}
+                        placeholder={label || t('common.select_option')}
                     />
                 </SelectTrigger>
             </Tooltip>

@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     CircleCheckIcon,
     CircleXIcon,
@@ -53,6 +54,7 @@ export default function HistoryPanel({
     version,
     onInsert,
 }: Props) {
+    const { t } = useLaravelReactI18n();
     const [entries, setEntries] = useState<HistoryEntry[] | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [search, setSearch] = useState('');
@@ -92,13 +94,12 @@ export default function HistoryPanel({
 
     const clear = async () => {
         const confirmed = await AlertDialog.call({
-            title: "Vider l'historique ?",
-            description:
-                "Les requêtes exécutées dans l'éditeur de ce projet seront oubliées. Les fichiers .sql ne changent pas.",
+            title: t('sql_editor.history.clear_title'),
+            description: t('sql_editor.history.clear_description'),
             icon: Trash2Icon,
             variant: 'destructive',
-            confirmText: "Vider l'historique",
-            cancelText: 'Annuler',
+            confirmText: t('sql_editor.history.clear'),
+            cancelText: t('common.cancel'),
         });
 
         if (!confirmed) {
@@ -112,7 +113,7 @@ export default function HistoryPanel({
             );
             setEntries([]);
         } catch (exception) {
-            toast.error("L'historique n'a pas été vidé", {
+            toast.error(t('sql_editor.history.clear_failed'), {
                 description: (exception as TableRequestError).first(),
             });
         }
@@ -120,33 +121,35 @@ export default function HistoryPanel({
 
     return (
         <nav
-            aria-label="Historique des requêtes"
+            aria-label={t('sql_editor.history.title')}
             className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden"
         >
             <div className="flex min-w-0 items-center gap-0.5 px-2 pt-2 pb-1.5">
                 <h2 className="min-w-0 flex-1 truncate pl-1 text-sm font-medium">
-                    Historique
+                    {t('sql_editor.explorer.history')}
                 </h2>
                 <Button
                     variant="ghost"
                     size="icon-sm"
                     onClick={() => void clear()}
                     disabled={!entries?.length}
-                    aria-label="Vider l'historique"
-                    tooltip="Vider l'historique"
+                    aria-label={t('sql_editor.history.clear')}
+                    tooltip={t('sql_editor.history.clear')}
                 >
                     <Trash2Icon />
                 </Button>
             </div>
 
             <label className="relative mx-2 mb-2 flex items-center">
-                <span className="sr-only">Rechercher dans l'historique</span>
+                <span className="sr-only">
+                    {t('sql_editor.history.search')}
+                </span>
                 <SearchIcon className="pointer-events-none absolute left-2.5 size-4 text-muted-foreground" />
                 <input
                     type="search"
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Rechercher"
+                    placeholder={t('common.search')}
                     className="h-8 w-full rounded-md border border-input bg-transparent pr-2 pl-8 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
                 />
             </label>
@@ -165,11 +168,15 @@ export default function HistoryPanel({
                 ) : entries.length === 0 ? (
                     <EmptyState
                         icon={HistoryIcon}
-                        title={search ? 'Aucun résultat' : 'Aucune requête'}
+                        title={
+                            search
+                                ? t('common.no_results')
+                                : t('sql_editor.history.empty')
+                        }
                         description={
                             search
-                                ? 'Aucune requête exécutée ne contient ce texte.'
-                                : "Les requêtes exécutées dans l'éditeur apparaissent ici."
+                                ? t('sql_editor.history.no_match')
+                                : t('sql_editor.history.empty_description')
                         }
                         className="py-6"
                     />
@@ -196,13 +203,14 @@ function HistoryItem({
     entry: HistoryEntry;
     onInsert: (sql: string) => void;
 }) {
+    const { t, tChoice } = useLaravelReactI18n();
     const StatusIcon = entry.succeeded ? CircleCheckIcon : CircleXIcon;
     const when = entry.createdAt ? formatRelativeTime(entry.createdAt) : null;
     const details = [
         `${entry.duration} ms`,
-        entry.statements > 1 && `${entry.statements} instructions`,
-        entry.rows !== null &&
-            `${entry.rows} ligne${entry.rows > 1 ? 's' : ''}`,
+        entry.statements > 1 &&
+            tChoice('sql_editor.history.statements', entry.statements),
+        entry.rows !== null && tChoice('tables.counts.rows', entry.rows),
     ].filter(Boolean);
 
     return (
@@ -210,7 +218,7 @@ function HistoryItem({
             <button
                 type="button"
                 onClick={() => onInsert(entry.sql)}
-                title="Insérer dans l'onglet affiché"
+                title={t('sql_editor.history.insert')}
                 className="flex w-full min-w-0 flex-col gap-1.5 rounded-md border border-transparent px-2 py-2 text-left transition-colors hover:border-border hover:bg-background focus-visible:border-ring focus-visible:outline-none"
             >
                 <span className="flex min-w-0 items-center gap-1.5 pr-7 text-[11px] text-muted-foreground">
@@ -221,10 +229,14 @@ function HistoryItem({
                                 ? 'text-success'
                                 : 'text-destructive',
                         )}
-                        aria-label={entry.succeeded ? 'Réussie' : 'Échouée'}
+                        aria-label={
+                            entry.succeeded
+                                ? t('sql_editor.history.succeeded')
+                                : t('sql_editor.history.failed')
+                        }
                     />
                     <span className="min-w-0 truncate font-medium text-foreground/80">
-                        {entry.file ?? 'Sans fichier'}
+                        {entry.file ?? t('sql_editor.history.no_file')}
                     </span>
                     {when && (
                         <span className="ml-auto shrink-0 tabular-nums">
@@ -247,13 +259,15 @@ function HistoryItem({
                 variant="ghost"
                 size="icon-sm"
                 className="absolute top-1 right-1 size-6 opacity-0 group-hover/entry:opacity-100 focus-visible:opacity-100"
-                aria-label="Copier la requête"
-                tooltip="Copier"
+                aria-label={t('sql_editor.history.copy')}
+                tooltip={t('common.copy')}
                 onClick={() =>
                     navigator.clipboard
                         .writeText(entry.sql)
                         .then(() =>
-                            toast.success('Requête copiée', { duration: 1500 }),
+                            toast.success(t('sql_editor.history.copied'), {
+                                duration: 1500,
+                            }),
                         )
                 }
             >

@@ -42,12 +42,25 @@ class ReadOnlyQueryGuard
 
         if (! $normalized->startsWith(self::ALLOWED_PREFIXES)) {
             throw new RuntimeException(
-                'Requête rejetée : seules les instructions SELECT, WITH, EXPLAIN, SHOW et DESCRIBE '
-                .'sont autorisées par ce tool.'
+                __('database.guards.read_only_statements')
             );
         }
 
         static::assertSingleSafeStatement($sql);
+    }
+
+    /**
+     * Whether the query is a single statement that only reads, as assertReadOnly accepts it.
+     */
+    public static function isReadOnly(string $sql): bool
+    {
+        try {
+            static::assertReadOnly($sql);
+
+            return true;
+        } catch (RuntimeException) {
+            return false;
+        }
     }
 
     /**
@@ -60,7 +73,7 @@ class ReadOnlyQueryGuard
         $sql = rtrim(trim($sql), "; \n\r\t");
 
         if (! Str::of($sql)->upper()->startsWith(self::SELECT_PREFIXES)) {
-            throw new RuntimeException('Requête rejetée : seules les instructions SELECT et WITH sont autorisées par ce tool.');
+            throw new RuntimeException(__('database.guards.select_only'));
         }
 
         static::assertSingleSafeStatement($sql);
@@ -78,18 +91,18 @@ class ReadOnlyQueryGuard
         $sql = (string) preg_replace('/^(?:\s+|--[^\n]*(?:\n|$)|\/\*.*?\*\/)+/s', '', $sql);
 
         if (preg_match('/^EXPLAIN\s+(?:\([^)]*\bANALY[SZ]E\b|ANALY[SZ]E\b)/i', $sql)) {
-            throw new RuntimeException('Requête rejetée : EXPLAIN ANALYZE exécute la requête, seul le plan estimé peut être calculé.');
+            throw new RuntimeException(__('database.guards.explain_analyze'));
         }
 
         $sql = (string) preg_replace('/^EXPLAIN\s+(?:QUERY\s+PLAN\s+|FORMAT\s*=\s*\w+\s+|\([^)]*\)\s*|EXTENDED\s+|PARTITIONS\s+)*/i', '', $sql);
         $sql = static::assertSelect($sql);
 
         if (preg_match('/\bINTO\b/i', $sql)) {
-            throw new RuntimeException('Requête rejetée : SELECT … INTO écrit le résultat ailleurs et ne peut pas être analysé.');
+            throw new RuntimeException(__('database.guards.select_into'));
         }
 
         if (preg_match('/\bFOR\s+(?:UPDATE|SHARE|NO\s+KEY\s+UPDATE|KEY\s+SHARE)\b|\bLOCK\s+IN\s+SHARE\s+MODE\b/i', $sql)) {
-            throw new RuntimeException('Requête rejetée : une requête qui verrouille des lignes (FOR UPDATE, FOR SHARE) ne peut pas être analysée.');
+            throw new RuntimeException(__('database.guards.locking'));
         }
 
         return $sql;
@@ -100,7 +113,7 @@ class ReadOnlyQueryGuard
         foreach (self::FORBIDDEN_KEYWORDS as $keyword) {
             if (preg_match('/\b'.$keyword.'\b/i', $sql)) {
                 throw new RuntimeException(
-                    "Requête rejetée : le mot-clé {$keyword} n'est pas autorisé dans ce tool en lecture seule."
+                    __('database.guards.keyword', ['keyword' => $keyword])
                 );
             }
         }
@@ -114,7 +127,7 @@ class ReadOnlyQueryGuard
 
         if (Str::contains($sql, '=')) {
             throw new RuntimeException(
-                "Requête rejetée : les PRAGMA de configuration (avec '=') ne sont pas autorisés en lecture seule."
+                __('database.guards.pragma_assignment')
             );
         }
 
@@ -123,7 +136,7 @@ class ReadOnlyQueryGuard
 
         if (! in_array($pragmaName, self::ALLOWED_SQLITE_PRAGMAS, true)) {
             throw new RuntimeException(
-                "Requête rejetée : le pragma '{$pragmaName}' n'est pas dans la liste blanche autorisée."
+                __('database.guards.pragma', ['pragma' => $pragmaName])
             );
         }
     }

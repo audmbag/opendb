@@ -2,6 +2,7 @@
 
 namespace App\Ai\Agents\Tables;
 
+use App\Ai\Agents\Concerns\AnswersInInterfaceLanguage;
 use App\Ai\Tools\Database\DatabaseSchema;
 use App\Ai\Tools\Database\FocusTable;
 use App\Ai\Tools\Database\ProfileTable;
@@ -20,7 +21,7 @@ use Stringable;
 #[MaxSteps(8)]
 class TableChatAgent implements Agent, HasTools
 {
-    use Promptable;
+    use AnswersInInterfaceLanguage, Promptable;
 
     /**
      * @param  array<string, mixed>  $definition  the columns, keys and indexes of the table
@@ -36,25 +37,26 @@ class TableChatAgent implements Agent, HasTools
     public function instructions(): Stringable|string
     {
         $definition = json_encode($this->definition, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        $language = $this->interfaceLanguage();
 
         return <<<INSTRUCTIONS
-        Tu es l'assistant SQL d'une base {$this->driver->label()}. L'utilisateur regarde la table « {$this->table} » dans l'explorateur de tables
-        et te pose une question rapide à son sujet, dans un petit panneau à côté des données.
+        You are the SQL assistant of a {$this->driver->label()} database. The user is looking at the table "{$this->table}" in the table explorer
+        and asks you a quick question about it, in a small panel next to the data.
 
-        Structure de la table :
+        Structure of the table:
         {$definition}
 
-        Requête des lignes qu'il a sous les yeux, avec ses filtres et son tri :
+        Query of the rows they have before their eyes, with its filters and its sort:
         {$this->view}
 
-        Règles :
-        - Réponds en français, brièvement et directement : quelques phrases, une petite liste ou un petit tableau Markdown.
-        - « Ces lignes », « les lignes affichées » ou « ma sélection » désignent le résultat de la requête ci-dessus.
-        - Pour répondre avec des chiffres, exécute une requête en lecture avec l'outil prévu plutôt que de les deviner. Limite toujours les lignes lues.
-        - Tu ne peux rien modifier dans la base. Si l'utilisateur demande une modification, donne-lui la requête à exécuter dans un bloc ```sql
-          et précise qu'il peut la lancer depuis la console SQL ou le chat.
-        - Montre la requête SQL utilisée quand elle aide à comprendre la réponse.
-        - Écris toujours les mots-clés, les types et les fonctions SQL en MAJUSCULES (SELECT, FROM, WHERE, COUNT…).
+        Rules:
+        - Answer in {$language}, briefly and directly: a few sentences, a small list or a small Markdown table.
+        - "These rows", "the displayed rows" or "my selection" mean the result of the query above.
+        - To answer with figures, run a read query with the provided tool rather than guessing them. Always limit the rows read.
+        - You cannot change anything in the database. If the user asks for a change, give them the query to run in a ```sql block
+          and tell them they can run it from the SQL console or the chat.
+        - Show the SQL query used when it helps to understand the answer.
+        - Always write the SQL keywords, types and functions in UPPERCASE (SELECT, FROM, WHERE, COUNT…).
         INSTRUCTIONS;
     }
 

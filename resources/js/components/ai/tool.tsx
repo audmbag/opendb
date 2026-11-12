@@ -1,14 +1,9 @@
 import type { ToolUIPart } from 'ai';
 import { ChevronRightIcon } from 'lucide-react';
 import { WrenchIcon } from 'lucide-react';
+import { ToolInput, ToolOutput, ToolStatusBadge } from '@/components/ai/tool-parts';
 import type { ToolHeaderProps} from '@/components/ai-elements/tool';
-import {
-    getStatusBadge,
-    Tool as AIElementTool,
-    ToolContent,
-    ToolInput,
-    ToolOutput,
-} from '@/components/ai-elements/tool';
+import { Tool as AIElementTool, ToolContent } from '@/components/ai-elements/tool';
 import { CollapsibleTrigger } from '@/components/ui/collapsible';
 import { withUppercaseQuery } from '@/lib/sql';
 import { cn } from '@/lib/utils';
@@ -49,7 +44,7 @@ export const ToolHeader = ({
                 <span className="text-sm font-medium">
                     {title ?? derivedName}
                 </span>
-                {getStatusBadge(state)}
+                <ToolStatusBadge status={state} />
                 <ChevronRightIcon className="size-3 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
             </div>
         </CollapsibleTrigger>

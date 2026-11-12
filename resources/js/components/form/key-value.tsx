@@ -1,8 +1,10 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { PlusIcon, Trash2Icon, TriangleAlertIcon } from 'lucide-react';
 import React from 'react';
 import Button from '@/components/form/button';
 import type { InputPropsType } from '@/components/form/input';
 import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
 import {
     KeyValue as UiKeyValue,
     KeyValueAdd,
@@ -13,7 +15,6 @@ import {
     KeyValueValueInput,
 } from "@/components/ui/key-value";
 import { cn } from '@/lib/utils';
-import { Input } from '@/components/ui/input';
 
 
 type Props = {
@@ -28,11 +29,18 @@ export default function KeyValue({
     className,
     ...props
 }: Props) {
+    const { t } = useLaravelReactI18n();
+
     return (
         <Field className={cn('gap-2', className)}>
             {label && <FieldLabel htmlFor={props.id}>{label}</FieldLabel>}
             {description && <FieldDescription>{description}</FieldDescription>}
-            <UiKeyValue {...props} allowDuplicateKeys={false}>
+            <UiKeyValue
+                keyPlaceholder={t('common.key')}
+                valuePlaceholder={t('common.value')}
+                {...props}
+                allowDuplicateKeys={false}
+            >
                 <KeyValueList>
                     <KeyValueItem className="flex-col items-start">
                         <div className="flex w-full gap-2">
@@ -49,7 +57,7 @@ export default function KeyValue({
                 <div className="flex justify-start">
                     <KeyValueAdd asChild variant="secondary">
                         <Button icon={PlusIcon}>
-                            {addLabel || 'Ajouter un item'}
+                            {addLabel || t('common.add_item')}
                         </Button>
                     </KeyValueAdd>
                 </div>

@@ -2,6 +2,7 @@ import { useChat } from '@ai-sdk/react';
 import type { DataUIPart, FileUIPart, ToolUIPart } from 'ai';
 import type { UIMessage as ChatMessage } from 'ai';
 import { DefaultChatTransport } from 'ai';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     EraserIcon,
     MessageSquareTextIcon,
@@ -31,6 +32,7 @@ import { Suggestion, Suggestions } from '@/components/ai-elements/suggestion';
 import Alert from '@/components/alert';
 import { EmptyState } from '@/components/empty-state';
 import Button from '@/components/form/button';
+import { trans } from '@/lib/i18n';
 import { useAgentSettingsStore } from '@/store/use-agent-settings-store';
 import TableAssistantController from '@/wayfinder/actions/App/Http/Controllers/Tables/TableAssistantController';
 import type { TableView } from '../types';
@@ -49,13 +51,10 @@ type Props = {
     onAskChat: (question: string) => void;
 };
 
-const NO_MODEL_MESSAGE =
-    "Choisissez un modèle d'IA sous le champ de saisie pour poser une question.";
-
 const SUGGESTIONS = [
-    'Combien de lignes correspondent à mes filtres ?',
-    'Quelles colonnes sont souvent vides ?',
-    'Résume les lignes affichées',
+    'tables.quick_chat.suggestions.matching_rows',
+    'tables.quick_chat.suggestions.empty_columns',
+    'tables.quick_chat.suggestions.summary',
 ];
 
 /**
@@ -69,12 +68,12 @@ function requestErrorMessage(error: Error): string {
         };
 
         if (body.errors?.provider || body.errors?.model) {
-            return NO_MODEL_MESSAGE;
+            return trans('tables.quick_chat.no_model');
         }
 
         return body.message ?? error.message;
     } catch {
-        return "L'assistant n'a pas pu répondre. Vérifiez le modèle choisi puis réessayez.";
+        return trans('tables.quick_chat.failed');
     }
 }
 
@@ -92,6 +91,7 @@ export default function QuickChatPanel({
     onMessagesChange,
     onAskChat,
 }: Props) {
+    const { t } = useLaravelReactI18n();
     const [input, setInput] = useState('');
     const [streamError, setStreamError] = useState<string | null>(null);
     const receivedStreamError = useRef<string | null>(null);
@@ -184,22 +184,22 @@ export default function QuickChatPanel({
                     {disabledReason ? (
                         <Alert
                             variant="warning"
-                            title="Assistant indisponible"
+                            title={t('tables.assistant.unavailable')}
                             message={disabledReason}
                         />
                     ) : (
                         <>
                             <EmptyState
                                 icon={MessagesSquareIcon}
-                                title={`Une question sur ${table} ?`}
-                                description="L'assistant connaît sa structure et vos filtres, et lit la base sans la modifier. Cet échange n'est pas enregistré dans vos conversations."
+                                title={t('tables.quick_chat.title', { table })}
+                                description={t('tables.quick_chat.description')}
                                 className="flex-none p-0"
                             />
                             <Suggestions className="w-full flex-col items-stretch">
                                 {SUGGESTIONS.map((suggestion) => (
                                     <Suggestion
                                         key={suggestion}
-                                        suggestion={suggestion}
+                                        suggestion={t(suggestion)}
                                         onClick={ask}
                                         disabled={!hasSelectedModel}
                                         className="justify-start rounded-lg"
@@ -265,7 +265,7 @@ export default function QuickChatPanel({
 
                         {error && (
                             <Alert
-                                title="Une erreur est survenue"
+                                title={t('common.error')}
                                 mode="frame"
                                 variant="destructive"
                                 message={
@@ -273,7 +273,7 @@ export default function QuickChatPanel({
                                 }
                                 buttons={[
                                     {
-                                        label: 'Réessayer',
+                                        label: t('common.retry'),
                                         icon: RefreshCcwIcon,
                                         onClick: () =>
                                             regenerate({ body: requestBody() }),
@@ -297,11 +297,11 @@ export default function QuickChatPanel({
                             value={input}
                             onChange={(event) => setInput(event.target.value)}
                             placeholder={
-                                disabledReason ?? `Une question sur ${table}…`
+                                disabledReason ?? t('tables.quick_chat.placeholder', { table })
                             }
                             disabled={!!disabledReason}
                             className="min-h-12"
-                            aria-label="Question sur la table"
+                            aria-label={t('tables.quick_chat.question')}
                         />
                     </PromptInputBody>
                     <PromptInputFooter className="p-2 pt-0">
@@ -309,6 +309,7 @@ export default function QuickChatPanel({
                             <ModelSelector size="xs" />
                         </PromptInputTools>
                         <PromptInputSubmit
+                            aria-label={busy ? t('ai.prompt.stop') : t('ai.prompt.send')}
                             status={status}
                             onStop={stop}
                             disabled={
@@ -332,7 +333,7 @@ export default function QuickChatPanel({
                                 setStreamError(null);
                             }}
                         >
-                            Effacer
+                            {t('tables.quick_chat.clear')}
                         </Button>
                         {lastQuestion && (
                             <Button
@@ -341,9 +342,9 @@ export default function QuickChatPanel({
                                 icon={MessageSquareTextIcon}
                                 disabled={busy}
                                 onClick={() => onAskChat(lastQuestion)}
-                                tooltip="Poser la dernière question dans une conversation du chat"
+                                tooltip={t('tables.quick_chat.continue_tooltip')}
                             >
-                                Continuer dans le chat
+                                {t('tables.quick_chat.continue')}
                             </Button>
                         )}
                     </div>

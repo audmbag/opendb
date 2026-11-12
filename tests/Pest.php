@@ -3,11 +3,13 @@
 use App\Ai\Agents\SQLDatabaseAgent;
 use App\Database\ExplainOutput;
 use App\Models\Project;
+use App\Models\Provider;
 use App\Models\User;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use Illuminate\Testing\PendingCommand;
 use Laravel\Ai\Enums\MessageStatus;
 use Laravel\Ai\Models\Conversation;
 use Laravel\Ai\Models\ConversationMessage;
@@ -145,4 +147,28 @@ function queryPlanFixture(string $name): array
         'output' => new ExplainOutput($fixture['raw'], $fixture['classic'], $fixture['version'], $fixture['tableRows'] ?? []),
         'query' => $fixture['query'],
     ];
+}
+
+/**
+ * A project on the small shop database, with one active model so the chat does not ask which one to use.
+ */
+function chatProject(User $user): Project
+{
+    Provider::query()->updateOrCreate(['id' => 'anthropic'], [
+        'label' => 'Anthropic',
+        'api_key' => 'stored-anthropic-key',
+        'models' => [['id' => 'claude-opus-5-5', 'label' => 'Claude Opus 5.5', 'context_window' => 1000000, 'active' => true]],
+    ]);
+    Provider::query()->where('id', '!=', 'anthropic')->update(['api_key' => null]);
+
+    return projectWithSqliteDatabase($user, tempnam(sys_get_temp_dir(), 'chat').'.sqlite', shopDatabase(...));
+}
+
+/**
+ * @param  array<string, mixed>  $arguments
+ */
+function openChat(User $user, Project $project, array $arguments = []): PendingCommand
+{
+    return test()->artisan('chat', ['--name' => $user->name, '--project' => $project->name, ...$arguments])
+        ->expectsQuestion('Mot de passe', 'password');
 }

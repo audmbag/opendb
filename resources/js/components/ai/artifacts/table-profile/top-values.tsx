@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { ScanTextIcon } from 'lucide-react';
 import { formatInteger, formatPercent, formatValue } from '@/components/ai/artifacts/table-profile/format';
 import type { DerivedColumn } from '@/components/ai/artifacts/table-profile/format';
@@ -11,6 +12,7 @@ type Props = {
  * The most frequent value of a column in its row, followed by the number of the other frequent values.
  */
 export function TopValuesChip({ column }: Props) {
+    const { t } = useLaravelReactI18n();
     const [first, ...others] = column.topValues;
 
     if (column.distinctCount === null) {
@@ -18,7 +20,7 @@ export function TopValuesChip({ column }: Props) {
     }
 
     if (!column.hasRepetition) {
-        return <span className="truncate text-sm text-muted-foreground">{column.isUnique ? 'Aucune répétition' : 'Aucune valeur dominante'}</span>;
+        return <span className="truncate text-sm text-muted-foreground">{column.isUnique ? t('ai.profile.no_repetition') : t('ai.profile.no_dominant_value')}</span>;
     }
 
     return (
@@ -36,18 +38,20 @@ export function TopValuesChip({ column }: Props) {
  * The frequent values of a column in its detail, each with its share of the filled rows and a bar relative to the most frequent one.
  */
 export function TopValuesList({ column }: Props) {
+    const { t } = useLaravelReactI18n();
+
     if (column.distinctCount === null) {
         return (
             <EmptyState
                 className="p-0"
-                description="Non calculées pour ce type de colonne."
+                description={t('ai.profile.not_computed')}
                 icon={ScanTextIcon}
             />
         );
     }
 
     if (!column.hasRepetition) {
-        return <EmptyState className="p-0" description="Chaque valeur renseignée n'apparaît qu'une seule fois dans l'échantillon." icon={ScanTextIcon} />;
+        return <EmptyState className="p-0" description={t('ai.profile.all_unique')} icon={ScanTextIcon} />;
     }
 
     const highest = column.topValues[0].count;

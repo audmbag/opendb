@@ -3,6 +3,7 @@
 use App\Database\ExplainOutput;
 use App\Services\QueryPlan\Data\PlanNode;
 use App\Services\QueryPlan\Parsers\PostgresPlanParser;
+use App\Support\TranslatableMessage;
 
 it('reads the plan tree with the own cost of each step, out of the cost that includes its children', function () {
     ['output' => $output, 'query' => $query] = queryPlanFixture('postgres-join');
@@ -17,7 +18,7 @@ it('reads the plan tree with the own cost of each step, out of the cost that inc
         ->and([$sort->subtitle, $sort->table, $sort->selfCost, $sort->costShare])->toBe(['o.created_at DESC', 'orders', 845.31, 0.283])
         ->and([$join->subtitle, $join->selfCost])->toBe(['o.customer_id = c.id', 406.1])
         ->and($hash->table)->toBe('customers');
-    expect([$orders->rowsExamined, $orders->estimatedRows, $orders->badge, $orders->condition['value']])->toBe([60000, 21400, 'aucun index utilisable', "(status)::text = 'paid'::text"])
+    expect([$orders->rowsExamined, $orders->estimatedRows, $orders->badge, $orders->condition['value']])->toEqual([60000, 21400, new TranslatableMessage('query_plan.badges.no_usable_index'), "(status)::text = 'paid'::text"])
         ->and([$customers->rowsExamined, $customers->badge])->toBe([5200, null]);
 });
 

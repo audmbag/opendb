@@ -1,12 +1,13 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import type { LucideIcon} from 'lucide-react';
 import { XIcon } from 'lucide-react';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import * as React from 'react';
 import Button from '@/components/form/button';
+import IconStackGlow from '@/components/icon-stack-glow';
 import { Frame, FrameDescription, FrameHeader, FramePanel, FrameTitle } from "@/components/reui/frame";
 import { Dialog, DialogDescription, DialogOverlay, DialogPortal, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import IconStackGlow from '@/components/icon-stack-glow';
 
 
 type Props = {
@@ -58,6 +59,8 @@ export default function Modal({
     showCloseButton = true,
     onEscapeKeyDown,
 }: Props) {
+    const { t } = useLaravelReactI18n();
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogPortal>
@@ -102,6 +105,7 @@ export default function Modal({
                                                     onOpenChange?.(false)
                                                 }
                                                 icon={XIcon}
+                                                aria-label={t('common.close')}
                                             />
                                         </div>
                                     }

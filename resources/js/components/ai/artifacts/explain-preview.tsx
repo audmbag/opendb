@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { WorkflowIcon } from 'lucide-react';
 import { useState } from 'react';
 import ArtifactFrame from '@/components/ai/artifacts/artifact-frame';
@@ -16,12 +17,11 @@ type Props = {
     enabled: boolean;
 };
 
-const NOT_SELECT_MESSAGE = 'Seules les requêtes SELECT peuvent être analysées.';
-
 /**
  * The plan stored by an ExplainQuery call, loaded once the message is saved. It is never computed again.
  */
 export default function ExplainPreview({ part, enabled }: Props) {
+    const { t, tChoice } = useLaravelReactI18n();
     const conversationId = useConversationId();
     const [version, setVersion] = useState<PlanVersion>('after');
     const failed = !part.output.success;
@@ -36,8 +36,8 @@ export default function ExplainPreview({ part, enabled }: Props) {
 
     const failure = failed
         ? part.output.error === 'not_select'
-            ? [NOT_SELECT_MESSAGE, part.output.message].filter(Boolean).join(' ')
-            : (part.output.message ?? "Impossible de calculer le plan d'exécution.")
+            ? [t('query_plan.not_select'), part.output.message].filter(Boolean).join(' ')
+            : (part.output.message ?? t('query_plan.failed'))
         : error;
     const shown = data ? planVersion(data, version) : null;
 
@@ -45,11 +45,11 @@ export default function ExplainPreview({ part, enabled }: Props) {
         <ArtifactFrame
             ref={ref}
             icon={WorkflowIcon}
-            title="Plan d'exécution"
+            title={t('query_plan.title')}
             description={
                 shown
-                    ? `${shown.nodes.length} étape${shown.nodes.length > 1 ? 's' : ''}`
-                    : 'Requête SELECT'
+                    ? tChoice('query_plan.steps', shown.nodes.length)
+                    : t('query_plan.select_query')
             }
             badge={
                 shown && (

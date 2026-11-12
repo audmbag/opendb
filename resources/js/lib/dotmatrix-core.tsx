@@ -6,6 +6,7 @@ import "@/components/dotmatrix-loader.css";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef } from "react";
 import { useDotMatrixPhases, usePrefersReducedMotion, useCyclePhase } from "@/lib/dotmatrix-hooks";
+import { trans } from '@/lib/i18n';
 
 export type MatrixPattern = "diamond" | "full" | "outline" | "rose" | "cross" | "rings";
 export type DotShape = "circle" | "square" | "diamond" | "hearts";
@@ -70,6 +71,7 @@ export function resolveDmxColorTokens(color: string, colorPreset?: DotMatrixColo
   }
 
   const preset = DOT_MATRIX_COLOR_PRESETS[colorPreset];
+
   if (!preset) {
     return { resolvedColor: color, dotFill: color };
   }
@@ -138,22 +140,26 @@ export const FULL_INDEXES = RANGE.flatMap((row) => RANGE.map((col) => rowMajorIn
 
 export const DIAMOND_INDEXES = FULL_INDEXES.filter((index) => {
   const { row, col } = indexToCoord(index);
+
   return Math.abs(row - CENTER) + Math.abs(col - CENTER) <= 2;
 });
 
 export const OUTLINE_INDEXES = FULL_INDEXES.filter((index) => {
   const { row, col } = indexToCoord(index);
+
   return row === 0 || row === MATRIX_SIZE - 1 || col === 0 || col === MATRIX_SIZE - 1;
 });
 
 export const CROSS_INDEXES = FULL_INDEXES.filter((index) => {
   const { row, col } = indexToCoord(index);
+
   return row === CENTER || col === CENTER;
 });
 
 export const RINGS_INDEXES = FULL_INDEXES.filter((index) => {
   const { row, col } = indexToCoord(index);
   const radius = Math.hypot(row - CENTER, col - CENTER);
+
   return Math.round(radius) === 1 || Math.round(radius) === 2;
 });
 
@@ -164,6 +170,7 @@ export const ROSE_INDEXES = FULL_INDEXES.filter((index) => {
   const angle = Math.atan2(dy, dx);
   const radius = Math.hypot(dx, dy);
   const rose = Math.abs(Math.sin(3 * angle));
+
   return rose > 0.6 && radius >= 1;
 });
 
@@ -193,26 +200,31 @@ export function indexToCoord(index: number): { row: number; col: number } {
 
 export function distanceFromCenter(index: number): number {
   const { row, col } = indexToCoord(index);
+
   return Math.hypot(row - CENTER, col - CENTER);
 }
 
 export function rowDistance(index: number): number {
   const { row } = indexToCoord(index);
+
   return Math.abs(row - CENTER);
 }
 
 export function polarAngle(index: number): number {
   const { row, col } = indexToCoord(index);
+
   return Math.atan2(row - CENTER, col - CENTER);
 }
 
 export function normalizedRadius(index: number): number {
   const { row, col } = indexToCoord(index);
+
   return Math.hypot(row - CENTER, col - CENTER) / MAX_RADIUS;
 }
 
 export function manhattanDistance(index: number): number {
   const { row, col } = indexToCoord(index);
+
   return Math.abs(row - CENTER) + Math.abs(col - CENTER);
 }
 
@@ -228,6 +240,7 @@ export function lissajousOffset(
   const x = Math.sin((row + 1) * 1.15 + (col + 1) * 2.2) * amplitude;
   const y = Math.cos((row + 1) * 2.45 + (col + 1) * 0.95) * amplitude;
   const phase = Math.abs(Math.sin((row + 1) * 0.7 + (col + 1) * 1.1));
+
   return { x, y, phase };
 }
 
@@ -241,6 +254,7 @@ export function spiralOffset(
   const x = Math.cos(spin) * radius;
   const y = Math.sin(spin) * radius;
   const phase = Math.abs(Math.sin(spin * 0.5));
+
   return { x, y, phase };
 }
 
@@ -248,14 +262,17 @@ export function isPrime(value: number): boolean {
   if (value <= 1) {
     return false;
   }
+
   if (value === 2) {
     return true;
   }
+
   if (value % 2 === 0) {
     return false;
   }
 
   const limit = Math.floor(Math.sqrt(value));
+
   for (let divisor = 3; divisor <= limit; divisor += 2) {
     if (value % divisor === 0) {
       return false;
@@ -272,6 +289,7 @@ const MAX_TRBL = (N - 1) * 2;
 
 export function trBlPathNormFromIndex(index: number): number {
   const { row, col } = indexToCoord(index);
+
   return (row + (N - 1 - col)) / MAX_TRBL;
 }
 
@@ -279,6 +297,7 @@ function buildSnakeOrderToIndexMap(): number[] {
   const pathOrder = new Array<number>(CELLS);
   const key = (row: number, col: number) => rowMajorIndex(row, col);
   let t = 0;
+
   for (let row = 0; row < N; row += 1) {
     if (row % 2 === 0) {
       for (let col = 0; col < N; col += 1) {
@@ -292,6 +311,7 @@ function buildSnakeOrderToIndexMap(): number[] {
       }
     }
   }
+
   return pathOrder;
 }
 
@@ -416,6 +436,7 @@ export function outerRingClockwiseOrderValue(index: number): number {
 
 export function outerRingClockwiseNormFromIndex(index: number): number {
   const order = outerRingClockwiseOrderValue(index);
+
   return order >= 0 ? order / 15 : 0;
 }
 
@@ -425,6 +446,7 @@ export function middleRingAntiClockwiseOrderValue(index: number): number {
 
 export function middleRingAntiClockwiseNormFromIndex(index: number): number {
   const order = middleRingAntiClockwiseOrderValue(index);
+
   return order >= 0 ? order / 7 : 0;
 }
 
@@ -476,6 +498,7 @@ function buildRowWaveSnakeOrderToIndexMap(): number[] {
   ];
 
   let t = 0;
+
   for (const step of route) {
     if (step.dir === "up") {
       for (let row = N - 1; row >= 0; row -= 1) {
@@ -506,11 +529,13 @@ export function rowWaveNormFromIndex(index: number): number {
 
 export function colWaveNormFromIndex(index: number): number {
   const { col } = indexToCoord(index);
+
   return N > 1 ? col / (N - 1) : 0;
 }
 
 export function concentricRingNormFromIndex(index: number): number {
   const { row, col } = indexToCoord(index);
+
   return Math.max(Math.abs(row - C), Math.abs(col - C)) / C;
 }
 
@@ -538,9 +563,11 @@ function lerpDmx(start: number, end: number, progress: number): number {
 
 function normalizeProgressDmx(value: number, start: number, end: number): number {
   const span = end - start;
+
   if (Math.abs(span) < Number.EPSILON) {
     return 0;
   }
+
   return Math.min(1, Math.max(0, (value - start) / span));
 }
 
@@ -548,6 +575,7 @@ function coerceOpacityDmx(value: number | undefined): number | undefined {
   if (value == null || !Number.isFinite(value)) {
     return undefined;
   }
+
   return Math.min(1, Math.max(0, value));
 }
 
@@ -563,6 +591,7 @@ export function remapOpacityToTriplet(
 
   const hasOverrides = opacityBase !== undefined || opacityMid !== undefined || opacityPeak !== undefined;
   const safeOpacity = Math.min(1, Math.max(0, opacity));
+
   if (!hasOverrides) {
     return safeOpacity;
   }
@@ -573,20 +602,24 @@ export function remapOpacityToTriplet(
 
   if (safeOpacity <= SOURCE_BASE_OPACITY) {
     const progress = normalizeProgressDmx(safeOpacity, 0, SOURCE_BASE_OPACITY);
+
     return Math.min(1, Math.max(0, lerpDmx(0, targetBase, progress)));
   }
 
   if (safeOpacity <= SOURCE_MID_OPACITY) {
     const progress = normalizeProgressDmx(safeOpacity, SOURCE_BASE_OPACITY, SOURCE_MID_OPACITY);
+
     return Math.min(1, Math.max(0, lerpDmx(targetBase, targetMid, progress)));
   }
 
   if (safeOpacity <= SOURCE_PEAK_OPACITY) {
     const progress = normalizeProgressDmx(safeOpacity, SOURCE_MID_OPACITY, SOURCE_PEAK_OPACITY);
+
     return Math.min(1, Math.max(0, lerpDmx(targetMid, targetPeak, progress)));
   }
 
   const progress = normalizeProgressDmx(safeOpacity, SOURCE_PEAK_OPACITY, 1);
+
   return Math.min(1, Math.max(0, lerpDmx(targetPeak, 1, progress)));
 }
 
@@ -605,6 +638,7 @@ function clampHalo(value: number | undefined): number {
   if (value == null || !Number.isFinite(value)) {
     return 0;
   }
+
   return Math.min(1, Math.max(0, value));
 }
 
@@ -631,11 +665,14 @@ export function dmxDotBloomParts(
   op: number | undefined
 ): { level: number; bloomDot: boolean } {
   const haloN = clampHalo(halo);
+
   if (!isActive) {
     return { level: 0, bloomDot: false };
   }
+
   const remapped = remapOpacityToTriplet(curveOpacity, ob, om, op);
   const fromBloom = bloom ? opacityToBloomLevel(remapped) : 0;
+
   return {
     level: fromBloom,
     bloomDot: haloN > 0 || (bloom && remappedOpacityQualifiesForBloom(remapped))
@@ -648,12 +685,16 @@ function getMatrix5Layout(
   cellPadding?: number
 ): { gap: number; matrixSpan: number } {
   const n = MATRIX_SIZE;
+
   if (cellPadding != null) {
     const g = Math.max(0, cellPadding);
     const matrixSpan = dotSize * n + g * (n - 1);
+
     return { gap: g, matrixSpan };
   }
+
   const g = Math.max(1, Math.floor((size - dotSize * n) / (n - 1)));
+
   return { gap: g, matrixSpan: size };
 }
 
@@ -662,13 +703,17 @@ function resolveDmxBoxOuterDim(
 ): { outerDim: number; useWrapper: boolean } {
   const b = options?.boxSize;
   const hasBox = b != null && b > 0 && Number.isFinite(b);
+
   if (!hasBox) {
     return { outerDim: 0, useWrapper: false };
   }
+
   const m = options?.minSize;
+
   if (m != null && m > 0 && Number.isFinite(m)) {
     return { outerDim: Math.max(b, m), useWrapper: true };
   }
+
   return { outerDim: b, useWrapper: true };
 }
 
@@ -676,9 +721,11 @@ function clamp01Dmx(n: number | undefined) {
   if (n == null) {
     return;
   }
+
   if (!Number.isFinite(n)) {
     return;
   }
+
   return Math.min(1, Math.max(0, n));
 }
 
@@ -696,7 +743,7 @@ export function DotMatrixBase({
   color = "currentColor",
   colorPreset,
   speed = 1,
-  ariaLabel = "Loading",
+  ariaLabel = trans('common.loading'),
   className,
   pattern = "diamond",
   dotShape = "circle",
@@ -779,6 +826,7 @@ export function DotMatrixBase({
 
     if (isActive) {
       const rawOpacity = stylePatch?.opacity;
+
       if (stylePatch != null && typeof rawOpacity === "number") {
         const remappedOpacity = remapOpacityToTriplet(rawOpacity, ob, om, op);
         stylePatch = { ...stylePatch, opacity: remappedOpacity };
@@ -787,12 +835,14 @@ export function DotMatrixBase({
         isBloomDot = parts.bloomDot;
       } else {
         const parts = dmxDotBloomParts(true, 0, bloom, halo, ob, om, op);
+
         if (parts.level > 0) {
           stylePatch = {
             ...(stylePatch ?? {}),
             ["--dmx-bloom-level" as const]: parts.level
           } as CSSProperties & { "--dmx-bloom-level"?: number };
         }
+
         isBloomDot = parts.bloomDot;
       }
     }
@@ -910,21 +960,25 @@ export const FULL_INDEXES_3 = RANGE_3.flatMap((row) =>
 
 export const OUTLINE_INDEXES_3 = FULL_INDEXES_3.filter((index) => {
   const { row, col } = indexToCoord3(index);
+
   return row === 0 || row === MATRIX_SIZE_3 - 1 || col === 0 || col === MATRIX_SIZE_3 - 1;
 });
 
 export const DIAMOND_INDEXES_3 = FULL_INDEXES_3.filter((index) => {
   const { row, col } = indexToCoord3(index);
+
   return Math.abs(row - CENTER_3) + Math.abs(col - CENTER_3) <= 1;
 });
 
 export const CROSS_INDEXES_3 = FULL_INDEXES_3.filter((index) => {
   const { row, col } = indexToCoord3(index);
+
   return row === CENTER_3 || col === CENTER_3;
 });
 
 export const RINGS_INDEXES_3 = FULL_INDEXES_3.filter((index) => {
   const { row, col } = indexToCoord3(index);
+
   return Math.round(Math.hypot(row - CENTER_3, col - CENTER_3)) === 1;
 });
 
@@ -935,6 +989,7 @@ export const ROSE_INDEXES_3 = FULL_INDEXES_3.filter((index) => {
   const angle = Math.atan2(dy, dx);
   const radius = Math.hypot(dx, dy);
   const rose = Math.abs(Math.sin(3 * angle));
+
   return rose > 0.55 && radius >= 0.75;
 });
 
@@ -964,11 +1019,13 @@ export function indexToCoord3(index: number): { row: number; col: number } {
 
 export function distanceFromCenter3(index: number): number {
   const { row, col } = indexToCoord3(index);
+
   return Math.hypot(row - CENTER_3, col - CENTER_3);
 }
 
 export function manhattanDistance3(index: number): number {
   const { row, col } = indexToCoord3(index);
+
   return Math.abs(row - CENTER_3) + Math.abs(col - CENTER_3);
 }
 
@@ -978,21 +1035,25 @@ export type DiagonalWave3Direction = "tr-bl" | "tl-br" | "br-tl" | "bl-tr";
 
 export function trBlPath3NormFromIndex(index: number): number {
   const { row, col } = indexToCoord3(index);
+
   return (row + (MATRIX_SIZE_3 - 1 - col)) / MAX_DIAGONAL_3;
 }
 
 export function tlBrPath3NormFromIndex(index: number): number {
   const { row, col } = indexToCoord3(index);
+
   return (row + col) / MAX_DIAGONAL_3;
 }
 
 export function brTlPath3NormFromIndex(index: number): number {
   const { row, col } = indexToCoord3(index);
+
   return (MAX_DIAGONAL_3 - row - col) / MAX_DIAGONAL_3;
 }
 
 export function blTrPath3NormFromIndex(index: number): number {
   const { row, col } = indexToCoord3(index);
+
   return (MAX_DIAGONAL_3 - row - (MATRIX_SIZE_3 - 1 - col)) / MAX_DIAGONAL_3;
 }
 
@@ -1018,6 +1079,7 @@ export function diagonalWave3BandIndex(
   if (direction === "tr-bl" || direction === "bl-tr") {
     return row + (MATRIX_SIZE_3 - 1 - col);
   }
+
   return row + col;
 }
 
@@ -1103,14 +1165,17 @@ export function outerRingClockwise3OrderValue(index: number): number {
 
 export function outerRingClockwise3NormFromIndex(index: number): number {
   const order = OUTER_RING_CLOCKWISE_ORDER_3[index]!;
+
   if (order < 0) {
     return 0;
   }
+
   return order / 7;
 }
 
 export function isCenterCell3(row: number, col: number): boolean {
   const center = Math.floor(MATRIX_SIZE_3 / 2);
+
   return row === center && col === center;
 }
 
@@ -1133,9 +1198,11 @@ export function wave3PathOpacityFromNorm(
   peak = 0.88
 ): number {
   const t = Math.min(1, Math.max(0, norm));
+
   if (t <= 0.5) {
     return base + (t / 0.5) * (mid - base);
   }
+
   return mid + ((t - 0.5) / 0.5) * (peak - mid);
 }
 
@@ -1145,12 +1212,16 @@ function getMatrix3Layout(
   cellPadding?: number
 ): { gap: number; matrixSpan: number } {
   const n = MATRIX_SIZE_3;
+
   if (cellPadding != null) {
     const g = Math.max(0, cellPadding);
     const matrixSpan = dotSize * n + g * (n - 1);
+
     return { gap: g, matrixSpan };
   }
+
   const g = Math.max(0, Math.floor((size - dotSize * n) / (n - 1)));
+
   return { gap: g, matrixSpan: size };
 }
 
@@ -1168,7 +1239,7 @@ export function DotMatrix3Base({
   color = "currentColor",
   colorPreset,
   speed = 1,
-  ariaLabel = "Loading",
+  ariaLabel = trans('common.loading'),
   className,
   pattern = "full",
   dotShape = "circle",
@@ -1257,6 +1328,7 @@ export function DotMatrix3Base({
 
     if (isActive) {
       const rawOpacity = stylePatch?.opacity;
+
       if (stylePatch != null && typeof rawOpacity === "number") {
         const remappedOpacity = remapOpacityToTriplet(rawOpacity, ob, om, op);
         stylePatch = { ...stylePatch, opacity: remappedOpacity };
@@ -1265,12 +1337,14 @@ export function DotMatrix3Base({
         isBloomDot = parts.bloomDot;
       } else {
         const parts = dmxDotBloomParts(true, 0, bloom, halo, ob, om, op);
+
         if (parts.level > 0) {
           stylePatch = {
             ...(stylePatch ?? {}),
             ["--dmx-bloom-level" as const]: parts.level
           } as CSSProperties & { "--dmx-bloom-level"?: number };
         }
+
         isBloomDot = parts.bloomDot;
       }
     }
@@ -1420,6 +1494,7 @@ export function createPathWaveComponent(displayName: string, getPathNorm: NormFn
       hoverAnimated: Boolean(hoverAnimated && !reducedMotion),
       speed
     });
+
     return (
       <DotMatrixBase
         {...rest}
@@ -1436,6 +1511,7 @@ export function createPathWaveComponent(displayName: string, getPathNorm: NormFn
   }
 
   PathWaveComponent.displayName = displayName;
+
   return PathWaveComponent;
 }
 
@@ -1499,6 +1575,7 @@ export function createDiagonalWave3Component(
   }
 
   DiagonalWave3Component.displayName = displayName;
+
   return DiagonalWave3Component;
 }
 
@@ -1541,6 +1618,7 @@ export function createDotm3x3Component(
   }
 
   Dotm3x3Component.displayName = displayName;
+
   return Dotm3x3Component;
 }
 
@@ -1552,18 +1630,22 @@ const GLYPH_SPIN_CYCLE_MS_BASE = GLYPH_SPIN_STEP_MS * GLYPH_SPIN_ROTATION_STEPS;
 
 function glyphSpinSmoothstep(value: number): number {
   const t = Math.min(1, Math.max(0, value));
+
   return t * t * (3 - 2 * t);
 }
 
 export function rotate3x3(pattern: readonly number[], turns: number): readonly number[] {
   const t = ((turns % GLYPH_SPIN_ROTATION_STEPS) + GLYPH_SPIN_ROTATION_STEPS) % GLYPH_SPIN_ROTATION_STEPS;
+
   if (t === 0) {
     return pattern;
   }
 
   let out = [...pattern];
+
   for (let k = 0; k < t; k += 1) {
     const next = new Array<number>(9).fill(0);
+
     for (let i = 0; i < 9; i += 1) {
       const r = Math.floor(i / 3);
       const c = i % 3;
@@ -1571,13 +1653,16 @@ export function rotate3x3(pattern: readonly number[], turns: number): readonly n
       const nc = 2 - r;
       next[nr * 3 + nc] = out[i]!;
     }
+
     out = next;
   }
+
   return out;
 }
 
 function glyphSpinOpacity(current: readonly number[], next: readonly number[], index: number, t: number): number {
   const weight = (current[index] ?? 0) * (1 - t) + (next[index] ?? 0) * t;
+
   return GLYPH_SPIN_BASE_OPACITY + weight * (GLYPH_SPIN_PEAK_OPACITY - GLYPH_SPIN_BASE_OPACITY);
 }
 
@@ -1645,6 +1730,7 @@ export function createGlyphSpin3Component(
   }
 
   GlyphSpin3Component.displayName = displayName;
+
   return GlyphSpin3Component;
 }
 

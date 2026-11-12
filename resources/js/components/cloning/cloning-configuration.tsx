@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import React, { useImperativeHandle, useState } from 'react';
 import CardFrame from '@/components/card-frame';
 import type { CloningConfigurationData } from '@/components/cloning/cloning.types';
@@ -13,15 +14,19 @@ type Props = {
 
 type CloningSwitchOption = keyof CloningConfigurationData;
 
+/**
+ * The switches of the cloning, their label being a key of lang/{locale}/cloning.php.
+ */
 export const CLONING_SWITCH_OPTIONS: { name: CloningSwitchOption; label: string }[] = [
-    { name: 'enforce_column_types', label: 'Forcer les types de colonnes' },
-    { name: 'disable_fk_checks', label: 'Désactiver les vérifications de clés étrangères' },
-    { name: 'drop_unknown_tables', label: 'Supprimer les tables inconnues' },
-    { name: 'drop_extra_columns', label: 'Supprimer les colonnes supplémentaires' },
-    { name: 'break_on_failure', label: 'Arrêter le clonage à la première erreur' },
+    { name: 'enforce_column_types', label: 'cloning.ui.options.enforce_column_types' },
+    { name: 'disable_fk_checks', label: 'cloning.ui.options.disable_fk_checks' },
+    { name: 'drop_unknown_tables', label: 'cloning.ui.options.drop_unknown_tables' },
+    { name: 'drop_extra_columns', label: 'cloning.ui.options.drop_extra_columns' },
+    { name: 'break_on_failure', label: 'cloning.ui.options.break_on_failure' },
 ];
 
 export default function CloningConfiguration({ ref }: Props) {
+    const { t } = useLaravelReactI18n();
     const [data, setFormData] = useState<CloningConfigurationData>(() => ({
         enforce_column_types: true,
         drop_unknown_tables: false,
@@ -44,7 +49,7 @@ export default function CloningConfiguration({ ref }: Props) {
                 <Switch
                     key={name}
                     orientation="horizontal"
-                    label={label}
+                    label={t(label)}
                     name={name}
                     className="border-b border-border p-3 last:border-b-0"
                     checked={data[name]}

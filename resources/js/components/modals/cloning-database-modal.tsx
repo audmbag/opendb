@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { CopyIcon } from 'lucide-react';
 import { useCallback } from 'react';
 import CloningConnectionForm from '@/components/cloning/cloning-connection-form';
@@ -7,6 +8,7 @@ import { useProjectModal } from '@/hooks/use-project-modal';
 import { useTempProjectStore } from '@/store/use-project-store';
 
 const CloningConnectionModal = () => {
+    const { t } = useLaravelReactI18n();
     const { setCloningOpen, cloningOpen, setOpen } = useProjectModal();
 
     const setCloningDriverConfig = useTempProjectStore((state) => state.setCloningDriverConfig);
@@ -34,8 +36,8 @@ const CloningConnectionModal = () => {
             className="h-auto" // sm:max-w-250
             open={cloningOpen}
             onOpenChange={onOpenChange}
-            title="Cloner la connection"
-            description="Formulaire pour cloner la base de donnés connection existante"
+            title={t('cloning.ui.clone_connection')}
+            description={t('cloning.ui.clone_connection_description')}
             icon={CopyIcon}
         >
             <CloningConnectionForm />

@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import Alert from '@/components/alert';
@@ -37,6 +38,7 @@ export default function InsertRecordPanel({
     onInserted,
     onClose,
 }: Props) {
+    const { t } = useLaravelReactI18n();
     const [fields, setFields] = useState<RecordFormField[] | null>(null);
     const [values, setValues] = useState<Record<string, RecordValue>>({});
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -86,7 +88,7 @@ export default function InsertRecordPanel({
                 { data: values },
             );
 
-            toast.success('Ligne ajoutée', { duration: 2000 });
+            toast.success(t('tables.insert.added'), { duration: 2000 });
             onInserted(inserted.values);
 
             if (keepOpen && fields) {
@@ -107,7 +109,7 @@ export default function InsertRecordPanel({
             );
 
             if (Object.keys(error.errors).length === 0 || error.errors.query) {
-                toast.error("La ligne n'a pas été ajoutée", {
+                toast.error(t('tables.insert.failed'), {
                     description: error.first(),
                 });
             }
@@ -120,7 +122,7 @@ export default function InsertRecordPanel({
         return (
             <Alert
                 variant="destructive"
-                title="Le formulaire n'a pas pu être préparé"
+                title={t('tables.insert.form_failed')}
                 message={loadingError}
                 className="m-4 w-auto"
             />
@@ -133,9 +135,7 @@ export default function InsertRecordPanel({
                 {fields ? (
                     fields.length === 0 ? (
                         <p className="text-sm text-muted-foreground">
-                            Toutes les colonnes de cette table sont remplies par
-                            la base : la ligne sera ajoutée avec leurs valeurs
-                            par défaut.
+                            {t('tables.insert.all_defaults')}
                         </p>
                     ) : (
                         <RecordFormFields
@@ -169,7 +169,7 @@ export default function InsertRecordPanel({
                             setKeepOpen(checked === true)
                         }
                     />
-                    En ajouter une autre
+                    {t('tables.insert.add_another')}
                 </Label>
                 <Button
                     type="button"
@@ -178,7 +178,7 @@ export default function InsertRecordPanel({
                     onClick={onClose}
                     disabled={processing}
                 >
-                    Annuler
+                    {t('common.cancel')}
                 </Button>
                 <Button
                     type="submit"
@@ -186,7 +186,7 @@ export default function InsertRecordPanel({
                     disabled={!fields || processing}
                     processing={processing}
                 >
-                    Ajouter la ligne
+                    {t('tables.insert.add')}
                 </Button>
             </div>
         </form>

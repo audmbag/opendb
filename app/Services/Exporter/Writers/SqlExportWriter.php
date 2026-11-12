@@ -20,7 +20,7 @@ class SqlExportWriter implements ExportWriter
     public function write(ExportSource $source, array $tables, string $directory, string $baseName, DateTimeImmutable $exportedAt): array
     {
         $path = $directory.$baseName.'.sql';
-        $file = fopen($path, 'wb') ?: throw new RuntimeException("Impossible d'écrire le fichier d'export {$path}.");
+        $file = fopen($path, 'wb') ?: throw new RuntimeException(__('exports.errors.write', ['path' => $path]));
         $dialect = $source->dialect;
 
         try {

@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { GaugeIcon, TriangleAlertIcon } from 'lucide-react';
 import ArtifactFrame from '@/components/ai/artifacts/artifact-frame';
 import { formatKpi, useConversationId } from '@/components/ai/artifacts/format';
@@ -13,6 +14,7 @@ type Props = {
 };
 
 export default function KpisPreview({ part, enabled }: Props) {
+    const { t } = useLaravelReactI18n();
     const conversationId = useConversationId();
 
     const { ref, data, error, processing } = useToolArtifact<KpiCard[]>(
@@ -24,7 +26,7 @@ export default function KpisPreview({ part, enabled }: Props) {
         <ArtifactFrame
             ref={ref}
             icon={GaugeIcon}
-            title="Indicateurs clés"
+            title={t('ai.artifacts.kpis')}
             data={data}
             error={error}
             processing={processing}

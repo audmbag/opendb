@@ -1,4 +1,5 @@
 import { http } from '@inertiajs/react';
+import { trans } from '@/lib/i18n';
 
 /**
  * A request of the Tables tab that failed, with the message to show and the validation errors keyed by field.
@@ -29,9 +30,6 @@ export class TableRequestError extends Error {
     }
 }
 
-const UNREACHABLE_MESSAGE =
-    'Impossible de joindre le serveur. Vérifiez la connexion puis réessayez.';
-
 /**
  * The `data` of a JSON endpoint of the Tables tab. Unlike useHttp, several requests can run at once and each one
  * can be cancelled by its own signal: the grid cancels the page it no longer needs when the view changes.
@@ -60,7 +58,7 @@ export async function requestTableData<T>(
 
 function toRequestError(error: unknown): TableRequestError {
     if (error instanceof Error && error.name === 'HttpCancelledError') {
-        return new TableRequestError('Requête annulée.', {}, 0, true);
+        return new TableRequestError(trans('tables.errors.cancelled'), {}, 0, true);
     }
 
     if (error instanceof Error && 'response' in error) {
@@ -82,8 +80,8 @@ function toRequestError(error: unknown): TableRequestError {
         const message =
             body.message ??
             (response.status === 404
-                ? "Cette table n'existe plus dans la base de données."
-                : `Le serveur a répondu par une erreur ${response.status}.`);
+                ? trans('tables.errors.table_missing')
+                : trans('tables.errors.status', { status: response.status }));
 
         return new TableRequestError(
             message,
@@ -94,5 +92,5 @@ function toRequestError(error: unknown): TableRequestError {
         );
     }
 
-    return new TableRequestError(UNREACHABLE_MESSAGE);
+    return new TableRequestError(trans('tables.errors.unreachable'));
 }

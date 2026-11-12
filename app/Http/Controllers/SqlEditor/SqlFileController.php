@@ -13,7 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * The .sql files of the tabs of the editor, read and written in the directory of the project.
+ * The .sql files of the tabs of the editor and the folders that hold them, read and written in the directory of the project.
  */
 class SqlFileController extends Controller
 {
@@ -21,22 +21,25 @@ class SqlFileController extends Controller
 
     public function index(Project $project): JsonResponse
     {
-        return $this->respond(fn (): array => $this->editor->files($project));
+        return $this->respond(fn (): array => $this->editor->files($this->workspace($project)));
     }
 
     /**
-     * A new file, empty or holding the query the editor opens it with, like a table clicked while no tab is open.
+     * A new file in the given folder, empty or holding the query the editor opens it with, like a table clicked while no tab is open.
      */
     public function store(Project $project, Request $request): JsonResponse
     {
-        $sql = $request->validate(['sql' => ['nullable', 'string', 'max:1000000']])['sql'] ?? '';
+        $validated = $request->validate([
+            'sql' => ['nullable', 'string', 'max:1000000'],
+            'folder' => ['nullable', 'string', 'max:1024'],
+        ]);
 
-        return $this->respond(fn (): array => $this->editor->createFile($project, $sql), 201);
+        return $this->respond(fn (): array => $this->editor->createFile($this->workspace($project), $validated['sql'] ?? '', $validated['folder'] ?? null), 201);
     }
 
     public function show(Project $project, string $file): JsonResponse
     {
-        return $this->respond(fn (): array => $this->editor->readFile($project, $file));
+        return $this->respond(fn (): array => $this->editor->readFile($this->workspace($project), $file));
     }
 
     /**
@@ -45,19 +48,49 @@ class SqlFileController extends Controller
     public function update(Project $project, string $file, SqlFileWriteRequest $request): JsonResponse
     {
         return $this->respond(fn (): array => $this->editor->writeFile(
-            $project, $file, (string) $request->validated('sql'), $request->validated('version'),
+            $this->workspace($project), $file, (string) $request->validated('sql'), $request->validated('version'),
         ));
     }
 
+    /**
+     * The new path of the file: a new name, or another folder when it is dropped on one.
+     */
     public function rename(Project $project, string $file, SqlFileRenameRequest $request): JsonResponse
     {
-        return $this->respond(fn (): array => $this->editor->renameFile($project, $file, $request->validated('name')));
+        return $this->respond(fn (): array => $this->editor->renameFile($this->workspace($project), $file, $request->validated('name')));
     }
 
     public function destroy(Project $project, string $file): JsonResponse
     {
         return $this->respond(function () use ($project, $file): array {
-            $this->editor->deleteFile($project, $file);
+            $this->editor->deleteFile($this->workspace($project), $file);
+
+            return [];
+        });
+    }
+
+    /**
+     * A new folder, in the given folder or at the root of the files of the editor.
+     */
+    public function storeFolder(Project $project, Request $request): JsonResponse
+    {
+        $parent = $request->validate(['parent' => ['nullable', 'string', 'max:1024']])['parent'] ?? null;
+
+        return $this->respond(fn (): array => $this->editor->createFolder($this->workspace($project), $parent), 201);
+    }
+
+    public function renameFolder(Project $project, string $folder, SqlFileRenameRequest $request): JsonResponse
+    {
+        return $this->respond(fn (): array => $this->editor->renameFolder($this->workspace($project), $folder, $request->validated('name')));
+    }
+
+    /**
+     * The folder and everything it holds.
+     */
+    public function destroyFolder(Project $project, string $folder): JsonResponse
+    {
+        return $this->respond(function () use ($project, $folder): array {
+            $this->editor->deleteFolder($this->workspace($project), $folder);
 
             return [];
         });

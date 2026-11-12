@@ -1,5 +1,6 @@
 import ELK from 'elkjs/lib/elk.bundled.js';
 import type { ElkNode } from 'elkjs/lib/elk.bundled.js';
+import { TABLE_HANDLE } from './types';
 import type { RelationshipEdgeType, TableNodeType } from './types';
 
 /**
@@ -111,24 +112,27 @@ export async function getLayoutedNodes(
                 width,
                 height,
                 layoutOptions: { 'elk.portConstraints': 'FIXED_POS' },
-                ports: node.data.columns.flatMap((column, index) => {
-                    const y = headerHeight + index * ROW_HEIGHT + ROW_HEIGHT / 2;
-
-                    return [
-                        {
-                            id: portId(node.id, column.name, 'west'),
-                            x: 0,
-                            y,
-                            layoutOptions: { 'elk.port.side': 'WEST' },
-                        },
-                        {
-                            id: portId(node.id, column.name, 'east'),
-                            x: width,
-                            y,
-                            layoutOptions: { 'elk.port.side': 'EAST' },
-                        },
-                    ];
-                }),
+                // The table itself has a port in its header, for the relationships of a diagram showing the names alone.
+                ports: [
+                    { name: TABLE_HANDLE, y: headerHeight / 2 },
+                    ...node.data.columns.map((column, index) => ({
+                        name: column.name,
+                        y: headerHeight + index * ROW_HEIGHT + ROW_HEIGHT / 2,
+                    })),
+                ].flatMap(({ name, y }) => [
+                    {
+                        id: portId(node.id, name, 'west'),
+                        x: 0,
+                        y,
+                        layoutOptions: { 'elk.port.side': 'WEST' },
+                    },
+                    {
+                        id: portId(node.id, name, 'east'),
+                        x: width,
+                        y,
+                        layoutOptions: { 'elk.port.side': 'EAST' },
+                    },
+                ]),
             };
         }),
         edges: edges.map((edge) => ({
@@ -152,7 +156,7 @@ export async function getLayoutedNodes(
             position: positions.get(node.id) ?? node.position,
         }));
     } catch (error) {
-        console.error('Erreur de layout ELK', error);
+        console.error(error);
 
         return nodes;
     }

@@ -2,6 +2,7 @@
 
 namespace App\Ai\Agents\Tables;
 
+use App\Ai\Agents\Concerns\AnswersInInterfaceLanguage;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\HasStructuredOutput;
@@ -13,7 +14,7 @@ use Stringable;
  */
 class TableInsightsAgent implements Agent, HasStructuredOutput
 {
-    use Promptable;
+    use AnswersInInterfaceLanguage, Promptable;
 
     /**
      * @param  list<string>  $columns  the names of the columns of the table
@@ -26,17 +27,17 @@ class TableInsightsAgent implements Agent, HasStructuredOutput
     public function instructions(): Stringable|string
     {
         return <<<INSTRUCTIONS
-        Tu es un analyste de données. On te donne la structure de la table « {$this->table} » et le profil de ses colonnes,
-        calculé sur un échantillon de ses lignes : taux de NULL, nombre de valeurs distinctes, minimum, maximum, longueurs et valeurs fréquentes.
+        You are a data analyst. You are given the structure of the table "{$this->table}" and the profile of its columns,
+        computed on a sample of its rows: rate of NULL, number of distinct values, minimum, maximum, lengths and frequent values.
 
-        Réponds en français, de façon concrète et brève :
-        - summary : deux ou trois phrases sur ce que contient la table et son rôle dans la base, d'après ses colonnes et ses relations.
-        - columns : le sens de chaque colonne dont le nom n'est pas évident, en quelques mots. Laisse de côté les colonnes évidentes comme id, created_at ou updated_at.
-        - anomalies : ce qui mérite l'attention dans les données, avec les chiffres du profil. Par exemple, une colonne presque toujours NULL,
-          une colonne unique en pratique sans index unique, des valeurs hors de l'ordre de grandeur attendu, une colonne qui ne sert jamais,
-          ou des formats mélangés. N'invente rien que le profil ne montre pas. Si rien n'est à signaler, renvoie une liste vide.
-          severity vaut warning pour un problème probable, info pour une simple remarque.
-        - questions : deux ou trois questions précises qu'il serait utile de poser ensuite sur cette table à l'assistant SQL.
+        Answer in {$this->interfaceLanguage()}, concretely and briefly:
+        - summary: two or three sentences about what the table contains and its role in the database, from its columns and its relations.
+        - columns: the meaning of each column whose name is not obvious, in a few words. Leave out the obvious columns like id, created_at or updated_at.
+        - anomalies: what deserves attention in the data, with the figures of the profile. For example, a column almost always NULL,
+          a column unique in practice without a unique index, values out of the expected order of magnitude, a column never used,
+          or mixed formats. Do not invent anything the profile does not show. If there is nothing to report, return an empty list.
+          severity is warning for a probable problem, info for a simple remark.
+        - questions: two or three precise questions that would be useful to ask next about this table to the SQL assistant.
         INSTRUCTIONS;
     }
 

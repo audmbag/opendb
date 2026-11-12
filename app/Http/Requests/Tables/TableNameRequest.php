@@ -31,6 +31,6 @@ class TableNameRequest extends FormRequest
      */
     public function messages(): array
     {
-        return ['name.regex' => 'Un nom commence par une lettre ou « _ », puis ne contient que des lettres, des chiffres, « _ » ou « $ ».'];
+        return ['name.regex' => __('requests.identifier')];
     }
 }

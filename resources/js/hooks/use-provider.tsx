@@ -1,6 +1,7 @@
 import { useHttp } from '@inertiajs/react';
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { trans } from '@/lib/i18n';
 import { useProviderStore } from '@/store/use-provider-store';
 import type { APIData } from '@/types/global';
 import type { Provider } from '@/types/models/provider';
@@ -31,15 +32,14 @@ const useProvider = () => {
                 setProviders(response.data);
             },
             onError: () => {
-                toast.error('Impossible de charger les providers', {
-                    description:
-                        'Une erreur inattendue est survenue lors du chargement des providers.',
+                toast.error(trans('settings.models.load_failed'), {
+                    description: trans('settings.models.load_failed_description'),
                     id: 'load-provider-error',
                 });
             },
             onNetworkError: () => {
-                toast.error('Impossible de charger les providers', {
-                    description: 'Vérifiez votre connexion internet.',
+                toast.error(trans('settings.models.load_failed'), {
+                    description: trans('common.check_connection'),
                     id: 'load-provider-error',
                 });
             },
@@ -54,7 +54,7 @@ const useProvider = () => {
                 loadData(true)
 
                 toast[success ? 'success' : 'error'](
-                    success ? 'Provider déconnecté' : 'Erreur lors de la déconnexion du provider',
+                    success ? trans('settings.models.disconnected') : trans('settings.models.disconnect_failed'),
                     {
                         description: message,
                     },
@@ -94,7 +94,7 @@ const useProvider = () => {
                     mutationCallback?.(status, false)
                 },
                 onError: () => {
-                    toast.error("Une erreur s'est produite");
+                    toast.error(trans('common.error'));
                     mutationCallback?.(false, true)
                 }
             },

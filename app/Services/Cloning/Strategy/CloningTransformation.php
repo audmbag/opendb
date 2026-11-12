@@ -96,7 +96,7 @@ final readonly class CloningTransformation
             'remapping' => $camel
                 ? ['remappingUse' => $this->remappingUse, 'foreignKeys' => $this->foreignKeys]
                 : ['arguments' => $this->remappingArgumentsToRaw()],
-            default => throw new \InvalidArgumentException("Stratégie inconnue : {$this->strategy}"),
+            default => throw new \InvalidArgumentException(__('cloning.errors.unknown_strategy', ['strategy' => $this->strategy])),
         };
     }
 

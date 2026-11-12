@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { ClockIcon, SearchIcon, Table2Icon, TriangleAlertIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { ReactNode, Ref } from 'react';
@@ -32,6 +33,7 @@ function Stat({ label, value, hint, className }: { label: string; value: ReactNo
 }
 
 function ColumnsTable({ columns, sampleSize }: { columns: DerivedColumn[]; sampleSize: number }) {
+    const { t } = useLaravelReactI18n();
     const [openColumn, setOpenColumn] = useState<string | null>(null);
 
     return (
@@ -44,32 +46,32 @@ function ColumnsTable({ columns, sampleSize }: { columns: DerivedColumn[]; sampl
                             scope="col"
                             className={cn(cellClassName, 'first:pl-13')}
                         >
-                            Colonne
+                            {t('ai.profile.headers.column')}
                         </th>
                         <th scope="col" className={cellClassName}>
-                            Valeurs NULL
+                            {t('ai.profile.headers.nulls')}
                         </th>
                         <th scope="col" className={cellClassName}>
-                            Distinctes
+                            {t('ai.profile.distinct')}
                         </th>
                         <th scope="col" className={cellClassName}>
-                            Minimum
+                            {t('ai.profile.headers.min')}
                         </th>
                         <th scope="col" className={cellClassName}>
-                            Maximum
+                            {t('ai.profile.headers.max')}
                         </th>
                         <th
                             scope="col"
                             className={cellClassName}
-                            title="Longueur moyenne des textes"
+                            title={t('ai.profile.headers.average_length_title')}
                         >
-                            Long. moy.
+                            {t('ai.profile.headers.average_length')}
                         </th>
                         <th
                             scope="col"
                             className={cn(cellClassName, 'border-r-0!')}
                         >
-                            Plus fréquentes
+                            {t('ai.profile.headers.top_values')}
                         </th>
                     </tr>
                 </thead>
@@ -96,7 +98,7 @@ function ColumnsTable({ columns, sampleSize }: { columns: DerivedColumn[]; sampl
                                 colSpan={7}
                                 className="px-6 py-10 text-center text-[13px] text-muted-foreground"
                             >
-                                Aucune colonne ne correspond à ce filtre.
+                                {t('ai.record.no_column_match')}
                             </td>
                         </tr>
                     )}
@@ -107,6 +109,7 @@ function ColumnsTable({ columns, sampleSize }: { columns: DerivedColumn[]; sampl
 }
 
 export default function TableProfile({ ref, profile }: Props) {
+    const { t, tChoice } = useLaravelReactI18n();
     const [tab, setTab] = useState<Tab>('all');
     const [search, setSearch] = useState('');
 
@@ -125,14 +128,14 @@ export default function TableProfile({ ref, profile }: Props) {
             <ArtifactFrame
                 ref={ref}
                 title={profile.table}
-                description="Profil de données"
+                description={t('ai.profile.title')}
                 icon={Table2Icon}
                 className="w-full max-w-228 gap-0 py-0"
             >
                 <EmptyState
                     icon={Table2Icon}
-                    title={'Aucune donnée à profiler'}
-                    description={`La table existe mais ne contient aucune ligne. ${profile.columns.length > 1 ? `Ses ${formatInteger(profile.columns.length)} colonnes apparaîtront` : 'Sa colonne apparaîtra'} ici dès qu'elle sera alimentée.`}
+                    title={t('ai.profile.empty')}
+                    description={tChoice('ai.profile.empty_description', profile.columns.length, { count: formatInteger(profile.columns.length) })}
                 />
             </ArtifactFrame>
         );
@@ -142,13 +145,13 @@ export default function TableProfile({ ref, profile }: Props) {
         <ArtifactFrame
             ref={ref}
             title={profile.table}
-            description="Profil de données"
+            description={t('ai.profile.title')}
             icon={Table2Icon}
             actions={
                 <Badge>
                     <ClockIcon />
                     {isSampled
-                        ? `Échantillon de ${formatRows(profile.sampleSize)}`
+                        ? t('ai.profile.sample_of', { rows: formatRows(profile.sampleSize) })
                         : formatRows(profile.sampleSize)}
                 </Badge>
             }
@@ -156,26 +159,26 @@ export default function TableProfile({ ref, profile }: Props) {
         >
             <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-2 p-2 pb-0">
                 <Stat
-                    label="Colonnes"
+                    label={t('ai.record.columns')}
                     value={formatInteger(columns.length)}
-                    hint="toutes analysées"
+                    hint={t('ai.profile.all_analyzed')}
                 />
                 <Stat
-                    label="Lignes analysées"
+                    label={t('ai.profile.analyzed_rows')}
                     value={formatInteger(profile.sampleSize)}
                     hint={
                         isSampled
-                            ? `sur ${formatInteger(profile.totalRows)} au total`
-                            : 'toute la table'
+                            ? t('ai.profile.of_total', { total: formatInteger(profile.totalRows) })
+                            : t('ai.profile.whole_table')
                     }
                 />
                 <Stat
-                    label="Taux de NULL moyen"
+                    label={t('ai.profile.average_null_rate')}
                     value={formatPercent(averageNullRate(columns))}
-                    hint="sur l'ensemble des colonnes"
+                    hint={t('ai.profile.all_columns')}
                 />
                 <Stat
-                    label="À surveiller"
+                    label={t('ai.profile.to_watch')}
                     value={
                         <>
                             {columnsNeedingAttention.length > 0 && (
@@ -184,7 +187,7 @@ export default function TableProfile({ ref, profile }: Props) {
                             {formatInteger(columnsNeedingAttention.length)}
                         </>
                     }
-                    hint={'colonnes avec plus de 20\u00a0% de NULL'}
+                    hint={t('ai.profile.to_watch_hint', { rate: formatPercent(20) })}
                     className={cn(
                         columnsNeedingAttention.length > 0 &&
                             'text-amber-700 dark:text-amber-400',
@@ -200,13 +203,13 @@ export default function TableProfile({ ref, profile }: Props) {
                 <div className="flex flex-wrap items-center justify-between gap-3 px-2 py-3.5">
                     <TabsList>
                         <TabsTrigger value="all" className="px-3">
-                            Toutes{' '}
+                            {t('ai.profile.all')}{' '}
                             <span className="text-xs text-muted-foreground tabular-nums">
                                 {formatInteger(columns.length)}
                             </span>
                         </TabsTrigger>
                         <TabsTrigger value="attention" className="px-3">
-                            À surveiller{' '}
+                            {t('ai.profile.to_watch')}{' '}
                             <span className="text-xs text-muted-foreground tabular-nums">
                                 {formatInteger(columnsNeedingAttention.length)}
                             </span>
@@ -214,13 +217,13 @@ export default function TableProfile({ ref, profile }: Props) {
                     </TabsList>
 
                     <label className="relative flex w-60 max-w-full items-center">
-                        <span className="sr-only">Filtrer les colonnes</span>
+                        <span className="sr-only">{t('ai.record.filter_columns')}</span>
                         <SearchIcon className="pointer-events-none absolute left-2.75 size-3.75 text-muted-foreground" />
                         <Input
                             type="search"
                             value={search}
                             onChange={(event) => setSearch(event.target.value)}
-                            placeholder="Filtrer les colonnes..."
+                            placeholder={t('ai.record.filter_columns_placeholder')}
                             className="pl-8.5 md:text-[13px]"
                         />
                     </label>
@@ -243,15 +246,15 @@ export default function TableProfile({ ref, profile }: Props) {
             <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-t px-6 py-3.5 text-xs text-muted-foreground">
                 <p className="max-w-115">
                     {isSampled
-                        ? `Statistiques calculées sur un échantillon de ${formatRows(profile.sampleSize)}. Les minimums, maximums et valeurs fréquentes peuvent différer sur la table complète.`
-                        : `Statistiques calculées sur la table complète (${formatRows(profile.sampleSize)}).`}
+                        ? t('ai.profile.sampled_footer', { rows: formatRows(profile.sampleSize) })
+                        : t('ai.profile.full_footer', { rows: formatRows(profile.sampleSize) })}
                 </p>
                 <div className="flex flex-wrap gap-3.5">
                     {(
                         [
-                            ['low', 'moins de 20\u00a0%'],
-                            ['warn', '20 à 50\u00a0%'],
-                            ['danger', '50\u00a0% et plus'],
+                            ['low', t('ai.profile.severity.low', { rate: formatPercent(20) })],
+                            ['warn', t('ai.profile.severity.warn', { from: formatInteger(20), to: formatPercent(50) })],
+                            ['danger', t('ai.profile.severity.danger', { rate: formatPercent(50) })],
                         ] as const
                     ).map(([severity, label]) => (
                         <span

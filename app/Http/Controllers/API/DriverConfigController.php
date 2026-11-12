@@ -41,7 +41,7 @@ class DriverConfigController extends Controller
 
                 return Response::json([
                     'success' => false,
-                    'message' => "La base de données ne peut pas être la même que celle déjà configurée sur \"$host\".",
+                    'message' => __('projects.messages.same_database', ['host' => $host]),
                 ]);
             }
         }
@@ -52,7 +52,7 @@ class DriverConfigController extends Controller
             return Response::json(['success' => false, 'message' => $e->getMessage()]);
         }
 
-        $message = 'Connexion réussie : '.$driver->getConnectionString();
+        $message = __('projects.messages.connected', ['connection' => $driver->getConnectionString()]);
 
         return Response::json(['success' => true, 'message' => $message, 'willCreateDatabase' => $driver->willCreateDatabase()]);
     }

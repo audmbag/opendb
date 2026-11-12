@@ -34,11 +34,11 @@ class MailFormRequest extends FormRequest
     public function attributes(): array
     {
         return [
-            'to' => 'destinataires',
-            'to.*' => 'destinataire',
-            'subject' => 'objet',
-            'body' => 'message',
-            'attachments' => 'pièces jointes',
+            'to' => __('attributes.recipients'),
+            'to.*' => __('attributes.recipient'),
+            'subject' => __('attributes.subject'),
+            'body' => __('attributes.body'),
+            'attachments' => __('attributes.attachments'),
         ];
     }
 }

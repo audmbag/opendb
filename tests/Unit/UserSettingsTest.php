@@ -8,7 +8,7 @@ it('falls back to the default of every value missing or invalid', function (arra
     expect(UserSettings::fromArray($saved))->toEqual(new UserSettings);
 })->with([
     'nothing saved' => [[]],
-    'unknown values' => [['agent' => ['accessMode' => 'admin', 'effort' => 'max', 'maxSteps' => 'many'], 'export' => ['format' => 'xlsx']]],
+    'unknown values' => [['agent' => ['accessMode' => 'admin', 'effort' => 'max', 'maxSteps' => 'many', 'schemaApplyMode' => 'always'], 'export' => ['format' => 'xlsx']]],
     'out of range numbers' => [['agent' => ['maxSteps' => UserSettings::MAX_AGENT_STEPS + 1, 'maxRows' => UserSettings::MIN_AGENT_ROWS - 1]]],
 ]);
 

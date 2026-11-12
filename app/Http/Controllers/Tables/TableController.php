@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Tables;
 
 use App\Database\Contracts\DriverContract;
+use App\Database\Exceptions\PrivilegeException;
 use App\Database\Exceptions\TableNotFoundException;
 use App\Http\Controllers\Controller;
 use App\Models\Project;
@@ -13,6 +14,7 @@ use Closure;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use RuntimeException;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -22,9 +24,12 @@ abstract class TableController extends Controller
 {
     public function __construct(protected TableBrowserManager $tables) {}
 
+    /**
+     * The driver of the user: the tables they hold no privilege on are hidden, and their queries checked against their privileges.
+     */
     protected function driver(Project $project): DriverContract
     {
-        return $project->driver_config->getDriver();
+        return $project->driver_config->driverFor(request()->user());
     }
 
     /**
@@ -35,7 +40,9 @@ abstract class TableController extends Controller
         try {
             return response()->json(['data' => $callback()]);
         } catch (TableNotFoundException $exception) {
-            throw new NotFoundHttpException("Cette table n'existe pas dans la base de données.", $exception);
+            throw new NotFoundHttpException(__('tables.errors.table_not_found'), $exception);
+        } catch (PrivilegeException $exception) {
+            throw new AccessDeniedHttpException($exception->getMessage(), $exception);
         } catch (TableDesignFailedException $exception) {
             return response()->json([
                 'message' => $exception->getMessage(),

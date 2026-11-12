@@ -8,12 +8,12 @@ class CloningException extends RuntimeException
 {
     public static function logFileNotFound(string $directory): self
     {
-        return new self("No cloning log file (.jsonl) found in [{$directory}].");
+        return new self(__('cloning.errors.no_log_file', ['directory' => $directory]));
     }
 
     public static function failedToMoveLogFile(string $from, string $to): self
     {
-        return new self("Failed to move cloning log file from [{$from}] to [{$to}].");
+        return new self(__('cloning.errors.move_log_file', ['from' => $from, 'to' => $to]));
     }
 
     /**
@@ -26,6 +26,6 @@ class CloningException extends RuntimeException
 
     public static function failedToCloneConnection(string $errorMessage): self
     {
-        return new self('Failed to clone connection: '.$errorMessage);
+        return new self(__('cloning.errors.clone_connection', ['error' => $errorMessage]));
     }
 }

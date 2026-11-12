@@ -45,4 +45,4 @@ it('fails when the log file does not exist', function () {
     $this->tmpDirectory->delete('logs/'.$this->logFile);
 
     $this->workspace->archiveLog();
-})->throws(CloningException::class, 'No cloning log file (.jsonl) found');
+})->throws(CloningException::class, 'Aucun journal de clonage (.jsonl) trouvé');

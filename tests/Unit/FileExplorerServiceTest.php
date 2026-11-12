@@ -4,6 +4,9 @@ use App\Enums\OperatingSystemEnum;
 use App\Services\FileExplorerService;
 use App\Services\SystemInfoService;
 use Illuminate\Filesystem\Filesystem;
+use Tests\TestCase;
+
+pest()->extend(TestCase::class);
 
 beforeEach(function () {
     $this->root = realpath(sys_get_temp_dir()).DIRECTORY_SEPARATOR.uniqid('file-explorer-');

@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { ComputerIcon, DatabaseIcon, EthernetPortIcon, UserIcon, UserKeyIcon } from 'lucide-react';
 import React, { useCallback, useImperativeHandle } from 'react';
 import type { CloningDriverConfig } from '@/components/cloning/cloning.types';
@@ -45,6 +46,7 @@ const DriverConfigForm = ({
     createDatabaseIfNotExists = false,
     submitTo,
 }: Props) => {
+    const { t } = useLaravelReactI18n();
     const {
         data,
         setData,
@@ -107,8 +109,8 @@ const DriverConfigForm = ({
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div className="col-span-1 flex flex-col gap-4 sm:col-span-2 sm:flex-row">
                             <Input
-                                label="Hôte"
-                                placeholder="Ex: localhost"
+                                label={t('projects.form.host')}
+                                placeholder={t('projects.form.host_placeholder')}
                                 className="flex-2"
                                 name="host"
                                 error={errors?.host}
@@ -117,8 +119,8 @@ const DriverConfigForm = ({
                                 icon={ComputerIcon}
                             />
                             <Input
-                                label="Port"
-                                placeholder={'Ex: 3306'}
+                                label={t('projects.form.port')}
+                                placeholder={t('projects.form.port_placeholder')}
                                 className="flex-1"
                                 name="port"
                                 type="number"
@@ -129,8 +131,8 @@ const DriverConfigForm = ({
                             />
                         </div>
                         <Input
-                            label="Nom d'utilisateur"
-                            placeholder="Ex: root"
+                            label={t('projects.form.username')}
+                            placeholder={t('projects.form.username_placeholder')}
                             name="username"
                             value={data.username}
                             onChange={(e) => setData({ username: e.target.value })}
@@ -138,8 +140,8 @@ const DriverConfigForm = ({
                             icon={UserIcon}
                         />
                         <Input
-                            label="Mot de passe"
-                            placeholder="Ex: motdepasse"
+                            label={t('projects.form.password')}
+                            placeholder={t('projects.form.password_placeholder')}
                             type="password"
                             name="password"
                             value={data.password}
@@ -149,8 +151,8 @@ const DriverConfigForm = ({
                         />
                         <div className="flex items-end gap-2 sm:col-span-2">
                             <Input
-                                label="Nom de la base de données"
-                                placeholder="Ex: ma_base_de_donnees"
+                                label={t('projects.form.database')}
+                                placeholder={t('projects.form.database_placeholder')}
                                 className="flex-1"
                                 name="database"
                                 value={data.database}
@@ -162,7 +164,7 @@ const DriverConfigForm = ({
                     </div>
                     {sshEnabled && (
                         <Collapsible
-                            label={'Utiliser un tunnel SSH'}
+                            label={t('projects.form.use_ssh')}
                             open={sshOpen}
                             onOpenChange={setSshOpen}
                             className="rounded-md pt-2.5 data-[state=open]:bg-muted"
@@ -193,7 +195,7 @@ const DriverConfigForm = ({
             {createDatabaseIfNotExists && (
                 <div>
                     <Switch
-                        label="Créer la base de données si elle n'existe pas"
+                        label={t('projects.form.create_database')}
                         name="create_database_if_not_exists"
                         orientation="horizontal"
                         checked={data.create_database_if_not_exists}

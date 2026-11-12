@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     CheckIcon,
     ChevronLeftIcon,
@@ -13,6 +14,7 @@ import {
 import { alertClassName } from '@/components/ai/artifacts/query-plan/plan-node';
 import { Button } from '@/components/ui/button';
 import { useConversationPrompt } from '@/hooks/use-conversation-prompt';
+import { translateMessage } from '@/lib/i18n';
 import { uppercaseSqlKeywords } from '@/lib/sql';
 import { cn } from '@/lib/utils';
 import type { PlanAlert, PlanNode, QueryPlan } from '@/types/agent';
@@ -84,28 +86,31 @@ export default function PlanDetailPanel({
     onPrevious,
     onNext,
 }: Props) {
+    const { t } = useLaravelReactI18n();
     const { sendPrompt } = useConversationPrompt();
     const alert = worstAlert(node);
+    const label = translateMessage(t, node.label);
+    const subtitle = translateMessage(t, node.subtitle);
 
     const proposeIndex = () => {
         const columns =
             alert && alert.columns.length > 0
-                ? `, colonnes ${alert.columns.join(', ')}`
+                ? t('query_plan.prompts.columns', { columns: alert.columns.join(', ') })
                 : '';
 
         sendPrompt?.(
-            `Propose un index pour l'étape « ${node.label} »${node.table ? ` de ${node.table}` : ''} (alerte ${alert?.code}${columns}).`,
+            node.table
+                ? t('query_plan.prompts.propose_index_on_table', { step: label, table: node.table, code: alert?.code ?? '', columns })
+                : t('query_plan.prompts.propose_index', { step: label, code: alert?.code ?? '', columns }),
         );
     };
 
     const explainStep = () =>
-        sendPrompt?.(
-            `Explique l'étape « ${node.label} » du plan ${plan.planId}.`,
-        );
+        sendPrompt?.(t('query_plan.prompts.explain_step', { step: label, plan: plan.planId }));
 
     return (
         <aside
-            aria-label="Détail de l'étape"
+            aria-label={t('query_plan.step_detail')}
             className="flex flex-col gap-4 px-5 pt-3.5 pb-5"
         >
             <div className="flex items-center justify-between gap-2">
@@ -113,8 +118,8 @@ export default function PlanDetailPanel({
                     aria-live="polite"
                     className="text-xs text-muted-foreground tabular-nums"
                 >
-                    Étape {step} sur {stepCount}
-                    <span className="sr-only"> : {node.label}</span>
+                    {t('query_plan.step_of', { step, count: stepCount })}
+                    <span className="sr-only"> : {label}</span>
                 </span>
                 <div className="flex items-center gap-1">
                     <Button
@@ -124,8 +129,8 @@ export default function PlanDetailPanel({
                         className="size-7"
                         onClick={onPrevious ?? undefined}
                         disabled={onPrevious === null}
-                        aria-label="Étape précédente"
-                        title="Étape précédente"
+                        aria-label={t('query_plan.previous_step')}
+                        title={t('query_plan.previous_step')}
                     >
                         <ChevronLeftIcon />
                     </Button>
@@ -136,8 +141,8 @@ export default function PlanDetailPanel({
                         className="size-7"
                         onClick={onNext ?? undefined}
                         disabled={onNext === null}
-                        aria-label="Étape suivante"
-                        title="Étape suivante"
+                        aria-label={t('query_plan.next_step')}
+                        title={t('query_plan.next_step')}
                     >
                         <ChevronRightIcon />
                     </Button>
@@ -146,10 +151,10 @@ export default function PlanDetailPanel({
 
             <div className="-mt-2">
                 <div className="flex flex-wrap items-baseline gap-2">
-                    <h3 className="text-[15px] font-semibold">{node.label}</h3>
-                    {node.subtitle && (
+                    <h3 className="text-[15px] font-semibold">{label}</h3>
+                    {subtitle && (
                         <span className="font-mono text-xs break-all text-muted-foreground">
-                            {node.subtitle}
+                            {subtitle}
                         </span>
                     )}
                 </div>
@@ -161,7 +166,7 @@ export default function PlanDetailPanel({
                         aria-hidden="true"
                         className="mt-px size-3.5 shrink-0"
                     />
-                    <span>Alerte résolue : {resolvedAlert.message}</span>
+                    <span>{t('query_plan.resolved_alert', { alert: translateMessage(t, resolvedAlert.message) })}</span>
                 </div>
             )}
 
@@ -176,16 +181,16 @@ export default function PlanDetailPanel({
                         aria-hidden="true"
                         className="mt-px size-3.5 shrink-0"
                     />
-                    <span>{alert.message}</span>
+                    <span>{translateMessage(t, alert.message)}</span>
                 </div>
             )}
 
-            <p className="text-[13px] leading-[1.55]">{node.explanation}</p>
+            <p className="text-[13px] leading-[1.55]">{translateMessage(t, node.explanation)}</p>
 
             {node.condition && (
                 <div>
                     <div className="mb-1.5 text-xs font-medium text-muted-foreground">
-                        {node.condition.label}
+                        {translateMessage(t, node.condition.label)}
                     </div>
                     <div className="rounded-md border bg-muted/40 px-2.5 py-2 font-mono text-xs wrap-anywhere">
                         {uppercaseSqlKeywords(node.condition.value)}
@@ -198,7 +203,7 @@ export default function PlanDetailPanel({
                     {node.details.map((detail, index) => (
                         <div key={index} className="contents">
                             <dt className="text-muted-foreground">
-                                {detail.label}
+                                {translateMessage(t, detail.label)}
                             </dt>
                             <dd
                                 className={cn(
@@ -208,7 +213,7 @@ export default function PlanDetailPanel({
                                     detail.tone && toneClassName[detail.tone],
                                 )}
                             >
-                                {detail.value}
+                                {translateMessage(t, detail.value)}
                             </dd>
                         </div>
                     ))}
@@ -225,7 +230,7 @@ export default function PlanDetailPanel({
                         disabled={sendPrompt === null}
                     >
                         <LightbulbIcon />
-                        Proposer un index
+                        {t('query_plan.propose_index')}
                     </Button>
                     <Button
                         type="button"
@@ -235,7 +240,7 @@ export default function PlanDetailPanel({
                         disabled={sendPrompt === null}
                     >
                         <MessageSquareIcon />
-                        Expliquer cette étape
+                        {t('query_plan.explain_step')}
                     </Button>
                 </div>
             )}

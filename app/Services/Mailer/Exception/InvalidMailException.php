@@ -16,7 +16,7 @@ class InvalidMailException extends RuntimeException
 
     public static function missingSettings(): self
     {
-        return new self('Aucune configuration SMTP : l\'utilisateur doit d\'abord la renseigner dans Réglages > Messagerie.', 'settings');
+        return new self(__('mail.errors.missing_settings'), 'settings');
     }
 
     public static function recipients(string $message): self

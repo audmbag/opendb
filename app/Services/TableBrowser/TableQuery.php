@@ -66,6 +66,6 @@ class TableQuery
     {
         return in_array($name, $columns, true)
             ? $name
-            : throw new RuntimeException("La colonne [{$name}] n'existe pas dans la table [{$table}].");
+            : throw new RuntimeException(__('tables.errors.unknown_column', ['column' => $name, 'table' => $table]));
     }
 }

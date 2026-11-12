@@ -1,6 +1,6 @@
 import type { ToolUIPart } from 'ai';
 import type { LucideIcon } from 'lucide-react';
-import { HardDriveDownloadIcon } from 'lucide-react';
+import { HardDriveDownloadIcon, PencilRuler } from 'lucide-react';
 import {
     ChartColumnBig,
     Database,
@@ -18,6 +18,7 @@ import {
     Sheet,
     UserCheck,
 } from 'lucide-react';
+import type { ServerMessage } from '@/lib/i18n';
 
 export const AgentTools = {
     DatabaseSchema: 'tool-DatabaseSchema',
@@ -37,6 +38,7 @@ export const AgentTools = {
     ExportDatabase: 'tool-ExportDatabase',
     SendMail: 'tool-SendMail',
     ManageMailRecipients: 'tool-ManageMailRecipients',
+    ProposeSchemaChanges: 'tool-ProposeSchemaChanges',
 } as const;
 
 
@@ -58,7 +60,7 @@ export type ToolMetadata = {
     icon: LucideIcon;
     color: string;
     /**
-     * What the processing indicator tells the user while the tool is running.
+     * What the processing indicator tells the user while the tool is running, a key of lang/{locale}/ai.php.
      */
     activityLabel: string;
 };
@@ -66,39 +68,41 @@ export type ToolMetadata = {
 export function getMetadata(name: AgentToolNameType): ToolMetadata | undefined {
     switch (name) {
         case AgentTools.DatabaseSchema:
-            return { icon: Database, color: 'text-purple-500', activityLabel: 'Lecture du schéma' };
+            return { icon: Database, color: 'text-purple-500', activityLabel: 'ai.activities.reading_schema' };
         case AgentTools.ListTables:
-            return { icon: Table2, color: 'text-blue-500', activityLabel: 'Récupération des tables' };
+            return { icon: Table2, color: 'text-blue-500', activityLabel: 'ai.activities.listing_tables' };
         case AgentTools.ShowSchemaDiagram:
-            return { icon: Workflow, color: 'text-indigo-500', activityLabel: 'Création du diagramme' };
+            return { icon: Workflow, color: 'text-indigo-500', activityLabel: 'ai.activities.creating_diagram' };
         case AgentTools.CreateRecord:
-            return { icon: FilePlus2, color: 'text-green-500', activityLabel: "Création de l'enregistrement" };
+            return { icon: FilePlus2, color: 'text-green-500', activityLabel: 'ai.activities.creating_record' };
         case AgentTools.FocusTable:
-            return { icon: Focus, color: 'text-cyan-500', activityLabel: 'Inspection de la table' };
+            return { icon: Focus, color: 'text-cyan-500', activityLabel: 'ai.activities.inspecting_table' };
         case AgentTools.ReadQuery:
-            return { icon: Search, color: 'text-sky-500', activityLabel: 'Exécution de la requête' };
+            return { icon: Search, color: 'text-sky-500', activityLabel: 'ai.activities.running_query' };
         case AgentTools.UpdateProjectMemory:
-            return { icon: HardDriveDownloadIcon, color: 'text-green-500', activityLabel: 'Mise à jour de la mémoire du projet' };
+            return { icon: HardDriveDownloadIcon, color: 'text-green-500', activityLabel: 'ai.activities.updating_memory' };
         case AgentTools.WriteQuery:
-            return { icon: Pencil, color: 'text-orange-500', activityLabel: 'Modification des données' };
+            return { icon: Pencil, color: 'text-orange-500', activityLabel: 'ai.activities.writing_data' };
         case AgentTools.ShowQueryResults:
-            return { icon: Sheet, color: 'text-emerald-500', activityLabel: 'Préparation des résultats' };
+            return { icon: Sheet, color: 'text-emerald-500', activityLabel: 'ai.activities.preparing_results' };
         case AgentTools.ShowKpis:
-            return { icon: Gauge, color: 'text-amber-500', activityLabel: 'Calcul des indicateurs' };
+            return { icon: Gauge, color: 'text-amber-500', activityLabel: 'ai.activities.computing_kpis' };
         case AgentTools.ShowChart:
-            return { icon: ChartColumnBig, color: 'text-pink-500', activityLabel: 'Création du graphique' };
+            return { icon: ChartColumnBig, color: 'text-pink-500', activityLabel: 'ai.activities.creating_chart' };
         case AgentTools.ProfileTable:
-            return { icon: ScanSearch, color: 'text-teal-500', activityLabel: 'Analyse de la table' };
+            return { icon: ScanSearch, color: 'text-teal-500', activityLabel: 'ai.activities.profiling_table' };
         case AgentTools.ShowRecord:
-            return { icon: IdCard, color: 'text-violet-500', activityLabel: "Chargement de l'enregistrement" };
+            return { icon: IdCard, color: 'text-violet-500', activityLabel: 'ai.activities.loading_record' };
         case AgentTools.ExplainQuery:
-            return { icon: Workflow, color: 'text-red-500', activityLabel: "Analyse du plan d'exécution" };
+            return { icon: Workflow, color: 'text-red-500', activityLabel: 'ai.activities.explaining_query' };
         case AgentTools.ExportDatabase:
-            return { icon: FileArchive, color: 'text-lime-600', activityLabel: 'Export de la base de données' };
+            return { icon: FileArchive, color: 'text-lime-600', activityLabel: 'ai.activities.exporting_database' };
         case AgentTools.SendMail:
-            return { icon: Mail, color: 'text-blue-600', activityLabel: "Envoi de l'e-mail" };
+            return { icon: Mail, color: 'text-blue-600', activityLabel: 'ai.activities.sending_mail' };
         case AgentTools.ManageMailRecipients:
-            return { icon: UserCheck, color: 'text-blue-600', activityLabel: 'Mise à jour des destinataires' };
+            return { icon: UserCheck, color: 'text-blue-600', activityLabel: 'ai.activities.updating_recipients' };
+        case AgentTools.ProposeSchemaChanges:
+            return { icon: PencilRuler, color: 'text-emerald-600', activityLabel: 'ai.activities.designing_schema' };
     }
 }
 
@@ -280,7 +284,7 @@ export type PlanAlertSeverity = 'danger' | 'warn';
 export type PlanAlert = {
     code: string;
     severity: PlanAlertSeverity;
-    message: string;
+    message: ServerMessage;
     table: string | null;
     columns: string[];
     status?: 'remaining' | 'new';
@@ -290,11 +294,11 @@ export type PlanNode = {
     id: string;
     parentId: string | null;
     operation: PlanOperation;
-    label: string;
-    subtitle: string | null;
+    label: ServerMessage;
+    subtitle: ServerMessage | null;
     table: string | null;
     index: string | null;
-    badge: string | null;
+    badge: ServerMessage | null;
     /**
      * The rows read by a step that reads a table.
      */
@@ -306,15 +310,18 @@ export type PlanNode = {
     /**
      * Shown on the edge to the parent when the rows are not estimated (« 1 ligne par product_id »).
      */
-    outputLabel: string | null;
+    outputLabel: ServerMessage | null;
     cost: number | null;
     selfCost: number | null;
     costShare: number | null;
-    condition: { label: string; value: string } | null;
-    explanation: string;
+    condition: { label: ServerMessage; value: string } | null;
+    /**
+     * The sentences of the explanation, or the text of a plan saved before the messages were translatable.
+     */
+    explanation: ServerMessage;
     alerts: PlanAlert[];
-    details: { label: string; value: string; mono?: boolean; tone?: 'danger' | 'good' }[];
-    before: { label: string; rowsExamined: number | null; cost: number | null } | null;
+    details: { label: ServerMessage; value: ServerMessage; mono?: boolean; tone?: 'danger' | 'good' }[];
+    before: { label: ServerMessage; rowsExamined: number | null; cost: number | null } | null;
 };
 
 export type PlanTotals = {

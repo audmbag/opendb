@@ -1,16 +1,12 @@
-import { CircleAlertIcon, Undo2Icon } from 'lucide-react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
+import { CircleAlertIcon, DatabaseZapIcon, Undo2Icon } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import Alert from '@/components/alert';
 import Button from '@/components/form/button';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
+import Modal from '@/components/modals/modal';
+import ModalFooter from '@/components/modals/modal-footer';
+import { trans, transChoice } from '@/lib/i18n';
 import {
     collectChanges,
     errorsOnTargets,
@@ -56,8 +52,8 @@ function locateErrors(rows: GridRow[], columns: TableColumn[]): LocatedError[] {
             );
             const line =
                 row.state === 'inserted'
-                    ? 'Nouvelle ligne'
-                    : `Ligne ${row.number}`;
+                    ? trans('tables.changes.new_row')
+                    : trans('tables.changes.row', { number: row.number ?? '' });
 
             return {
                 key: `${row.id}:${column}`,
@@ -70,14 +66,11 @@ function locateErrors(rows: GridRow[], columns: TableColumn[]): LocatedError[] {
     );
 }
 
-const plural = (count: number, word: string) =>
-    `${count} ${word}${count > 1 ? 's' : ''}`;
-
 /**
- * « 1 ligne modifiée », « 3 lignes ajoutées ».
+ * « 1 ligne modifiée », « 3 lignes ajoutées », in the language of the interface.
  */
-const rows = (count: number, participle: string) =>
-    `${count} ligne${count > 1 ? 's' : ''} ${participle}${count > 1 ? 's' : ''}`;
+const rows = (count: number, action: 'updated' | 'inserted' | 'deleted') =>
+    transChoice(`tables.changes.rows_${action}`, count);
 
 /**
  * The changes waiting to be applied, always in sight. They are applied only after the user has read the statements
@@ -90,6 +83,7 @@ export default function PendingChangesBar({
     columns,
     onApplied,
 }: Props) {
+    const { t, tChoice } = useLaravelReactI18n();
     const updates = useTableChangesStore((state) => state.updates);
     const inserts = useTableChangesStore((state) => state.inserts);
     const deletes = useTableChangesStore((state) => state.deletes);
@@ -150,11 +144,11 @@ export default function PendingChangesBar({
             setStatements(null);
             discard();
             onApplied();
-            toast.success('Modifications enregistrées', {
+            toast.success(t('tables.changes.saved'), {
                 description: [
-                    applied.updated && rows(applied.updated, 'modifiée'),
-                    applied.inserted && rows(applied.inserted, 'ajoutée'),
-                    applied.deleted && rows(applied.deleted, 'supprimée'),
+                    applied.updated && rows(applied.updated, 'updated'),
+                    applied.inserted && rows(applied.inserted, 'inserted'),
+                    applied.deleted && rows(applied.deleted, 'deleted'),
                 ]
                     .filter(Boolean)
                     .join(', '),
@@ -170,12 +164,12 @@ export default function PendingChangesBar({
             );
             toast.error(
                 mode === 'apply'
-                    ? "Aucune modification n'a été enregistrée"
-                    : 'Certaines modifications ne sont pas valides',
+                    ? t('tables.changes.nothing_saved')
+                    : t('tables.changes.some_invalid'),
                 {
                     description:
                         Object.keys(onTargets).length > 0
-                            ? 'Le détail des erreurs est affiché sous la grille.'
+                            ? t('tables.changes.errors_below')
                             : error.first(),
                 },
             );
@@ -186,10 +180,10 @@ export default function PendingChangesBar({
 
     const summary = [
         Object.keys(updates).length &&
-            plural(Object.keys(updates).length, 'modification'),
-        inserts.length && plural(inserts.length, 'ajout'),
+            tChoice('tables.changes.updates', Object.keys(updates).length),
+        inserts.length && tChoice('tables.changes.inserts', inserts.length),
         Object.keys(deletes).length &&
-            plural(Object.keys(deletes).length, 'suppression'),
+            tChoice('tables.changes.deletes', Object.keys(deletes).length),
     ]
         .filter(Boolean)
         .join(', ');
@@ -201,14 +195,20 @@ export default function PendingChangesBar({
                     variant="destructive"
                     title={
                         failure
-                            ? "Les modifications n'ont pas été appliquées"
-                            : `${plural(errorCount, 'erreur')} à corriger avant d'appliquer`
+                            ? t('tables.changes.not_applied')
+                            : tChoice(
+                                  'tables.changes.errors_to_fix',
+                                  errorCount,
+                              )
                     }
                     message={
                         failure ??
                         (elsewhere > 0
-                            ? `${elsewhere === 1 ? '1 autre erreur porte sur une ligne' : `${elsewhere} autres erreurs portent sur des lignes`} d’une autre page.`
-                            : 'Cliquez sur une erreur pour sélectionner sa cellule.')
+                            ? tChoice(
+                                  'tables.changes.errors_elsewhere',
+                                  elsewhere,
+                              )
+                            : t('tables.changes.click_error'))
                     }
                     className="m-2 w-auto"
                 >
@@ -241,16 +241,19 @@ export default function PendingChangesBar({
             )}
             <div
                 role="region"
-                aria-label="Modifications en attente"
+                aria-label={t('tables.changes.pending')}
                 className="flex flex-wrap items-center gap-3 border-t bg-warning/10 px-3 py-2 dark:bg-warning/15"
             >
                 <p className="min-w-0 flex-1 text-sm">
                     <span className="font-medium">{summary}</span>
-                    <span className="text-muted-foreground"> en attente</span>
+                    <span className="text-muted-foreground">
+                        {' '}
+                        {t('tables.changes.waiting')}
+                    </span>
                     {errorCount > 0 && (
                         <span className="ml-3 inline-flex items-center gap-1 text-destructive">
                             <CircleAlertIcon className="size-3.5" />
-                            {plural(errorCount, 'erreur')} à corriger
+                            {tChoice('tables.changes.errors_count', errorCount)}
                         </span>
                     )}
                 </p>
@@ -264,7 +267,7 @@ export default function PendingChangesBar({
                     disabled={processing !== null}
                 >
                     <Undo2Icon />
-                    Tout annuler
+                    {t('tables.changes.discard_all')}
                 </Button>
                 <Button
                     size="sm"
@@ -272,51 +275,49 @@ export default function PendingChangesBar({
                     disabled={processing !== null}
                     processing={processing === 'preview'}
                 >
-                    Vérifier et appliquer
+                    {t('tables.changes.review_and_apply')}
                 </Button>
             </div>
 
-            <Dialog
+            <Modal
                 open={statements !== null}
+                showHeader
+                scrollable
+                className="h-auto sm:max-w-2xl"
                 onOpenChange={(open) =>
                     !open && processing === null && setStatements(null)
                 }
+                icon={DatabaseZapIcon}
+                title={tChoice('tables.changes.apply_to', count, { table })}
+                description={t('tables.changes.single_transaction')}
             >
-                <DialogContent className="sm:max-w-2xl">
-                    <DialogHeader>
-                        <DialogTitle>
-                            Appliquer {plural(count, 'changement')} à {table}
-                        </DialogTitle>
-                        <DialogDescription>
-                            Ces instructions s'exécutent dans une seule
-                            transaction. Si la base en refuse une, aucune n'est
-                            conservée.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="max-h-[50vh] overflow-auto rounded-md border">
-                        <SqlCodeBlock
-                            code={(statements ?? []).join('\n')}
-                            className="border-0 [&_pre]:break-all [&_pre]:whitespace-pre-wrap"
-                        />
+                <div className="flex flex-col">
+                    <div className="p-4">
+                        <div className="max-h-[50vh] overflow-auto rounded-md border">
+                            <SqlCodeBlock
+                                code={(statements ?? []).join('\n')}
+                                className="border-0 [&_pre]:break-all [&_pre]:whitespace-pre-wrap"
+                            />
+                        </div>
                     </div>
-                    <DialogFooter>
+                    <ModalFooter>
                         <Button
                             variant="outline"
                             onClick={() => setStatements(null)}
                             disabled={processing !== null}
                         >
-                            Revenir à la grille
+                            {t('tables.changes.back_to_grid')}
                         </Button>
                         <Button
                             onClick={() => send('apply')}
                             disabled={processing !== null}
                             processing={processing === 'apply'}
                         >
-                            Appliquer {plural(count, 'changement')}
+                            {tChoice('tables.changes.apply', count)}
                         </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                    </ModalFooter>
+                </div>
+            </Modal>
         </>
     );
 }

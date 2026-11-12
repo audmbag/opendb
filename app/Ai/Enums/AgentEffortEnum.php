@@ -24,7 +24,7 @@ enum AgentEffortEnum: string
             return [];
         }
 
-        return match ($provider) {
+        return match (is_string($provider) ? Lab::tryFrom($provider) : $provider) {
             Lab::Anthropic => self::supportsAdaptiveThinking($model)
                 ? ['thinking' => ['type' => 'adaptive'], 'output_config' => ['effort' => 'high']]
                 : [],

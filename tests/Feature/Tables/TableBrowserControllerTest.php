@@ -29,7 +29,7 @@ function browsedCustomerNames(array $view = []): array
     return array_column($response->json('data.rows'), 'name');
 }
 
-it('opens the Tables tab with the tables of the database, and the structure of the opened table once deferred', function () {
+it('opens the Tables tab with the tables of the database, and the structure of the opened table and the columns for the completion once deferred', function () {
     $this->actingAs($this->user)
         ->get("/{$this->project->id}/tables/orders")
         ->assertOk()
@@ -41,10 +41,15 @@ it('opens the Tables tab with the tables of the database, and the structure of t
                 ['name' => 'orders', 'columns' => 4, 'hasPrimaryKey' => true, 'foreignKeys' => 1, 'agentAccessEnabled' => true],
             ])
             ->missing('structure')
+            ->missing('completion')
             ->loadDeferredProps(fn (Assert $reload) => $reload
                 ->where('structure.primaryKey', ['id'])
                 ->where('structure.columns.1.name', 'customer_id')
                 ->where('structure.columns.1.references', ['table' => 'customers', 'column' => 'id'])
+                ->where('completion', [
+                    'customers' => ['id', 'name', 'city'],
+                    'orders' => ['id', 'customer_id', 'total', 'status'],
+                ])
             )
         );
 });

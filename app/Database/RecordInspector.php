@@ -60,13 +60,13 @@ class RecordInspector
         $columns = array_column($this->definition['columns'], 'name');
 
         if ($key === [] || array_diff(array_keys($key), $columns) !== []) {
-            throw new RuntimeException("La clé doit être un objet `colonne => valeur` portant sur des colonnes de la table [{$this->table}] : ".implode(', ', $columns).'.');
+            throw new RuntimeException(__('database.records.invalid_key', ['table' => $this->table, 'columns' => implode(', ', $columns)]));
         }
 
         $row = $this->rows($this->table, $key, 1)[0] ?? null;
 
         if ($row === null) {
-            throw new RuntimeException("Aucun enregistrement de la table [{$this->table}] ne correspond à la clé ".json_encode($key, JSON_UNESCAPED_UNICODE).'.');
+            throw new RuntimeException(__('database.records.not_found', ['table' => $this->table, 'key' => (string) json_encode($key, JSON_UNESCAPED_UNICODE)]));
         }
 
         return [

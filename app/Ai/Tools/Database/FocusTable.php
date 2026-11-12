@@ -17,14 +17,14 @@ class FocusTable extends BaseTool implements Tool
 
     public function description(): Stringable|string
     {
-        return 'Décrit en détail une table spécifique : ses colonnes (nom, type, nullable, valeur par '
-            .'défaut), sa clé primaire, ses index et ses clés étrangères. '
-            .'À utiliser après ListTables, une fois le nom exact de la table identifié. '
-            .'Le paramètre `tableName` est le nom de la table cible. '
-            .'Le paramètre `withRelatedTables` (booléen) charge en plus la structure des tables liées '
-            .'par clé étrangère (dans les deux sens). Mets-le à true si la demande implique une jointure, '
-            .'un filtre sur une table liée, ou une compréhension du contexte relationnel de la table ; '
-            .'laisse-le à false si seule la structure de cette table isolée est nécessaire.';
+        return 'Describes a specific table in detail: its columns (name, type, nullable, default '
+            .'value), its primary key, its indexes and its foreign keys. '
+            .'Use it after ListTables, once the exact name of the table is identified. '
+            .'The `tableName` parameter is the name of the target table. '
+            .'The `withRelatedTables` parameter (boolean) also loads the structure of the tables related '
+            .'by a foreign key (in both directions). Set it to true if the request involves a join, '
+            .'a filter on a related table, or an understanding of the relational context of the table; '
+            .'leave it false if only the structure of this table alone is needed.';
     }
 
     public function handle(Request $request): Stringable|string
@@ -35,7 +35,7 @@ class FocusTable extends BaseTool implements Tool
         try {
             $this->validateTable($tableName, $this->driver);
         } catch (RuntimeException $e) {
-            return $e->getMessage();
+            return $this->error($e->getMessage());
         }
 
         $schema = $this->driver->focusTable($tableName, $withRelatedTables);
@@ -48,10 +48,10 @@ class FocusTable extends BaseTool implements Tool
         return [
             'tableName' => $schema->string()
                 ->required()
-                ->description('Le nom de la table cible.'),
+                ->description('The name of the target table.'),
             'withRelatedTables' => $schema->boolean()
                 ->default(false)
-                ->description('Indique si les tables liées à la table cible doivent être aussi chargées.'),
+                ->description('Whether the tables related to the target table must be loaded too.'),
         ];
     }
 }

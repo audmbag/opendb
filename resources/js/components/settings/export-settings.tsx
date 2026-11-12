@@ -1,4 +1,5 @@
 import { router, useHttp, usePage } from '@inertiajs/react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { FileDownIcon, SaveIcon } from 'lucide-react';
 import type React from 'react';
 import { toast } from 'sonner';
@@ -9,23 +10,25 @@ import SettingRow from '@/components/settings/setting-row';
 import type { UserSettings } from '@/types/models/user';
 import SettingsController from '@/wayfinder/actions/App/Http/Controllers/SettingsController';
 
-const formats = [
-    { value: 'sql', label: 'SQL (script)' },
-    { value: 'csv', label: 'CSV (un fichier par table)' },
-];
+const FORMATS = ['sql', 'csv'] as const;
 
-const compressions = [
-    { value: 'none', label: 'Aucune' },
-    { value: 'zip', label: 'Zip (.zip)' },
-    { value: 'gzip', label: 'Gzip (.gz)' },
-    { value: 'tar', label: 'Tar (.tar)' },
-];
+const COMPRESSIONS = ['none', 'zip', 'gzip', 'tar'] as const;
 
 /**
  * The format and the compression of the exports, proposed in the export dialog and used by the agent.
  */
 export default function ExportSettings() {
+    const { t } = useLaravelReactI18n();
     const { auth } = usePage().props;
+
+    const formats = FORMATS.map((value) => ({
+        value,
+        label: t(`exports.formats.${value}`),
+    }));
+    const compressions = COMPRESSIONS.map((value) => ({
+        value,
+        label: t(`exports.compressions.${value}`),
+    }));
 
     const form = useHttp<UserSettings['export'], { message: string }>({
         ...auth.user.settings.export,
@@ -46,8 +49,8 @@ export default function ExportSettings() {
     return (
         <form onSubmit={save}>
             <CardFrame
-                title="Exports"
-                description="Les choix proposés par défaut à chaque export, par vous ou par l'agent."
+                title={t('settings.export.title')}
+                description={t('settings.export.description')}
                 icon={FileDownIcon}
                 actions={
                     <Button
@@ -57,13 +60,13 @@ export default function ExportSettings() {
                         processing={form.processing}
                         disabled={!form.isDirty}
                     >
-                        Enregistrer
+                        {t('common.save')}
                     </Button>
                 }
             >
                 <SettingRow
-                    label="Format"
-                    description="Un script SQL recrée les tables ; le CSV s'ouvre dans un tableur."
+                    label={t('settings.export.format')}
+                    description={t('settings.export.format_description')}
                 >
                     <Select
                         name="format"
@@ -79,8 +82,8 @@ export default function ExportSettings() {
                     />
                 </SettingRow>
                 <SettingRow
-                    label="Compression"
-                    description="Sans compression, un export de plusieurs fichiers est tout de même regroupé dans un zip."
+                    label={t('settings.export.compression')}
+                    description={t('settings.export.compression_description')}
                 >
                     <Select
                         name="compression"

@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { ChevronDownIcon } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -26,9 +27,10 @@ export default function ColumnPicker({
     onChange,
     disabled,
     invalid,
-    placeholder = 'Choisir',
+    placeholder,
     'aria-label': label,
 }: Props) {
+    const { t } = useLaravelReactI18n();
     const toggle = (column: string) =>
         onChange(
             value.includes(column)
@@ -55,7 +57,7 @@ export default function ColumnPicker({
                                 'font-sans text-muted-foreground',
                         )}
                     >
-                        {value.length ? value.join(', ') : placeholder}
+                        {value.length ? value.join(', ') : (placeholder ?? t('tables.designer.choose'))}
                     </span>
                     <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground" />
                 </button>
@@ -66,7 +68,7 @@ export default function ColumnPicker({
             >
                 {columns.length === 0 && (
                     <p className="px-2 py-1.5 text-sm text-muted-foreground">
-                        Aucune colonne
+                        {t('tables.designer.no_column')}
                     </p>
                 )}
                 {columns.map((column) => {

@@ -1,4 +1,6 @@
 import { formatCell } from '@/components/ai/artifacts/format';
+import { trans, transChoice } from '@/lib/i18n';
+import { relativeTimeFormatter } from '@/lib/intl';
 import type { CellValue, InspectedRecord, RecordKey } from '@/types/agent';
 
 export type RecordLocation = { table: string; key: RecordKey };
@@ -12,8 +14,6 @@ export type ValueDisplay = 'null' | 'boolean' | 'number' | 'json' | 'temporal' |
 const NUMBER_PATTERN = /^-?\d+(?:\.\d+)?$/;
 
 const TEMPORAL_PATTERN = /^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/;
-
-const relativeTimeFormatter = new Intl.RelativeTimeFormat('fr', { numeric: 'auto' });
 
 const relativeTimeUnits: [Intl.RelativeTimeFormatUnit, number][] = [
     ['year', 31536000],
@@ -96,22 +96,22 @@ export function formatRelativeTime(value: string): string | null {
     const seconds = (time - Date.now()) / 1000;
     const [unit, size] = relativeTimeUnits.find(([, size]) => Math.abs(seconds) >= size) ?? ['second', 1];
 
-    return relativeTimeFormatter.format(Math.round(seconds / size), unit);
+    return relativeTimeFormatter({ numeric: 'auto' }).format(Math.round(seconds / size), unit);
 }
 
 /**
- * « 4 enregistrements dans 2 tables pointent vers celui-ci. »
+ * « 4 enregistrements dans 2 tables pointent vers celui-ci. », in the language of the interface.
  */
 export function describeIncoming(relations: IncomingRelation[]): string {
     const total = relations.reduce((sum, relation) => sum + relation.count, 0);
     const tables = new Set(relations.filter((relation) => relation.count > 0).map((relation) => relation.table)).size;
 
     if (total === 0) {
-        return 'Aucun enregistrement ne pointe vers celui-ci.';
+        return trans('ai.record.no_incoming');
     }
 
-    const records = total > 1 ? `${formatCell(total)} enregistrements` : '1 enregistrement';
-    const verb = total > 1 ? 'pointent' : 'pointe';
-
-    return `${records} dans ${tables > 1 ? `${tables} tables` : '1 table'} ${verb} vers celui-ci.`;
+    return transChoice('ai.record.incoming', total, {
+        count: formatCell(total),
+        tables: transChoice('tables.counts.tables', tables),
+    });
 }

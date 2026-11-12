@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { LoaderCircleIcon } from 'lucide-react';
 import type { Ref } from 'react';
 import { cellClassName, ProfileColumnWidths } from '@/components/ai/artifacts/table-profile/column-row';
@@ -18,6 +19,8 @@ const rowWidths = [110, 140, 90, 124];
  * The card of the profile while the sample of the table is being analysed.
  */
 export default function TableProfileSkeleton({ ref }: { ref?: Ref<HTMLDivElement> }) {
+    const { t } = useLaravelReactI18n();
+
     return (
         <Card ref={ref} aria-busy="true" className="w-full max-w-228 gap-0 py-0">
             <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-5">
@@ -30,7 +33,7 @@ export default function TableProfileSkeleton({ ref }: { ref?: Ref<HTMLDivElement
                 </div>
                 <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
                     <LoaderCircleIcon className="size-3.5 animate-spin" />
-                    Analyse de l'échantillon en cours…
+                    {t('ai.profile.analyzing')}
                 </span>
             </div>
 

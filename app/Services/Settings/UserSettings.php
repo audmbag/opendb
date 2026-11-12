@@ -4,6 +4,7 @@ namespace App\Services\Settings;
 
 use App\Ai\Enums\AgentAccessModeEnum;
 use App\Ai\Enums\AgentEffortEnum;
+use App\Ai\Enums\SchemaChangeApplyModeEnum;
 use App\Services\Exporter\ExportCompression;
 use App\Services\Exporter\ExportFormat;
 use Illuminate\Contracts\Support\Arrayable;
@@ -32,6 +33,7 @@ final readonly class UserSettings implements Arrayable, JsonSerializable
         public int $agentMaxRows = 200,
         public ExportFormat $exportFormat = ExportFormat::Sql,
         public ExportCompression $exportCompression = ExportCompression::Zip,
+        public SchemaChangeApplyModeEnum $schemaApplyMode = SchemaChangeApplyModeEnum::Draft,
     ) {}
 
     /**
@@ -50,6 +52,7 @@ final readonly class UserSettings implements Arrayable, JsonSerializable
             agentMaxRows: self::between($agent['maxRows'] ?? null, self::MIN_AGENT_ROWS, self::MAX_AGENT_ROWS, $defaults->agentMaxRows),
             exportFormat: ExportFormat::tryFrom((string) ($export['format'] ?? '')) ?? $defaults->exportFormat,
             exportCompression: ExportCompression::tryFrom((string) ($export['compression'] ?? '')) ?? $defaults->exportCompression,
+            schemaApplyMode: SchemaChangeApplyModeEnum::tryFrom((string) ($agent['schemaApplyMode'] ?? '')) ?? $defaults->schemaApplyMode,
         );
     }
 
@@ -67,7 +70,7 @@ final readonly class UserSettings implements Arrayable, JsonSerializable
     }
 
     /**
-     * @return array{agent: array{accessMode: string, effort: string, maxSteps: int, maxRows: int}, export: array{format: string, compression: string}}
+     * @return array{agent: array{accessMode: string, effort: string, maxSteps: int, maxRows: int, schemaApplyMode: string}, export: array{format: string, compression: string}}
      */
     public function toArray(): array
     {
@@ -77,6 +80,7 @@ final readonly class UserSettings implements Arrayable, JsonSerializable
                 'effort' => $this->agentEffort->value,
                 'maxSteps' => $this->agentMaxSteps,
                 'maxRows' => $this->agentMaxRows,
+                'schemaApplyMode' => $this->schemaApplyMode->value,
             ],
             'export' => [
                 'format' => $this->exportFormat->value,

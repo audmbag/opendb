@@ -2,6 +2,7 @@
 
 namespace App\Ai\Agents\Tables;
 
+use App\Ai\Agents\Concerns\AnswersInInterfaceLanguage;
 use App\Ai\Tools\Database\FocusTable;
 use App\Ai\Tools\Database\ListTables;
 use App\Database\Contracts\DriverContract;
@@ -20,7 +21,7 @@ use Stringable;
 #[MaxSteps(8)]
 class QueryReviewerAgent implements Agent, HasStructuredOutput, HasTools
 {
-    use Promptable;
+    use AnswersInInterfaceLanguage, Promptable;
 
     public const array MODES = ['fix', 'explain', 'optimize'];
 
@@ -40,43 +41,44 @@ class QueryReviewerAgent implements Agent, HasStructuredOutput, HasTools
     public function instructions(): Stringable|string
     {
         $engine = $this->driver->label();
+        $language = $this->interfaceLanguage();
         $task = match ($this->mode) {
             'fix' => <<<TASK
-            La base a refusé cette instruction avec l'erreur suivante :
+            The database refused this statement with the following error:
             {$this->error}
 
-            Trouve la cause et écris l'instruction corrigée. Vérifie les noms de tables et de colonnes avec FocusTable.
-            explanation : la cause de l'erreur et ce que tu as changé, en deux ou trois phrases.
+            Find the cause and write the fixed statement. Check the names of the tables and columns with FocusTable.
+            explanation: the cause of the error and what you changed, in two or three sentences.
             TASK,
             'explain' => <<<'TASK'
-            Explique ce que fait cette instruction, étape par étape, pour quelqu'un qui connaît mal le SQL : les tables lues,
-            les jointures, les filtres, les regroupements et ce que renvoie le résultat. Préviens si elle modifie ou supprime des données.
-            sql : vide, sauf si l'instruction a un défaut évident ; écris alors sa version corrigée.
+            Explain what this statement does, step by step, for someone who knows SQL poorly: the tables read, the joins,
+            the filters, the groupings and what the result returns. Warn if it changes or deletes data.
+            sql: empty, unless the statement has an obvious flaw; then write its fixed version.
             TASK,
             'optimize' => <<<TASK
-            Rends cette instruction plus rapide sans changer son résultat. Résumé de son plan d'exécution :
+            Make this statement faster without changing its result. Summary of its execution plan:
             {$this->planSummary()}
 
-            Appuie-toi sur les alertes du plan. Réécris l'instruction si une autre écriture est plus efficace, et propose
-            les index utiles (CREATE INDEX …) à la suite, chacun terminé par un point-virgule : ils ne sont pas créés sans l'utilisateur.
-            explanation : ce qui coûte dans le plan et ce que changent ta version et tes index.
-            sql : vide si l'instruction est déjà efficace.
+            Rely on the alerts of the plan. Rewrite the statement if another way of writing it is more efficient, and propose
+            the useful indexes (CREATE INDEX …) after it, each one ended by a semicolon: they are not created without the user.
+            explanation: what is costly in the plan and what your version and your indexes change.
+            sql: empty if the statement is already efficient.
             TASK,
         };
 
         return <<<INSTRUCTIONS
-        Tu relis une instruction SQL écrite dans l'éditeur SQL de l'utilisateur, pour une base {$engine}. Tu n'exécutes rien.
+        You review an SQL statement written in the SQL editor of the user, for a {$engine} database. You run nothing.
 
-        Instruction :
+        Statement:
         {$this->sql}
 
         {$task}
 
-        Règles :
-        - Écris du SQL valide pour {$engine}, mots-clés, types et fonctions en MAJUSCULES, chaque instruction terminée par un point-virgule.
-        - N'invente aucun nom de table ou de colonne : vérifie-les avec FocusTable.
-        - sql : les instructions seules, sans bloc Markdown ni commentaire, ou une chaîne vide.
-        - explanation : en français, en texte simple, sans Markdown.
+        Rules:
+        - Write valid SQL for {$engine}, with keywords, types and functions in UPPERCASE, each statement ended by a semicolon.
+        - Do not invent any table or column name: check them with FocusTable.
+        - sql: the statements alone, without a Markdown block or a comment, or an empty string.
+        - explanation: in {$language}, in plain text, without Markdown.
         INSTRUCTIONS;
     }
 
@@ -100,7 +102,7 @@ class QueryReviewerAgent implements Agent, HasStructuredOutput, HasTools
     private function planSummary(): string
     {
         return $this->plan === null
-            ? '(indisponible : seule une requête SELECT a un plan)'
+            ? '(unavailable: only a SELECT query has a plan)'
             : (string) json_encode($this->plan, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
     }
 }

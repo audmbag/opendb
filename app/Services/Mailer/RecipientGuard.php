@@ -33,17 +33,17 @@ class RecipientGuard
             |> array_values(...);
 
         if ($recipients === []) {
-            throw InvalidMailException::recipients('Indiquez au moins un destinataire.');
+            throw InvalidMailException::recipients(__('mail.errors.no_recipient'));
         }
 
         if (count($recipients) > self::MAX_RECIPIENTS) {
-            throw InvalidMailException::recipients('Un mail ne peut pas avoir plus de '.self::MAX_RECIPIENTS.' destinataires.');
+            throw InvalidMailException::recipients(__('mail.errors.too_many_recipients', ['max' => self::MAX_RECIPIENTS]));
         }
 
         $invalid = array_filter($recipients, fn (string $email): bool => filter_var($email, FILTER_VALIDATE_EMAIL) === false);
 
         if ($invalid !== []) {
-            throw InvalidMailException::recipients('Adresse(s) invalide(s) : '.implode(', ', $invalid).'.');
+            throw InvalidMailException::recipients(__('mail.errors.invalid_addresses', ['addresses' => implode(', ', $invalid)]));
         }
 
         $allowed = $user->mailRecipients()->pluck('email')
@@ -54,8 +54,7 @@ class RecipientGuard
         $refused = array_diff($recipients, $allowed);
 
         if ($refused !== []) {
-            throw InvalidMailException::recipients('Envoi refusé : '.implode(', ', $refused).' ne fait pas partie des destinataires autorisés '
-                .'(Réglages > Messagerie).');
+            throw InvalidMailException::recipients(__('mail.errors.recipients_refused', ['recipients' => implode(', ', $refused)]));
         }
 
         return $recipients;

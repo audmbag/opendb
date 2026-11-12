@@ -27,7 +27,7 @@ function memoryFile(Project $project): string
 it('adds a dated entry to the memory file of the project', function () {
     $result = updateMemory($this->memory, ['action' => 'add', 'note' => "Les montants de `orders`\n sont en centimes."]);
 
-    expect($result)->toBe('Mémoire du projet mise à jour (`add`).')
+    expect($result)->toBe('Project memory updated (`add`).')
         ->and(memoryFile($this->project))->toBe("- [2026-10-21] Les montants de `orders` sont en centimes.\n");
 });
 
@@ -37,7 +37,7 @@ it('replaces the single entry containing the match', function () {
 
     $result = updateMemory($this->memory, ['action' => 'replace', 'match' => 'en ANGLAIS', 'note' => 'Préfère les réponses en français.']);
 
-    expect($result)->toBe('Mémoire du projet mise à jour (`replace`).')
+    expect($result)->toBe('Project memory updated (`replace`).')
         ->and(memoryFile($this->project))->toBe("- [2026-10-21] Préfère les réponses en français.\n- [2026-10-21] Les montants de `orders` sont en centimes.\n");
 });
 
@@ -47,7 +47,7 @@ it('removes the single entry containing the match', function () {
 
     $result = updateMemory($this->memory, ['action' => 'remove', 'match' => 'anglais']);
 
-    expect($result)->toBe('Mémoire du projet mise à jour (`remove`).')
+    expect($result)->toBe('Project memory updated (`remove`).')
         ->and(memoryFile($this->project))->toBe("- [2026-10-21] Les montants de `orders` sont en centimes.\n");
 });
 
@@ -85,7 +85,7 @@ it('rejects a call missing the parameter required by the action', function (arra
     expect(updateMemory($this->memory, $arguments))->toBe($message)
         ->and(Storage::disk('opendb')->exists("projects/{$this->project->id}/MEMORY.md"))->toBeFalse();
 })->with([
-    'add without note' => [['action' => 'add', 'note' => '  '], 'Le paramètre `note` est obligatoire pour l\'action `add`.'],
-    'replace without match' => [['action' => 'replace', 'note' => 'Fait.'], 'Le paramètre `match` est obligatoire pour l\'action `replace`.'],
-    'unknown action' => [['action' => 'append', 'note' => 'Fait.'], 'Action inconnue : utilise `add`, `replace` ou `remove`.'],
+    'add without note' => [['action' => 'add', 'note' => '  '], 'The `note` parameter is required for the `add` action.'],
+    'replace without match' => [['action' => 'replace', 'note' => 'Fait.'], 'The `match` parameter is required for the `replace` action.'],
+    'unknown action' => [['action' => 'append', 'note' => 'Fait.'], 'Unknown action: use `add`, `replace` or `remove`.'],
 ]);

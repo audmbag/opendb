@@ -19,11 +19,12 @@ afterEach(function () {
     File::deleteDirectory($this->projectPath);
 });
 
-it('opens the editor with the tables, the .sql files of the project, and the columns for the completion once deferred', function () {
-    File::ensureDirectoryExists($this->projectPath.'/.opendb/sql');
-    File::put($this->projectPath.'/.opendb/sql/rapport-10.sql', 'SELECT 10;');
-    File::put($this->projectPath.'/.opendb/sql/rapport-9.sql', 'SELECT 9;');
-    File::put($this->projectPath.'/.opendb/sql/notes.txt', 'not a script');
+it('opens the editor with the tables, the tree of the .sql files of the project, and the columns for the completion once deferred', function () {
+    File::ensureDirectoryExists($this->projectPath.'/.opendb/users/'.$this->user->id.'/sql/ventes/archives');
+    File::put($this->projectPath.'/.opendb/users/'.$this->user->id.'/sql/rapport-10.sql', 'SELECT 10;');
+    File::put($this->projectPath.'/.opendb/users/'.$this->user->id.'/sql/rapport-9.sql', 'SELECT 9;');
+    File::put($this->projectPath.'/.opendb/users/'.$this->user->id.'/sql/notes.txt', 'not a script');
+    File::put($this->projectPath.'/.opendb/users/'.$this->user->id.'/sql/ventes/mensuelles.sql', 'SELECT 1;');
 
     $this->actingAs($this->user)
         ->get("/{$this->project->id}/sql-editor")
@@ -32,10 +33,14 @@ it('opens the editor with the tables, the .sql files of the project, and the col
             ->component('projects/sql-editor/index')
             ->where('tables.0.name', 'customers')
             ->where('tables.1.name', 'orders')
-            ->where('files.0.name', 'rapport-9.sql')
-            ->where('files.0.size', 9)
-            ->where('files.1.name', 'rapport-10.sql')
-            ->count('files', 2)
+            ->where('files', [
+                ['id' => 'ventes', 'name' => 'ventes', 'type' => 'folder', 'children' => [
+                    ['id' => 'ventes/archives', 'name' => 'archives', 'type' => 'folder', 'children' => []],
+                    ['id' => 'ventes/mensuelles.sql', 'name' => 'mensuelles.sql', 'type' => 'file'],
+                ]],
+                ['id' => 'rapport-9.sql', 'name' => 'rapport-9.sql', 'type' => 'file'],
+                ['id' => 'rapport-10.sql', 'name' => 'rapport-10.sql', 'type' => 'file'],
+            ])
             ->missing('completion')
             ->loadDeferredProps(fn (Assert $reload) => $reload
                 ->where('completion', [

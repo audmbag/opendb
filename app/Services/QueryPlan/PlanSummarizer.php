@@ -4,19 +4,34 @@ declare(strict_types=1);
 
 namespace App\Services\QueryPlan;
 
+use App\Support\TranslatableMessage;
+use Illuminate\Support\Traits\Localizable;
+
 /**
  * Le résumé du plan envoyé à l'agent, à la place du plan complet : assez court pour qu'un petit modèle local
  * le lise sans perdre le fil, et assez précis (tables, colonnes, index existants) pour proposer un index juste.
+ * Il est écrit en anglais, comme toutes les instructions de l'agent, qui répond dans la langue de l'interface.
  */
 final class PlanSummarizer
 {
-    private const string TEMP_TABLE_RULE = "Un index ne supprime une table temporaire de GROUP BY que si les colonnes du GROUP BY sont en tête de l'index et que le filtre le permet.";
+    use Localizable;
+
+    private const string TEMP_TABLE_RULE = 'An index only removes a GROUP BY temporary table when the GROUP BY columns lead the index and the filter allows it.';
 
     /**
      * @param  array<string, mixed>  $plan  Le plan normalisé, tel qu'il est stocké.
      * @return array{success: true, planId: string, driver: string, totalCost: ?float, steps: list<string>, alerts: list<array<string, mixed>>, existingIndexes: array<string, list<string>>, comparison: ?array<string, mixed>, instructions: string}
      */
     public function summarize(array $plan): array
+    {
+        return $this->withLocale('en', fn (): array => $this->summary($plan));
+    }
+
+    /**
+     * @param  array<string, mixed>  $plan
+     * @return array{success: true, planId: string, driver: string, totalCost: ?float, steps: list<string>, alerts: list<array<string, mixed>>, existingIndexes: array<string, list<string>>, comparison: ?array<string, mixed>, instructions: string}
+     */
+    private function summary(array $plan): array
     {
         $nodes = array_column($plan['nodes'], null, 'id');
         $children = [];
@@ -85,31 +100,33 @@ final class PlanSummarizer
         $codes = array_column($node['alerts'], 'code');
         $share = $this->share($node);
         $condition = $node['condition']['value'] ?? null;
+        $label = TranslatableMessage::text($node['label']);
+        $subtitle = $node['subtitle'] === null ? null : TranslatableMessage::text($node['subtitle']);
         $parent = $node['parentId'] === null ? null : $context['nodes'][$node['parentId']];
         $inputRows = $this->inputRows($node, $context);
 
         return match ($node['operation']) {
             'full_scan' => match (true) {
-                in_array('JOIN_WITHOUT_INDEX', $codes, true) => "Parcours complet de {$table} pour chaque ligne de la jointure".$this->rowsRead($node).$share,
-                in_array('FULL_SCAN', $codes, true) => "Parcours complet de {$table}".$this->rowsRead($node)
+                in_array('JOIN_WITHOUT_INDEX', $codes, true) => "Full scan of {$table} for each row of the join".$this->rowsRead($node).$share,
+                in_array('FULL_SCAN', $codes, true) => "Full scan of {$table}".$this->rowsRead($node)
                     .match (true) {
-                        $node['estimatedRows'] !== null && $node['estimatedRows'] !== $node['rowsExamined'] => ', '.PlanFormat::rows($node['estimatedRows']).' gardées'.($condition === null ? '' : " par le filtre {$condition}"),
-                        $condition !== null => ", filtre {$condition}",
+                        $node['estimatedRows'] !== null && $node['estimatedRows'] !== $node['rowsExamined'] => ', '.PlanFormat::rows($node['estimatedRows']).' kept'.($condition === null ? '' : " by the filter {$condition}"),
+                        $condition !== null => ", filter {$condition}",
                         default => '',
                     }.$share,
-                ($parent['operation'] ?? null) === 'hash' => "Parcours complet de {$table}".($node['rowsExamined'] === null ? '' : ' ('.PlanFormat::rows($node['rowsExamined']).' lignes)').' pour construire une table de hachage'.($share === '' ? ' (normal)' : substr($share, 0, -1).', normal)'),
-                default => "Parcours complet de {$table}".($node['rowsExamined'] === null ? '' : ' ('.PlanFormat::rows($node['rowsExamined']).' lignes, sans filtre)').$share,
+                ($parent['operation'] ?? null) === 'hash' => "Full scan of {$table}".($node['rowsExamined'] === null ? '' : ' ('.PlanFormat::rows($node['rowsExamined']).' rows)').' to build a hash table'.($share === '' ? ' (normal)' : substr($share, 0, -1).', normal)'),
+                default => "Full scan of {$table}".($node['rowsExamined'] === null ? '' : ' ('.PlanFormat::rows($node['rowsExamined']).' rows, no filter)').$share,
             },
-            'index_full_scan', 'range_scan', 'index_lookup', 'unique_lookup' => $node['label'].($node['index'] === null ? '' : " sur l'index {$node['index']}").($node['badge'] === 'index couvrant' ? ' (index couvrant)' : '')." de {$table}".$this->rowsRead($node).$share,
+            'index_full_scan', 'range_scan', 'index_lookup', 'unique_lookup' => $label.($node['index'] === null ? '' : " on the index {$node['index']}").($this->isCovering($node) ? ' (covering index)' : '')." of {$table}".$this->rowsRead($node).$share,
             'hash' => null,
-            'limit' => $context['hasSort'] ? 'Limite aux '.($condition ?? $node['estimatedRows']).' premières lignes' : null,
-            'group' => 'Regroupement'.($condition === null ? '' : " par {$condition}").(in_array('TEMP_TABLE', $codes, true) ? ' dans une table temporaire' : '').$share,
-            'sort' => 'Tri'.($inputRows === null ? '' : ' de '.PlanFormat::rows($inputRows).' lignes').($condition === null ? '' : " par {$condition}").$share,
-            'nested_loop', 'hash_join', 'merge_join' => $node['label'].($condition === null ? '' : " sur {$condition}").$share,
-            'distinct' => 'Dédoublonnage'.(in_array('TEMP_TABLE', $codes, true) ? ' dans une table temporaire' : '').$share,
-            'subquery' => 'Sous-requête'.($node['subtitle'] === null ? '' : " {$node['subtitle']}").(in_array('DEPENDENT_SUBQUERY', $codes, true) ? ', recalculée pour chaque ligne' : '').$share,
+            'limit' => $context['hasSort'] ? 'Limit to the first '.($condition ?? $node['estimatedRows']).' rows' : null,
+            'group' => 'Grouping'.($condition === null ? '' : " by {$condition}").(in_array('TEMP_TABLE', $codes, true) ? ' in a temporary table' : '').$share,
+            'sort' => 'Sort'.($inputRows === null ? '' : ' of '.PlanFormat::rows($inputRows).' rows').($condition === null ? '' : " by {$condition}").$share,
+            'nested_loop', 'hash_join', 'merge_join' => $label.($condition === null ? '' : " on {$condition}").$share,
+            'distinct' => 'Deduplication'.(in_array('TEMP_TABLE', $codes, true) ? ' in a temporary table' : '').$share,
+            'subquery' => 'Subquery'.($subtitle === null ? '' : " {$subtitle}").(in_array('DEPENDENT_SUBQUERY', $codes, true) ? ', computed again for each row' : '').$share,
             'result' => $this->resultStep($node, $context),
-            default => $node['label'].($node['subtitle'] === null ? '' : " : {$node['subtitle']}").$share,
+            default => $label.($subtitle === null ? '' : ": {$subtitle}").$share,
         };
     }
 
@@ -124,7 +141,20 @@ final class PlanSummarizer
         $children = $context['children'][$node['id']] ?? [];
         $child = count($children) === 1 ? $context['nodes'][$children[0]] : null;
 
-        return $child !== null && $child['outputLabel'] !== null ? 'Résultat : '.$child['outputLabel'] : null;
+        return $child !== null && $child['outputLabel'] !== null ? 'Result: '.TranslatableMessage::text($child['outputLabel']) : null;
+    }
+
+    /**
+     * Whether a read finds every column in its index, said by its badge: a code since the messages are translatable,
+     * the French text in the plans saved before.
+     *
+     * @param  array<string, mixed>  $node
+     */
+    private function isCovering(array $node): bool
+    {
+        $badge = $node['badge'] ?? null;
+
+        return is_array($badge) ? ($badge['key'] ?? null) === 'query_plan.badges.covering_index' : $badge === 'index couvrant';
     }
 
     /**
@@ -139,13 +169,13 @@ final class PlanSummarizer
         $inputRows = $this->inputRows($node, $context);
 
         return match ($alert['code']) {
-            'FULL_SCAN' => "Parcours complet de {$table}".($columns === '' ? ' avec un filtre' : " pour filtrer sur {$columns}"),
-            'JOIN_WITHOUT_INDEX' => "Jointure sans index sur {$table}".($columns === '' ? '' : " ({$columns})"),
-            'TEMP_TABLE' => 'Table temporaire pour '.($node['operation'] === 'distinct' ? 'DISTINCT' : 'GROUP BY').($columns === '' ? '' : " {$columns}"),
-            'FILESORT', 'SORT' => 'Tri'.($inputRows === null ? '' : ' de '.PlanFormat::rows($inputRows).' lignes').($columns === '' ? ' sans index' : " sur {$columns}"),
-            'DEPENDENT_SUBQUERY' => 'Sous-requête recalculée pour chaque ligne'.($alert['table'] === null ? '' : " de {$table}"),
-            'LARGE_ESTIMATE' => PlanFormat::rows((int) $node['rowsExamined'])." lignes lues par l'index {$node['index']} de {$table}",
-            default => (string) $alert['message'],
+            'FULL_SCAN' => "Full scan of {$table}".($columns === '' ? ' with a filter' : " to filter on {$columns}"),
+            'JOIN_WITHOUT_INDEX' => "Join without index on {$table}".($columns === '' ? '' : " ({$columns})"),
+            'TEMP_TABLE' => 'Temporary table for '.($node['operation'] === 'distinct' ? 'DISTINCT' : 'GROUP BY').($columns === '' ? '' : " {$columns}"),
+            'FILESORT', 'SORT' => 'Sort'.($inputRows === null ? '' : ' of '.PlanFormat::rows($inputRows).' rows').($columns === '' ? ' without index' : " on {$columns}"),
+            'DEPENDENT_SUBQUERY' => 'Subquery computed again for each row'.($alert['table'] === null ? '' : " of {$table}"),
+            'LARGE_ESTIMATE' => PlanFormat::rows((int) $node['rowsExamined'])." rows read through the index {$node['index']} of {$table}",
+            default => TranslatableMessage::text($alert['message']),
         };
     }
 
@@ -155,13 +185,13 @@ final class PlanSummarizer
      */
     private function comparison(array $comparison): array
     {
-        $describe = fn (array $alerts): array => array_map(fn (array $alert): string => $alert['code'].($alert['table'] === null ? '' : ' sur '.$alert['table']), $alerts);
+        $describe = fn (array $alerts): array => array_map(fn (array $alert): string => $alert['code'].($alert['table'] === null ? '' : ' on '.$alert['table']), $alerts);
 
         return [
             'previousPlanId' => $comparison['previousPlanId'],
             'costBefore' => $comparison['costBefore'],
             'costAfter' => $comparison['costAfter'],
-            'costChange' => $comparison['costChange'] === null ? null : str_replace('−', '-', PlanFormat::change((float) $comparison['costChange'])),
+            'costChange' => $comparison['costChange'] === null ? null : PlanFormat::change((float) $comparison['costChange']),
             'rowsReadBefore' => $comparison['rowsReadBefore'],
             'rowsReadAfter' => $comparison['rowsReadAfter'],
             'resolvedAlerts' => $describe($comparison['resolvedAlerts']),
@@ -179,9 +209,9 @@ final class PlanSummarizer
         $groupTemporaryTable = array_any($alerts, fn (array $alert): bool => $alert['code'] === 'TEMP_TABLE' && str_contains($alert['message'], 'GROUP BY'));
 
         $instructions = match (true) {
-            $plan['comparison'] !== null => 'Compare avec le plan précédent : dis ce qui a été résolu et ce qui reste, chiffres à l\'appui. Ne prétends pas qu\'une alerte restante a disparu.',
-            $alerts === [] => 'Explique le plan à partir de ces étapes. Aucune alerte : ne propose pas d\'index sans raison.',
-            default => 'Explique le plan à partir de ces étapes. Propose des index concrets (CREATE INDEX) pour les alertes, sans les créer toi-même, et jamais un index déjà présent dans existingIndexes.',
+            $plan['comparison'] !== null => 'Compare with the previous plan: say what was resolved and what remains, with the numbers. Do not claim that a remaining alert is gone.',
+            $alerts === [] => 'Explain the plan from these steps. No alert: do not suggest an index without a reason.',
+            default => 'Explain the plan from these steps. Suggest concrete indexes (CREATE INDEX) for the alerts, without creating them yourself, and never an index already listed in existingIndexes.',
         };
 
         return $instructions.($groupTemporaryTable ? ' '.self::TEMP_TABLE_RULE : '');
@@ -192,7 +222,7 @@ final class PlanSummarizer
      */
     private function share(array $node): string
     {
-        return $node['costShare'] !== null && $node['costShare'] > 0 ? ' ('.PlanFormat::share((float) $node['costShare']).' du coût)' : '';
+        return $node['costShare'] !== null && $node['costShare'] > 0 ? ' ('.PlanFormat::share((float) $node['costShare']).' of the cost)' : '';
     }
 
     /**
@@ -200,7 +230,7 @@ final class PlanSummarizer
      */
     private function rowsRead(array $node): string
     {
-        return $node['rowsExamined'] === null ? '' : ' : '.PlanFormat::rows((int) $node['rowsExamined']).' lignes lues';
+        return $node['rowsExamined'] === null ? '' : ': '.PlanFormat::rows((int) $node['rowsExamined']).' rows read';
     }
 
     /**

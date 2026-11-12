@@ -1,8 +1,11 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
+    AlignLeftIcon,
     ArrowDownIcon,
     ArrowUpIcon,
     ClockIcon,
     KeyRoundIcon,
+    PencilRulerIcon,
     PlusIcon,
     Trash2Icon,
     Undo2Icon,
@@ -10,17 +13,12 @@ import {
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import Alert from '@/components/alert';
+import { CodeBlockActions, CodeBlockHeader } from '@/components/code-block';
 import Button from '@/components/form/button';
+import Modal from '@/components/modals/modal';
+import ModalFooter from '@/components/modals/modal-footer';
 import { Badge } from '@/components/reui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
 import { FieldError } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,7 +29,7 @@ import {
 } from '@/components/ui/native-select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { uppercaseSqlKeywords } from '@/lib/sql';
+import { formatSql, uppercaseSqlKeywords } from '@/lib/sql';
 import { cn } from '@/lib/utils';
 import TableBrowserController from '@/wayfinder/actions/App/Http/Controllers/Tables/TableBrowserController';
 import TableDesignController from '@/wayfinder/actions/App/Http/Controllers/Tables/TableDesignController';
@@ -84,8 +82,8 @@ type Props = {
 
 type Tab = 'columns' | 'indexes' | 'foreignKeys' | 'sql';
 
-const ACTIONS: { value: ForeignKeyAction | ''; label: string }[] = [
-    { value: '', label: 'Aucune action' },
+export const ACTIONS: { value: ForeignKeyAction | ''; label: string }[] = [
+    { value: '', label: 'tables.designer.no_action' },
     { value: 'cascade', label: 'CASCADE' },
     { value: 'restrict', label: 'RESTRICT' },
     { value: 'set null', label: 'SET NULL' },
@@ -108,6 +106,7 @@ export default function TableDesigner({
     onDone,
     onClose,
 }: Props) {
+    const { t, tChoice } = useLaravelReactI18n();
     const creating = table === null;
     const mysql = driver === 'mysql' || driver === 'mariadb';
 
@@ -125,6 +124,11 @@ export default function TableDesigner({
     const [tab, setTab] = useState<Tab>('columns');
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [statements, setStatements] = useState<string[] | null>(null);
+    // Kept with the statements it lays out: new statements show as they come until formatted again.
+    const [formatted, setFormatted] = useState<{
+        statements: string[];
+        sql: string;
+    } | null>(null);
     const [failure, setFailure] = useState<{
         message: string;
         statement: string | null;
@@ -398,10 +402,13 @@ export default function TableDesigner({
 
             toast.success(
                 creating
-                    ? `Table ${name} créée`
-                    : `Structure de ${name} modifiée`,
+                    ? t('tables.designer.created', { table: name })
+                    : t('tables.designer.updated', { table: name }),
                 {
-                    description: `${result.statements.length} instruction${result.statements.length > 1 ? 's' : ''} exécutée${result.statements.length > 1 ? 's' : ''}`,
+                    description: tChoice(
+                        'tables.designer.statements_run',
+                        result.statements.length,
+                    ),
                 },
             );
             onDone(name);
@@ -435,7 +442,7 @@ export default function TableDesigner({
                       ? 'foreignKeys'
                       : 'columns',
             );
-            toast.error("La structure n'est pas valide", {
+            toast.error(t('tables.designer.invalid'), {
                 description: failed.first(),
             });
         } finally {
@@ -448,6 +455,28 @@ export default function TableDesigner({
 
         if (next === 'sql' && statements === null && !failure) {
             void send('preview');
+        }
+    };
+
+    const script =
+        statements?.map((statement) => `${statement};`).join('\n\n') ?? '';
+    const isFormatted =
+        formatted !== null && formatted.statements === statements;
+
+    /**
+     * Lays the statements out one clause per line, as the console formats its script.
+     */
+    const formatScript = () => {
+        if (!statements) {
+            return;
+        }
+
+        try {
+            setFormatted({ statements, sql: formatSql(script, driver) });
+        } catch (exception) {
+            toast.error(t('tables.console.format_failed'), {
+                description: (exception as Error).message.split('\n')[0],
+            });
         }
     };
 
@@ -468,676 +497,872 @@ export default function TableDesigner({
         errors.primaryKey;
 
     return (
-        <Dialog
+        <Modal
             open
+            showHeader
+            className="h-[90vh] sm:max-w-6xl"
             onOpenChange={(open) => !open && processing === null && onClose()}
+            icon={PencilRulerIcon}
+            title={
+                creating
+                    ? t('tables.designer.new_table')
+                    : t('tables.designer.structure_of', { table: table ?? '' })
+            }
+            description={
+                creating
+                    ? t('tables.designer.create_description')
+                    : t('tables.designer.update_description')
+            }
         >
-            <DialogContent className="flex h-[90vh] flex-col gap-4 sm:max-w-6xl">
-                <DialogHeader>
-                    <DialogTitle>
-                        {creating ? 'Nouvelle table' : `Structure de ${table}`}
-                    </DialogTitle>
-                    <DialogDescription>
-                        {creating
-                            ? 'Les instructions sont écrites pour votre moteur et affichées avant la création.'
-                            : "Les colonnes que vous ne touchez pas restent telles quelles. Vérifiez le SQL avant de l'appliquer : MySQL et MariaDB ne peuvent pas annuler un changement de structure."}
-                    </DialogDescription>
-                </DialogHeader>
-
-                {loadError ? (
-                    <Alert
-                        variant="destructive"
-                        title="La structure n'a pas pu être lue"
-                        message={loadError}
-                    />
-                ) : !loaded ? (
-                    <div className="flex flex-col gap-2">
-                        {Array.from({ length: 6 }, (_, index) => (
-                            <Skeleton key={index} className="h-8" />
-                        ))}
-                    </div>
-                ) : (
-                    <>
-                        <div className="flex flex-wrap items-end gap-4">
-                            <div className="flex min-w-60 flex-col gap-2">
-                                <Label htmlFor="designer-name">
-                                    Nom de la table
-                                </Label>
-                                <Input
-                                    id="designer-name"
-                                    value={name}
-                                    onChange={(event) => {
-                                        invalidate();
-                                        setName(event.target.value);
-                                    }}
-                                    aria-invalid={Boolean(errors.name)}
-                                    autoFocus={creating}
-                                    placeholder="produits"
-                                />
-                            </div>
-                            <Tabs
-                                value={tab}
-                                onValueChange={(value) =>
-                                    changedTab(value as Tab)
-                                }
-                            >
-                                <TabsList>
-                                    <TabsTrigger value="columns">
-                                        Colonnes
-                                        <span className="text-xs text-muted-foreground tabular-nums">
-                                            {keptColumns.length}
-                                        </span>
-                                    </TabsTrigger>
-                                    <TabsTrigger value="indexes">
-                                        Index
-                                        <span className="text-xs text-muted-foreground tabular-nums">
-                                            {indexes.length}
-                                        </span>
-                                    </TabsTrigger>
-                                    <TabsTrigger value="foreignKeys">
-                                        Clés étrangères
-                                        <span className="text-xs text-muted-foreground tabular-nums">
-                                            {foreignKeys.length}
-                                        </span>
-                                    </TabsTrigger>
-                                    <TabsTrigger value="sql">SQL</TabsTrigger>
-                                </TabsList>
-                            </Tabs>
+            <div className="flex h-full flex-col">
+                <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
+                    {loadError ? (
+                        <Alert
+                            variant="destructive"
+                            title={t('tables.designer.load_failed')}
+                            message={loadError}
+                        />
+                    ) : !loaded ? (
+                        <div className="flex flex-col gap-2">
+                            {Array.from({ length: 6 }, (_, index) => (
+                                <Skeleton key={index} className="h-8" />
+                            ))}
                         </div>
-
-                        {general && (
-                            <Alert
-                                variant="destructive"
-                                title="La structure n'est pas valide"
-                                message={general}
-                            />
-                        )}
-
-                        <div className="min-h-0 flex-1 overflow-auto rounded-md border">
-                            {tab === 'columns' && (
-                                <div className="min-w-[60rem] p-3">
-                                    <div
-                                        className={cn(
-                                            COLUMN_GRID,
-                                            'px-1 pb-2 text-xs font-medium text-muted-foreground',
+                    ) : (
+                        <>
+                            <div className="flex flex-wrap items-end gap-4">
+                                <div className="flex min-w-60 flex-col gap-2">
+                                    <Label htmlFor="designer-name">
+                                        {t('tables.designer.name')}
+                                    </Label>
+                                    <Input
+                                        id="designer-name"
+                                        value={name}
+                                        onChange={(event) => {
+                                            invalidate();
+                                            setName(event.target.value);
+                                        }}
+                                        aria-invalid={Boolean(errors.name)}
+                                        autoFocus={creating}
+                                        placeholder={t(
+                                            'tables.designer.name_placeholder',
                                         )}
-                                    >
-                                        <span>Nom</span>
-                                        <span>Type</span>
-                                        <span>Taille</span>
-                                        <span className="text-center">
-                                            NULL
-                                        </span>
-                                        <span>Valeur par défaut</span>
-                                        <span
-                                            className="text-center"
-                                            title="Clé primaire"
+                                    />
+                                </div>
+                                <Tabs
+                                    value={tab}
+                                    onValueChange={(value) =>
+                                        changedTab(value as Tab)
+                                    }
+                                >
+                                    <TabsList>
+                                        <TabsTrigger value="columns">
+                                            {t('tables.designer.tabs.columns')}
+                                            <span className="text-xs text-muted-foreground tabular-nums">
+                                                {keptColumns.length}
+                                            </span>
+                                        </TabsTrigger>
+                                        <TabsTrigger value="indexes">
+                                            {t('tables.designer.tabs.indexes')}
+                                            <span className="text-xs text-muted-foreground tabular-nums">
+                                                {indexes.length}
+                                            </span>
+                                        </TabsTrigger>
+                                        <TabsTrigger value="foreignKeys">
+                                            {t(
+                                                'tables.designer.tabs.foreign_keys',
+                                            )}
+                                            <span className="text-xs text-muted-foreground tabular-nums">
+                                                {foreignKeys.length}
+                                            </span>
+                                        </TabsTrigger>
+                                        <TabsTrigger value="sql">
+                                            SQL
+                                        </TabsTrigger>
+                                    </TabsList>
+                                </Tabs>
+                            </div>
+
+                            {general && (
+                                <Alert
+                                    variant="destructive"
+                                    title={t('tables.designer.invalid')}
+                                    message={general}
+                                />
+                            )}
+
+                            <div className="min-h-0 flex-1 overflow-auto rounded-md border">
+                                {tab === 'columns' && (
+                                    <div className="min-w-[60rem] p-3">
+                                        <div
+                                            className={cn(
+                                                COLUMN_GRID,
+                                                'px-1 pb-2 text-xs font-medium text-muted-foreground',
+                                            )}
                                         >
-                                            Clé
-                                        </span>
-                                        <span
-                                            className="text-center"
-                                            title="Auto-incrément"
-                                        >
-                                            AI
-                                        </span>
-                                        <span />
-                                    </div>
-                                    <ul className="flex flex-col gap-1.5">
-                                        {columns.map((column, index) => (
-                                            <ColumnRow
-                                                key={column.id}
-                                                column={column}
-                                                index={index}
-                                                last={
-                                                    index === columns.length - 1
-                                                }
-                                                creating={creating}
-                                                driver={driver}
-                                                mysql={mysql}
-                                                primary={primaryKey.includes(
-                                                    column.name,
+                                            <span>
+                                                {t(
+                                                    'tables.designer.columns.name',
                                                 )}
-                                                error={(field) =>
-                                                    error(column.id, field)
-                                                }
-                                                onChange={(changes) =>
-                                                    updateColumn(
-                                                        column.id,
-                                                        changes,
-                                                    )
-                                                }
-                                                onRename={(next) =>
-                                                    renameColumn(column, next)
-                                                }
-                                                onPrimary={(checked) =>
-                                                    togglePrimary(
-                                                        column,
+                                            </span>
+                                            <span>
+                                                {t(
+                                                    'tables.designer.columns.type',
+                                                )}
+                                            </span>
+                                            <span>
+                                                {t(
+                                                    'tables.designer.columns.size',
+                                                )}
+                                            </span>
+                                            <span className="text-center">
+                                                NULL
+                                            </span>
+                                            <span>
+                                                {t(
+                                                    'tables.designer.columns.default',
+                                                )}
+                                            </span>
+                                            <span
+                                                className="text-center"
+                                                title={t(
+                                                    'tables.designer.columns.primary_key',
+                                                )}
+                                            >
+                                                {t(
+                                                    'tables.designer.columns.key',
+                                                )}
+                                            </span>
+                                            <span
+                                                className="text-center"
+                                                title={t(
+                                                    'tables.designer.columns.auto_increment',
+                                                )}
+                                            >
+                                                AI
+                                            </span>
+                                            <span />
+                                        </div>
+                                        <ul className="flex flex-col gap-1.5">
+                                            {columns.map((column, index) => (
+                                                <ColumnRow
+                                                    key={column.id}
+                                                    column={column}
+                                                    index={index}
+                                                    last={
+                                                        index ===
+                                                        columns.length - 1
+                                                    }
+                                                    creating={creating}
+                                                    driver={driver}
+                                                    mysql={mysql}
+                                                    primary={primaryKey.includes(
+                                                        column.name,
+                                                    )}
+                                                    error={(field) =>
+                                                        error(column.id, field)
+                                                    }
+                                                    onChange={(changes) =>
+                                                        updateColumn(
+                                                            column.id,
+                                                            changes,
+                                                        )
+                                                    }
+                                                    onRename={(next) =>
+                                                        renameColumn(
+                                                            column,
+                                                            next,
+                                                        )
+                                                    }
+                                                    onPrimary={(checked) =>
+                                                        togglePrimary(
+                                                            column,
+                                                            checked,
+                                                        )
+                                                    }
+                                                    onAutoIncrement={(
                                                         checked,
-                                                    )
-                                                }
-                                                onAutoIncrement={(checked) =>
-                                                    toggleAutoIncrement(
-                                                        column,
-                                                        checked,
-                                                    )
-                                                }
-                                                onRemove={() =>
-                                                    removeColumn(column)
-                                                }
-                                                onRestore={() =>
-                                                    updateColumn(column.id, {
-                                                        removed: false,
-                                                    })
-                                                }
-                                                onMove={(offset) =>
-                                                    moveColumn(index, offset)
-                                                }
-                                            />
+                                                    ) =>
+                                                        toggleAutoIncrement(
+                                                            column,
+                                                            checked,
+                                                        )
+                                                    }
+                                                    onRemove={() =>
+                                                        removeColumn(column)
+                                                    }
+                                                    onRestore={() =>
+                                                        updateColumn(
+                                                            column.id,
+                                                            {
+                                                                removed: false,
+                                                            },
+                                                        )
+                                                    }
+                                                    onMove={(offset) =>
+                                                        moveColumn(
+                                                            index,
+                                                            offset,
+                                                        )
+                                                    }
+                                                />
+                                            ))}
+                                        </ul>
+                                        <div className="flex gap-2 pt-3">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => {
+                                                    invalidate();
+                                                    setColumns((current) => [
+                                                        ...current,
+                                                        newColumn(),
+                                                    ]);
+                                                }}
+                                            >
+                                                <PlusIcon />
+                                                {t(
+                                                    'tables.designer.add_column',
+                                                )}
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={addTimestamps}
+                                            >
+                                                <ClockIcon />
+                                                {t(
+                                                    'tables.designer.add_timestamps',
+                                                )}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {tab === 'indexes' && (
+                                    <div className="flex flex-col gap-2 p-3">
+                                        {indexes.length === 0 && (
+                                            <p className="text-sm text-muted-foreground">
+                                                {t(
+                                                    'tables.designer.indexes_help',
+                                                )}
+                                            </p>
+                                        )}
+                                        {indexes.map((index, position) => (
+                                            <div
+                                                key={index.id}
+                                                className="grid grid-cols-[minmax(10rem,1fr)_minmax(12rem,1.5fr)_7rem_2rem] items-center gap-2"
+                                            >
+                                                <Input
+                                                    value={index.name ?? ''}
+                                                    placeholder={t(
+                                                        'tables.designer.automatic_name',
+                                                    )}
+                                                    disabled={
+                                                        index.original !== null
+                                                    }
+                                                    onChange={(event) => {
+                                                        invalidate();
+                                                        setIndexes((current) =>
+                                                            current.map(
+                                                                (item) =>
+                                                                    item.id ===
+                                                                    index.id
+                                                                        ? {
+                                                                              ...item,
+                                                                              name:
+                                                                                  event
+                                                                                      .target
+                                                                                      .value ||
+                                                                                  null,
+                                                                          }
+                                                                        : item,
+                                                            ),
+                                                        );
+                                                    }}
+                                                    aria-label={t(
+                                                        'tables.designer.index_name',
+                                                        {
+                                                            number:
+                                                                position + 1,
+                                                        },
+                                                    )}
+                                                    className="h-8"
+                                                />
+                                                <div>
+                                                    <ColumnPicker
+                                                        columns={columnNames}
+                                                        value={index.columns}
+                                                        disabled={
+                                                            index.original !==
+                                                            null
+                                                        }
+                                                        invalid={Boolean(
+                                                            error(
+                                                                index.id,
+                                                                'columns',
+                                                            ),
+                                                        )}
+                                                        onChange={(value) => {
+                                                            invalidate();
+                                                            setIndexes(
+                                                                (current) =>
+                                                                    current.map(
+                                                                        (
+                                                                            item,
+                                                                        ) =>
+                                                                            item.id ===
+                                                                            index.id
+                                                                                ? {
+                                                                                      ...item,
+                                                                                      columns:
+                                                                                          value,
+                                                                                  }
+                                                                                : item,
+                                                                    ),
+                                                            );
+                                                        }}
+                                                        aria-label={t(
+                                                            'tables.designer.index_columns',
+                                                            {
+                                                                number:
+                                                                    position +
+                                                                    1,
+                                                            },
+                                                        )}
+                                                    />
+                                                    {error(
+                                                        index.id,
+                                                        'columns',
+                                                    ) && (
+                                                        <FieldError className="mt-1 text-xs">
+                                                            {error(
+                                                                index.id,
+                                                                'columns',
+                                                            )}
+                                                        </FieldError>
+                                                    )}
+                                                </div>
+                                                <Label className="flex items-center gap-2 font-normal">
+                                                    <Checkbox
+                                                        checked={index.unique}
+                                                        disabled={
+                                                            index.original !==
+                                                            null
+                                                        }
+                                                        onCheckedChange={(
+                                                            checked,
+                                                        ) => {
+                                                            invalidate();
+                                                            setIndexes(
+                                                                (current) =>
+                                                                    current.map(
+                                                                        (
+                                                                            item,
+                                                                        ) =>
+                                                                            item.id ===
+                                                                            index.id
+                                                                                ? {
+                                                                                      ...item,
+                                                                                      unique:
+                                                                                          checked ===
+                                                                                          true,
+                                                                                  }
+                                                                                : item,
+                                                                    ),
+                                                            );
+                                                        }}
+                                                    />
+                                                    {t(
+                                                        'tables.designer.unique',
+                                                    )}
+                                                </Label>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon-sm"
+                                                    aria-label={t(
+                                                        'tables.designer.remove_index',
+                                                    )}
+                                                    onClick={() => {
+                                                        invalidate();
+                                                        setIndexes((current) =>
+                                                            current.filter(
+                                                                (item) =>
+                                                                    item.id !==
+                                                                    index.id,
+                                                            ),
+                                                        );
+                                                    }}
+                                                >
+                                                    <Trash2Icon />
+                                                </Button>
+                                            </div>
                                         ))}
-                                    </ul>
-                                    <div className="flex gap-2 pt-3">
                                         <Button
                                             variant="outline"
                                             size="sm"
+                                            className="self-start"
                                             onClick={() => {
                                                 invalidate();
-                                                setColumns((current) => [
+                                                setIndexes((current) => [
                                                     ...current,
-                                                    newColumn(),
+                                                    {
+                                                        id: localId(),
+                                                        original: null,
+                                                        name: null,
+                                                        columns: [],
+                                                        unique: false,
+                                                    },
                                                 ]);
                                             }}
                                         >
                                             <PlusIcon />
-                                            Ajouter une colonne
-                                        </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={addTimestamps}
-                                        >
-                                            <ClockIcon />
-                                            Dates de création et de modification
+                                            {t('tables.designer.add_index')}
                                         </Button>
                                     </div>
-                                </div>
-                            )}
+                                )}
 
-                            {tab === 'indexes' && (
-                                <div className="flex flex-col gap-2 p-3">
-                                    {indexes.length === 0 && (
-                                        <p className="text-sm text-muted-foreground">
-                                            Un index accélère les recherches et
-                                            les tris sur ses colonnes ; un index
-                                            unique refuse deux lignes de même
-                                            valeur.
-                                        </p>
-                                    )}
-                                    {indexes.map((index, position) => (
-                                        <div
-                                            key={index.id}
-                                            className="grid grid-cols-[minmax(10rem,1fr)_minmax(12rem,1.5fr)_7rem_2rem] items-center gap-2"
-                                        >
-                                            <Input
-                                                value={index.name ?? ''}
-                                                placeholder="Nom automatique"
-                                                disabled={
-                                                    index.original !== null
-                                                }
-                                                onChange={(event) => {
+                                {tab === 'foreignKeys' && (
+                                    <div className="flex min-w-[52rem] flex-col gap-2 p-3">
+                                        {foreignKeys.length === 0 && (
+                                            <p className="text-sm text-muted-foreground">
+                                                {t(
+                                                    'tables.designer.foreign_keys_help',
+                                                )}
+                                            </p>
+                                        )}
+                                        {foreignKeys.length > 0 && (
+                                            <div className="grid grid-cols-[1fr_auto_1fr_1fr_9rem_9rem_2rem] gap-2 px-1 text-xs font-medium text-muted-foreground">
+                                                <span>
+                                                    {t(
+                                                        'tables.designer.tabs.columns',
+                                                    )}
+                                                </span>
+                                                <span />
+                                                <span>
+                                                    {t(
+                                                        'tables.designer.referenced_table',
+                                                    )}
+                                                </span>
+                                                <span>
+                                                    {t(
+                                                        'tables.designer.referenced_columns',
+                                                    )}
+                                                </span>
+                                                <span>
+                                                    {t(
+                                                        'tables.designer.on_delete',
+                                                    )}
+                                                </span>
+                                                <span>
+                                                    {t(
+                                                        'tables.designer.on_update',
+                                                    )}
+                                                </span>
+                                                <span />
+                                            </div>
+                                        )}
+                                        {foreignKeys.map(
+                                            (foreignKey, position) => {
+                                                const existing =
+                                                    foreignKey.original !==
+                                                    null;
+                                                const targetColumns =
+                                                    foreignKey.referencesTable ===
+                                                    name
+                                                        ? columnNames
+                                                        : (targets[
+                                                              foreignKey
+                                                                  .referencesTable
+                                                          ] ?? []);
+                                                const update = (
+                                                    changes: Partial<DesignerForeignKey>,
+                                                ) => {
                                                     invalidate();
-                                                    setIndexes((current) =>
+                                                    setForeignKeys((current) =>
                                                         current.map((item) =>
-                                                            item.id === index.id
+                                                            item.id ===
+                                                            foreignKey.id
                                                                 ? {
                                                                       ...item,
-                                                                      name:
-                                                                          event
-                                                                              .target
-                                                                              .value ||
-                                                                          null,
+                                                                      ...changes,
                                                                   }
                                                                 : item,
                                                         ),
                                                     );
-                                                }}
-                                                aria-label={`Nom de l'index ${position + 1}`}
-                                                className="h-8"
-                                            />
-                                            <div>
-                                                <ColumnPicker
-                                                    columns={columnNames}
-                                                    value={index.columns}
-                                                    disabled={
-                                                        index.original !== null
-                                                    }
-                                                    invalid={Boolean(
-                                                        error(
-                                                            index.id,
-                                                            'columns',
-                                                        ),
-                                                    )}
-                                                    onChange={(value) => {
-                                                        invalidate();
-                                                        setIndexes((current) =>
-                                                            current.map(
-                                                                (item) =>
-                                                                    item.id ===
-                                                                    index.id
-                                                                        ? {
-                                                                              ...item,
-                                                                              columns:
-                                                                                  value,
-                                                                          }
-                                                                        : item,
-                                                            ),
-                                                        );
-                                                    }}
-                                                    aria-label={`Colonnes de l'index ${position + 1}`}
-                                                />
-                                                {error(index.id, 'columns') && (
-                                                    <FieldError className="mt-1 text-xs">
-                                                        {error(
-                                                            index.id,
-                                                            'columns',
-                                                        )}
-                                                    </FieldError>
-                                                )}
-                                            </div>
-                                            <Label className="flex items-center gap-2 font-normal">
-                                                <Checkbox
-                                                    checked={index.unique}
-                                                    disabled={
-                                                        index.original !== null
-                                                    }
-                                                    onCheckedChange={(
-                                                        checked,
-                                                    ) => {
-                                                        invalidate();
-                                                        setIndexes((current) =>
-                                                            current.map(
-                                                                (item) =>
-                                                                    item.id ===
-                                                                    index.id
-                                                                        ? {
-                                                                              ...item,
-                                                                              unique:
-                                                                                  checked ===
-                                                                                  true,
-                                                                          }
-                                                                        : item,
-                                                            ),
-                                                        );
-                                                    }}
-                                                />
-                                                Unique
-                                            </Label>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon-sm"
-                                                aria-label="Supprimer l'index"
-                                                onClick={() => {
-                                                    invalidate();
-                                                    setIndexes((current) =>
-                                                        current.filter(
-                                                            (item) =>
-                                                                item.id !==
-                                                                index.id,
-                                                        ),
-                                                    );
-                                                }}
-                                            >
-                                                <Trash2Icon />
-                                            </Button>
-                                        </div>
-                                    ))}
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="self-start"
-                                        onClick={() => {
-                                            invalidate();
-                                            setIndexes((current) => [
-                                                ...current,
-                                                {
-                                                    id: localId(),
-                                                    original: null,
-                                                    name: null,
-                                                    columns: [],
-                                                    unique: false,
-                                                },
-                                            ]);
-                                        }}
-                                    >
-                                        <PlusIcon />
-                                        Ajouter un index
-                                    </Button>
-                                </div>
-                            )}
+                                                };
 
-                            {tab === 'foreignKeys' && (
-                                <div className="flex min-w-[52rem] flex-col gap-2 p-3">
-                                    {foreignKeys.length === 0 && (
-                                        <p className="text-sm text-muted-foreground">
-                                            Une clé étrangère garantit que la
-                                            valeur de ses colonnes existe dans
-                                            une autre table, et dit quoi faire
-                                            quand cette ligne change.
-                                        </p>
-                                    )}
-                                    {foreignKeys.length > 0 && (
-                                        <div className="grid grid-cols-[1fr_auto_1fr_1fr_9rem_9rem_2rem] gap-2 px-1 text-xs font-medium text-muted-foreground">
-                                            <span>Colonnes</span>
-                                            <span />
-                                            <span>Table référencée</span>
-                                            <span>Colonnes référencées</span>
-                                            <span>À la suppression</span>
-                                            <span>À la modification</span>
-                                            <span />
-                                        </div>
-                                    )}
-                                    {foreignKeys.map((foreignKey, position) => {
-                                        const existing =
-                                            foreignKey.original !== null;
-                                        const targetColumns =
-                                            foreignKey.referencesTable === name
-                                                ? columnNames
-                                                : (targets[
-                                                      foreignKey.referencesTable
-                                                  ] ?? []);
-                                        const update = (
-                                            changes: Partial<DesignerForeignKey>,
-                                        ) => {
-                                            invalidate();
-                                            setForeignKeys((current) =>
-                                                current.map((item) =>
-                                                    item.id === foreignKey.id
-                                                        ? {
-                                                              ...item,
-                                                              ...changes,
-                                                          }
-                                                        : item,
-                                                ),
-                                            );
-                                        };
-
-                                        return (
-                                            <div
-                                                key={foreignKey.id}
-                                                className="flex flex-col gap-1"
-                                            >
-                                                <div className="grid grid-cols-[1fr_auto_1fr_1fr_9rem_9rem_2rem] items-center gap-2">
-                                                    <ColumnPicker
-                                                        columns={columnNames}
-                                                        value={
-                                                            foreignKey.columns
-                                                        }
-                                                        disabled={existing}
-                                                        onChange={(value) =>
-                                                            update({
-                                                                columns: value,
-                                                            })
-                                                        }
-                                                        aria-label={`Colonnes de la clé ${position + 1}`}
-                                                    />
-                                                    <span className="text-muted-foreground">
-                                                        →
-                                                    </span>
-                                                    <NativeSelect
-                                                        size="sm"
-                                                        className="w-full"
-                                                        value={
-                                                            foreignKey.referencesTable
-                                                        }
-                                                        disabled={existing}
-                                                        onFocus={() =>
-                                                            loadTarget(
-                                                                foreignKey.referencesTable,
-                                                            )
-                                                        }
-                                                        onChange={(event) => {
-                                                            loadTarget(
-                                                                event.target
-                                                                    .value,
-                                                            );
-                                                            update({
-                                                                referencesTable:
-                                                                    event.target
-                                                                        .value,
-                                                                referencesColumns:
-                                                                    [],
-                                                            });
-                                                        }}
-                                                        aria-label={`Table référencée par la clé ${position + 1}`}
+                                                return (
+                                                    <div
+                                                        key={foreignKey.id}
+                                                        className="flex flex-col gap-1"
                                                     >
-                                                        <NativeSelectOption
-                                                            value=""
-                                                            disabled
-                                                        >
-                                                            Choisir
-                                                        </NativeSelectOption>
-                                                        {[
-                                                            ...new Set([
-                                                                ...tables,
-                                                                ...(existing
-                                                                    ? [
-                                                                          foreignKey.referencesTable,
-                                                                      ]
-                                                                    : []),
-                                                            ]),
-                                                        ].map((item) => (
-                                                            <NativeSelectOption
-                                                                key={item}
-                                                                value={item}
-                                                            >
-                                                                {item}
-                                                            </NativeSelectOption>
-                                                        ))}
-                                                    </NativeSelect>
-                                                    <ColumnPicker
-                                                        columns={
-                                                            existing
-                                                                ? foreignKey.referencesColumns
-                                                                : targetColumns
-                                                        }
-                                                        value={
-                                                            foreignKey.referencesColumns
-                                                        }
-                                                        disabled={
-                                                            existing ||
-                                                            !foreignKey.referencesTable
-                                                        }
-                                                        invalid={Boolean(
-                                                            error(
-                                                                foreignKey.id,
-                                                                'referencesColumns',
-                                                            ),
-                                                        )}
-                                                        onChange={(value) =>
-                                                            update({
-                                                                referencesColumns:
+                                                        <div className="grid grid-cols-[1fr_auto_1fr_1fr_9rem_9rem_2rem] items-center gap-2">
+                                                            <ColumnPicker
+                                                                columns={
+                                                                    columnNames
+                                                                }
+                                                                value={
+                                                                    foreignKey.columns
+                                                                }
+                                                                disabled={
+                                                                    existing
+                                                                }
+                                                                onChange={(
                                                                     value,
-                                                            })
-                                                        }
-                                                        aria-label={`Colonnes référencées par la clé ${position + 1}`}
-                                                    />
-                                                    {(
-                                                        [
-                                                            'onDelete',
-                                                            'onUpdate',
-                                                        ] as const
-                                                    ).map((field) => (
-                                                        <NativeSelect
-                                                            key={field}
-                                                            size="sm"
-                                                            className="w-full"
-                                                            value={
-                                                                foreignKey[
-                                                                    field
-                                                                ] ?? ''
-                                                            }
-                                                            disabled={existing}
-                                                            onChange={(event) =>
-                                                                update({
-                                                                    [field]:
-                                                                        (event
+                                                                ) =>
+                                                                    update({
+                                                                        columns:
+                                                                            value,
+                                                                    })
+                                                                }
+                                                                aria-label={t(
+                                                                    'tables.designer.key_columns',
+                                                                    {
+                                                                        number:
+                                                                            position +
+                                                                            1,
+                                                                    },
+                                                                )}
+                                                            />
+                                                            <span className="text-muted-foreground">
+                                                                →
+                                                            </span>
+                                                            <NativeSelect
+                                                                size="sm"
+                                                                className="w-full"
+                                                                value={
+                                                                    foreignKey.referencesTable
+                                                                }
+                                                                disabled={
+                                                                    existing
+                                                                }
+                                                                onFocus={() =>
+                                                                    loadTarget(
+                                                                        foreignKey.referencesTable,
+                                                                    )
+                                                                }
+                                                                onChange={(
+                                                                    event,
+                                                                ) => {
+                                                                    loadTarget(
+                                                                        event
                                                                             .target
-                                                                            .value ||
-                                                                            null) as ForeignKeyAction | null,
-                                                                })
-                                                            }
-                                                            aria-label={
-                                                                field ===
-                                                                'onDelete'
-                                                                    ? 'À la suppression'
-                                                                    : 'À la modification'
-                                                            }
-                                                        >
-                                                            {ACTIONS.map(
-                                                                (action) => (
-                                                                    <NativeSelectOption
-                                                                        key={
-                                                                            action.value
-                                                                        }
-                                                                        value={
-                                                                            action.value
-                                                                        }
-                                                                    >
-                                                                        {
-                                                                            action.label
-                                                                        }
-                                                                    </NativeSelectOption>
-                                                                ),
-                                                            )}
-                                                        </NativeSelect>
-                                                    ))}
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon-sm"
-                                                        aria-label="Supprimer la clé étrangère"
-                                                        onClick={() => {
-                                                            invalidate();
-                                                            setForeignKeys(
-                                                                (current) =>
-                                                                    current.filter(
-                                                                        (
-                                                                            item,
-                                                                        ) =>
-                                                                            item.id !==
-                                                                            foreignKey.id,
+                                                                            .value,
+                                                                    );
+                                                                    update({
+                                                                        referencesTable:
+                                                                            event
+                                                                                .target
+                                                                                .value,
+                                                                        referencesColumns:
+                                                                            [],
+                                                                    });
+                                                                }}
+                                                                aria-label={t(
+                                                                    'tables.designer.key_table',
+                                                                    {
+                                                                        number:
+                                                                            position +
+                                                                            1,
+                                                                    },
+                                                                )}
+                                                            >
+                                                                <NativeSelectOption
+                                                                    value=""
+                                                                    disabled
+                                                                >
+                                                                    {t(
+                                                                        'tables.designer.choose',
+                                                                    )}
+                                                                </NativeSelectOption>
+                                                                {[
+                                                                    ...new Set([
+                                                                        ...tables,
+                                                                        ...(existing
+                                                                            ? [
+                                                                                  foreignKey.referencesTable,
+                                                                              ]
+                                                                            : []),
+                                                                    ]),
+                                                                ].map(
+                                                                    (item) => (
+                                                                        <NativeSelectOption
+                                                                            key={
+                                                                                item
+                                                                            }
+                                                                            value={
+                                                                                item
+                                                                            }
+                                                                        >
+                                                                            {
+                                                                                item
+                                                                            }
+                                                                        </NativeSelectOption>
                                                                     ),
-                                                            );
-                                                        }}
-                                                    >
-                                                        <Trash2Icon />
-                                                    </Button>
-                                                </div>
-                                                {(error(
-                                                    foreignKey.id,
-                                                    'referencesColumns',
-                                                ) ||
-                                                    error(
-                                                        foreignKey.id,
-                                                        'columns',
-                                                    ) ||
-                                                    error(
-                                                        foreignKey.id,
-                                                        'referencesTable',
-                                                    )) && (
-                                                    <FieldError className="text-xs">
-                                                        {error(
+                                                                )}
+                                                            </NativeSelect>
+                                                            <ColumnPicker
+                                                                columns={
+                                                                    existing
+                                                                        ? foreignKey.referencesColumns
+                                                                        : targetColumns
+                                                                }
+                                                                value={
+                                                                    foreignKey.referencesColumns
+                                                                }
+                                                                disabled={
+                                                                    existing ||
+                                                                    !foreignKey.referencesTable
+                                                                }
+                                                                invalid={Boolean(
+                                                                    error(
+                                                                        foreignKey.id,
+                                                                        'referencesColumns',
+                                                                    ),
+                                                                )}
+                                                                onChange={(
+                                                                    value,
+                                                                ) =>
+                                                                    update({
+                                                                        referencesColumns:
+                                                                            value,
+                                                                    })
+                                                                }
+                                                                aria-label={t(
+                                                                    'tables.designer.key_referenced_columns',
+                                                                    {
+                                                                        number:
+                                                                            position +
+                                                                            1,
+                                                                    },
+                                                                )}
+                                                            />
+                                                            {(
+                                                                [
+                                                                    'onDelete',
+                                                                    'onUpdate',
+                                                                ] as const
+                                                            ).map((field) => (
+                                                                <NativeSelect
+                                                                    key={field}
+                                                                    size="sm"
+                                                                    className="w-full"
+                                                                    value={
+                                                                        foreignKey[
+                                                                            field
+                                                                        ] ?? ''
+                                                                    }
+                                                                    disabled={
+                                                                        existing
+                                                                    }
+                                                                    onChange={(
+                                                                        event,
+                                                                    ) =>
+                                                                        update({
+                                                                            [field]:
+                                                                                (event
+                                                                                    .target
+                                                                                    .value ||
+                                                                                    null) as ForeignKeyAction | null,
+                                                                        })
+                                                                    }
+                                                                    aria-label={
+                                                                        field ===
+                                                                        'onDelete'
+                                                                            ? t(
+                                                                                  'tables.designer.on_delete',
+                                                                              )
+                                                                            : t(
+                                                                                  'tables.designer.on_update',
+                                                                              )
+                                                                    }
+                                                                >
+                                                                    {ACTIONS.map(
+                                                                        (
+                                                                            action,
+                                                                        ) => (
+                                                                            <NativeSelectOption
+                                                                                key={
+                                                                                    action.value
+                                                                                }
+                                                                                value={
+                                                                                    action.value
+                                                                                }
+                                                                            >
+                                                                                {t(
+                                                                                    action.label,
+                                                                                )}
+                                                                            </NativeSelectOption>
+                                                                        ),
+                                                                    )}
+                                                                </NativeSelect>
+                                                            ))}
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon-sm"
+                                                                aria-label={t(
+                                                                    'tables.designer.remove_foreign_key',
+                                                                )}
+                                                                onClick={() => {
+                                                                    invalidate();
+                                                                    setForeignKeys(
+                                                                        (
+                                                                            current,
+                                                                        ) =>
+                                                                            current.filter(
+                                                                                (
+                                                                                    item,
+                                                                                ) =>
+                                                                                    item.id !==
+                                                                                    foreignKey.id,
+                                                                            ),
+                                                                    );
+                                                                }}
+                                                            >
+                                                                <Trash2Icon />
+                                                            </Button>
+                                                        </div>
+                                                        {(error(
                                                             foreignKey.id,
                                                             'referencesColumns',
-                                                        ) ??
+                                                        ) ||
                                                             error(
                                                                 foreignKey.id,
                                                                 'columns',
-                                                            ) ??
+                                                            ) ||
                                                             error(
                                                                 foreignKey.id,
                                                                 'referencesTable',
-                                                            )}
-                                                    </FieldError>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="self-start"
-                                        onClick={() => {
-                                            invalidate();
-                                            setForeignKeys((current) => [
-                                                ...current,
-                                                {
-                                                    id: localId(),
-                                                    original: null,
-                                                    name: null,
-                                                    columns: [],
-                                                    referencesTable: '',
-                                                    referencesColumns: [],
-                                                    onDelete: null,
-                                                    onUpdate: null,
-                                                },
-                                            ]);
-                                        }}
-                                    >
-                                        <PlusIcon />
-                                        Ajouter une clé étrangère
-                                    </Button>
-                                </div>
-                            )}
-
-                            {tab === 'sql' && (
-                                <div className="flex flex-col gap-3 p-3">
-                                    {failure && (
-                                        <Alert
-                                            variant="destructive"
-                                            title="La base a refusé le changement"
-                                            message={failure.message}
+                                                            )) && (
+                                                            <FieldError className="text-xs">
+                                                                {error(
+                                                                    foreignKey.id,
+                                                                    'referencesColumns',
+                                                                ) ??
+                                                                    error(
+                                                                        foreignKey.id,
+                                                                        'columns',
+                                                                    ) ??
+                                                                    error(
+                                                                        foreignKey.id,
+                                                                        'referencesTable',
+                                                                    )}
+                                                            </FieldError>
+                                                        )}
+                                                    </div>
+                                                );
+                                            },
+                                        )}
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="self-start"
+                                            onClick={() => {
+                                                invalidate();
+                                                setForeignKeys((current) => [
+                                                    ...current,
+                                                    {
+                                                        id: localId(),
+                                                        original: null,
+                                                        name: null,
+                                                        columns: [],
+                                                        referencesTable: '',
+                                                        referencesColumns: [],
+                                                        onDelete: null,
+                                                        onUpdate: null,
+                                                    },
+                                                ]);
+                                            }}
                                         >
-                                            {failure.statement && (
-                                                <code className="font-mono text-xs break-all opacity-80">
-                                                    {uppercaseSqlKeywords(
-                                                        failure.statement,
-                                                    )}
-                                                </code>
+                                            <PlusIcon />
+                                            {t(
+                                                'tables.designer.add_foreign_key',
                                             )}
-                                        </Alert>
-                                    )}
-                                    {processing === 'preview' && (
-                                        <Skeleton className="h-32" />
-                                    )}
-                                    {statements && statements.length === 0 && (
-                                        <p className="text-sm text-muted-foreground">
-                                            Rien à changer : la structure est
-                                            déjà celle-ci.
-                                        </p>
-                                    )}
-                                    {statements && statements.length > 0 && (
-                                        <SqlCodeBlock
-                                            code={statements
-                                                .map(
-                                                    (statement) =>
-                                                        `${statement};`,
-                                                )
-                                                .join('\n\n')}
-                                            className="[&_pre]:break-all [&_pre]:whitespace-pre-wrap"
-                                        />
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    </>
-                )}
+                                        </Button>
+                                    </div>
+                                )}
 
-                <DialogFooter className="items-center">
+                                {tab === 'sql' && (
+                                    <div className="flex flex-col gap-3 p-3">
+                                        {failure && (
+                                            <Alert
+                                                variant="destructive"
+                                                title={t(
+                                                    'tables.designer.refused',
+                                                )}
+                                                message={failure.message}
+                                            >
+                                                {failure.statement && (
+                                                    <code className="font-mono text-xs break-all opacity-80">
+                                                        {uppercaseSqlKeywords(
+                                                            failure.statement,
+                                                        )}
+                                                    </code>
+                                                )}
+                                            </Alert>
+                                        )}
+                                        {processing === 'preview' && (
+                                            <Skeleton className="h-32" />
+                                        )}
+                                        {statements &&
+                                            statements.length === 0 && (
+                                                <p className="text-sm text-muted-foreground">
+                                                    {t(
+                                                        'tables.designer.nothing_to_change',
+                                                    )}
+                                                </p>
+                                            )}
+                                        {statements &&
+                                            statements.length > 0 && (
+                                                <SqlCodeBlock
+                                                    code={
+                                                        isFormatted
+                                                            ? formatted.sql
+                                                            : script
+                                                    }
+                                                    className="[&_pre]:break-all [&_pre]:whitespace-pre-wrap"
+                                                >
+                                                    <CodeBlockHeader className="justify-end py-1.5">
+                                                        <CodeBlockActions>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="xs"
+                                                                icon={
+                                                                    AlignLeftIcon
+                                                                }
+                                                                onClick={
+                                                                    formatScript
+                                                                }
+                                                                disabled={
+                                                                    isFormatted
+                                                                }
+                                                                tooltip={t(
+                                                                    'tables.console.format_tooltip',
+                                                                )}
+                                                            >
+                                                                {t(
+                                                                    'tables.console.format',
+                                                                )}
+                                                            </Button>
+                                                        </CodeBlockActions>
+                                                    </CodeBlockHeader>
+                                                </SqlCodeBlock>
+                                            )}
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    )}
+                </div>
+
+                <ModalFooter>
                     {!creating && pendingCount > 0 && (
                         <p className="mr-auto text-sm text-muted-foreground">
-                            {pendingCount} colonne{pendingCount > 1 ? 's' : ''}{' '}
-                            modifiée
-                            {pendingCount > 1 ? 's' : ''}
+                            {tChoice(
+                                'tables.designer.changed_columns',
+                                pendingCount,
+                            )}
                         </p>
                     )}
                     <Button
@@ -1145,7 +1370,7 @@ export default function TableDesigner({
                         onClick={onClose}
                         disabled={processing !== null}
                     >
-                        Annuler
+                        {t('common.cancel')}
                     </Button>
                     {tab === 'sql' && statements !== null ? (
                         <Button
@@ -1156,8 +1381,8 @@ export default function TableDesigner({
                             processing={processing === 'apply'}
                         >
                             {creating
-                                ? 'Créer la table'
-                                : 'Appliquer les changements'}
+                                ? t('tables.designer.create')
+                                : t('tables.designer.apply')}
                         </Button>
                     ) : (
                         <Button
@@ -1169,12 +1394,12 @@ export default function TableDesigner({
                             }
                             processing={processing === 'preview'}
                         >
-                            Vérifier le SQL
+                            {t('tables.designer.check_sql')}
                         </Button>
                     )}
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                </ModalFooter>
+            </div>
+        </Modal>
     );
 }
 
@@ -1211,7 +1436,10 @@ function ColumnRow({
     onRestore: () => void;
     onMove: (offset: number) => void;
 }) {
-    const label = column.name || `colonne ${index + 1}`;
+    const { t } = useLaravelReactI18n();
+    const label =
+        column.name ||
+        t('tables.designer.column_number', { number: index + 1 });
     // The values are kept as typed, so that a comma can be typed before the next value.
     const [optionsText, setOptionsText] = useState(() =>
         column.options.join(', '),
@@ -1244,11 +1472,11 @@ function ColumnRow({
                     {column.original}
                 </span>
                 <span className="col-span-6 text-xs text-destructive">
-                    Supprimée avec ses données
+                    {t('tables.designer.removed_with_data')}
                 </span>
                 <Button variant="ghost" size="sm" onClick={onRestore}>
                     <Undo2Icon />
-                    Garder
+                    {t('tables.designer.keep')}
                 </Button>
             </li>
         );
@@ -1267,13 +1495,17 @@ function ColumnRow({
                     {primary && (
                         <KeyRoundIcon
                             className="size-3.5 shrink-0 text-warning"
-                            aria-label="Clé primaire"
+                            aria-label={t(
+                                'tables.designer.columns.primary_key',
+                            )}
                         />
                     )}
                     <Input
                         value={column.name}
                         onChange={(event) => onRename(event.target.value)}
-                        aria-label={`Nom de ${label}`}
+                        aria-label={t('tables.designer.aria.name', {
+                            column: label,
+                        })}
                         aria-invalid={Boolean(error('name'))}
                         placeholder="nom"
                         className="h-8 font-mono text-sm"
@@ -1288,18 +1520,20 @@ function ColumnRow({
                             type: event.target.value as DesignColumnType,
                         })
                     }
-                    aria-label={`Type de ${label}`}
+                    aria-label={t('tables.designer.aria.type', {
+                        column: label,
+                    })}
                     aria-invalid={Boolean(error('type'))}
                 >
                     {column.type === 'custom' && (
                         <NativeSelectOption value="custom" disabled>
-                            {column.dbType ?? 'autre'}
+                            {column.dbType ?? t('tables.designer.other_type')}
                         </NativeSelectOption>
                     )}
                     {TYPE_GROUPS.map((group) => (
                         <NativeSelectOptGroup
                             key={group.label}
-                            label={group.label}
+                            label={t(group.label)}
                         >
                             {group.types
                                 .filter(
@@ -1332,7 +1566,9 @@ function ColumnRow({
                                             : Number(event.target.value),
                                 })
                             }
-                            aria-label={`Longueur de ${label}`}
+                            aria-label={t('tables.designer.aria.length', {
+                                column: label,
+                            })}
                             className="h-8 tabular-nums"
                         />
                     )}
@@ -1349,8 +1585,10 @@ function ColumnRow({
                                             : Number(event.target.value),
                                 })
                             }
-                            aria-label={`Précision de ${label}`}
-                            title="Nombre total de chiffres"
+                            aria-label={t('tables.designer.aria.precision', {
+                                column: label,
+                            })}
+                            title={t('tables.designer.precision_title')}
                             className="h-8 tabular-nums"
                         />
                     )}
@@ -1367,15 +1605,17 @@ function ColumnRow({
                                             : Number(event.target.value),
                                 })
                             }
-                            aria-label={`Décimales de ${label}`}
-                            title="Chiffres après la virgule"
+                            aria-label={t('tables.designer.aria.scale', {
+                                column: label,
+                            })}
+                            title={t('tables.designer.scale_title')}
                             className="h-8 tabular-nums"
                         />
                     )}
                     {mysql && NUMERIC_TYPES.includes(column.type) && (
                         <Label
                             className="flex items-center gap-1 text-xs font-normal whitespace-nowrap"
-                            title="Sans signe : valeurs positives seulement"
+                            title={t('tables.designer.unsigned_title')}
                         >
                             <Checkbox
                                 checked={column.unsigned}
@@ -1394,7 +1634,9 @@ function ColumnRow({
                         onCheckedChange={(checked) =>
                             onChange({ nullable: checked === true })
                         }
-                        aria-label={`${label} peut être NULL`}
+                        aria-label={t('tables.designer.aria.nullable', {
+                            column: label,
+                        })}
                     />
                 </div>
                 <div className="flex min-w-0 items-center gap-1">
@@ -1408,21 +1650,23 @@ function ColumnRow({
                                 defaultKind: event.target.value as DefaultKind,
                             })
                         }
-                        aria-label={`Valeur par défaut de ${label}`}
+                        aria-label={t('tables.designer.aria.default_kind', {
+                            column: label,
+                        })}
                     >
                         <NativeSelectOption value="none">
-                            Aucune
+                            {t('tables.designer.defaults.none')}
                         </NativeSelectOption>
                         <NativeSelectOption value="value">
-                            Valeur
+                            {t('tables.designer.defaults.value')}
                         </NativeSelectOption>
                         {TEMPORAL_TYPES.includes(column.type) && (
                             <NativeSelectOption value="current">
-                                Maintenant
+                                {t('tables.designer.defaults.now')}
                             </NativeSelectOption>
                         )}
                         <NativeSelectOption value="expression">
-                            Expression
+                            {t('tables.designer.defaults.expression')}
                         </NativeSelectOption>
                     </NativeSelect>
                     {(column.defaultKind === 'value' ||
@@ -1437,7 +1681,9 @@ function ColumnRow({
                                     ? 'SQL'
                                     : 'valeur'
                             }
-                            aria-label={`Défaut de ${label}`}
+                            aria-label={t('tables.designer.aria.default', {
+                                column: label,
+                            })}
                             aria-invalid={Boolean(error('default'))}
                             className={cn(
                                 'h-8 min-w-0',
@@ -1453,7 +1699,9 @@ function ColumnRow({
                         onCheckedChange={(checked) =>
                             onPrimary(checked === true)
                         }
-                        aria-label={`${label} dans la clé primaire`}
+                        aria-label={t('tables.designer.aria.primary', {
+                            column: label,
+                        })}
                     />
                 </div>
                 <div className="flex justify-center">
@@ -1463,7 +1711,9 @@ function ColumnRow({
                         onCheckedChange={(checked) =>
                             onAutoIncrement(checked === true)
                         }
-                        aria-label={`${label} auto-incrémentée`}
+                        aria-label={t('tables.designer.aria.auto_increment', {
+                            column: label,
+                        })}
                     />
                 </div>
                 <div className="flex items-center justify-end">
@@ -1493,7 +1743,9 @@ function ColumnRow({
                         variant="ghost"
                         size="icon-sm"
                         onClick={onRemove}
-                        aria-label={`Supprimer ${label}`}
+                        aria-label={t('tables.designer.aria.remove', {
+                            column: label,
+                        })}
                     >
                         <Trash2Icon />
                     </Button>
@@ -1503,7 +1755,7 @@ function ColumnRow({
             {column.type === 'enum' && (
                 <div className="flex items-center gap-2 pl-6">
                     <span className="text-xs text-muted-foreground">
-                        Valeurs
+                        {t('tables.designer.values')}
                     </span>
                     <Input
                         value={optionsText}
@@ -1516,8 +1768,10 @@ function ColumnRow({
                                     .filter(Boolean),
                             });
                         }}
-                        placeholder="brouillon, publié, archivé"
-                        aria-label={`Valeurs de ${label}`}
+                        placeholder={t('tables.designer.values_placeholder')}
+                        aria-label={t('tables.designer.aria.values', {
+                            column: label,
+                        })}
                         aria-invalid={Boolean(error('options'))}
                         className="h-8 max-w-xl"
                     />
@@ -1526,7 +1780,7 @@ function ColumnRow({
 
             {column.original !== null && column.original !== column.name && (
                 <p className="pl-6 text-xs text-muted-foreground">
-                    Renommée depuis{' '}
+                    {t('tables.designer.renamed_from')}{' '}
                     <Badge variant="outline">{column.original}</Badge>
                 </p>
             )}

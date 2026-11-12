@@ -9,8 +9,12 @@ use App\Database\Contracts\DriverContract;
 use App\Database\Enums\DriverLabEnum;
 use App\Database\Exceptions\DatabaseCheckException;
 use App\Database\Exceptions\HiddenTableException;
+use App\Database\Exceptions\PrivilegeException;
 use App\Database\HiddenTableGuard;
+use App\Database\QueryPrivilegeGuard;
 use App\Database\Schema\TableDefinitionBuilder;
+use App\Enums\PrivilegeEnum;
+use App\Services\Privileges\Data\TablePrivileges;
 use App\Services\SSH\Remote;
 use App\Services\SSH\SshTunnel;
 use Closure;
@@ -51,6 +55,20 @@ class BaseDriver
      * @var list<string>
      */
     protected array $hiddenTables = [];
+
+    /**
+     * The privileges of the user the driver acts for, or null for OpenDB itself.
+     */
+    protected ?TablePrivileges $privileges = null;
+
+    protected string $privilegedUser = '';
+
+    /**
+     * The tables the user holds no privilege on, out of their sight like the hidden ones.
+     *
+     * @var list<string>
+     */
+    protected array $tablesOutOfReach = [];
 
     public function __construct(private array $databaseConfig)
     {
@@ -145,7 +163,7 @@ class BaseDriver
             DriverLabEnum::POSTGRESQL->value => new PostgresSQLDriver($config),
             DriverLabEnum::MARIADB->value => new MariaDBDriver($config),
             default => throw new RuntimeException(
-                "Aucun driver disponible pour [{$config['driver_id']}]."
+                __('database.errors.no_driver', ['driver' => $config['driver_id']])
             ),
         };
     }
@@ -415,20 +433,89 @@ class BaseDriver
      */
     public function hiddenTables(): array
     {
-        return $this->hiddenTables;
+        return array_values(array_unique([...$this->hiddenTables, ...$this->tablesOutOfReach]));
+    }
+
+    public function withPrivileges(TablePrivileges $privileges, string $user): static
+    {
+        $this->privileges = $privileges;
+        $this->privilegedUser = $user;
+        $this->tablesOutOfReach = $privileges->reachesEveryTable() ? [] : $privileges->hiddenAmong($this->allTableNames());
+
+        return $this;
+    }
+
+    public function privileges(): ?TablePrivileges
+    {
+        return $this->privileges;
     }
 
     /**
+     * @throws PrivilegeException when the privileges of the user do not allow the query.
      * @throws HiddenTableException when the query could reach a hidden table.
      */
-    protected function assertQueryAllowed(string $sql): void
+    public function assertQueryAllowed(string $sql): void
     {
-        HiddenTableGuard::assertQueryAllowed($sql, $this->hiddenTables);
+        if ($this->privileges !== null) {
+            QueryPrivilegeGuard::assertAllowed($sql, $this->privileges, $this->allTableNames(...), $this->privilegedUser, [$this->databaseName()]);
+        }
+
+        HiddenTableGuard::assertQueryAllowed($sql, $this->hiddenTables());
+    }
+
+    /**
+     * @throws PrivilegeException when the user does not hold the privilege on the table, or on the whole project without a table.
+     */
+    public function assertPrivilege(PrivilegeEnum $privilege, ?string $table = null): void
+    {
+        if ($this->privileges === null || $this->privileges->allows($privilege, $table)) {
+            return;
+        }
+
+        throw $table === null
+            ? PrivilegeException::deniedOnProject($privilege, $this->privilegedUser)
+            : PrivilegeException::denied($privilege, $this->privilegedUser, $table);
+    }
+
+    /**
+     * Check a privilege that is not about the statement itself, like EXPORT for the rows a query reads: it is needed on every
+     * table the query spells, or on the whole project.
+     *
+     * @throws PrivilegeException when the user does not hold the privilege on one of the tables.
+     */
+    public function assertPrivilegeOnQuery(PrivilegeEnum $privilege, string $sql): void
+    {
+        if ($this->privileges === null || $this->privileges->allowsOnProject($privilege)) {
+            return;
+        }
+
+        $cited = array_filter($this->allTableNames(), fn (string $table): bool => HiddenTableGuard::cites($sql, $table));
+
+        if ($cited === []) {
+            $this->assertPrivilege($privilege);
+        }
+
+        foreach ($cited as $table) {
+            $this->assertPrivilege($privilege, $table);
+        }
+    }
+
+    /**
+     * Every table of the database, those out of sight included.
+     *
+     * @return list<string>
+     */
+    private function allTableNames(): array
+    {
+        return array_values(array_map(
+            fn (array $table): string => (string) $table['name'],
+            app(TrussManager::class)->snapshot()->connection($this->connection_name)->toArray(),
+        ));
     }
 
     private function getExportBuilder(): ExportBuilder
     {
-        return app(TrussManager::class)->snapshot()->connection($this->connection_name)->except($this->hiddenTables);
+        return app(TrussManager::class)->snapshot()->connection($this->connection_name)->except($this->hiddenTables());
     }
 
     /**
@@ -439,7 +526,9 @@ class BaseDriver
      */
     private function withoutHiddenReferences(array $tables): array
     {
-        if ($this->hiddenTables === []) {
+        $hiddenTables = $this->hiddenTables();
+
+        if ($hiddenTables === []) {
             return $tables;
         }
 
@@ -447,7 +536,7 @@ class BaseDriver
             ...$table,
             'foreign_keys' => array_values(array_filter(
                 $table['foreign_keys'] ?? [],
-                fn (array $foreignKey): bool => ! in_array($foreignKey['references_table'] ?? null, $this->hiddenTables, true),
+                fn (array $foreignKey): bool => ! in_array($foreignKey['references_table'] ?? null, $hiddenTables, true),
             )),
         ], $tables);
     }
@@ -561,6 +650,26 @@ class BaseDriver
     public function showCreateTable(string $table): string
     {
         return app(TableDefinitionBuilder::class)->build($this->connection, $table);
+    }
+
+    public function connectionId(): ?string
+    {
+        return null;
+    }
+
+    public function cancel(string $connectionId): bool
+    {
+        return false;
+    }
+
+    /**
+     * PostgreSQL et SQLite annulent aussi le DDL : une transaction annulée défait tout.
+     *
+     * @param  list<string>  $statements
+     */
+    public function canRollBack(array $statements): bool
+    {
+        return true;
     }
 
     public function isSQLite(): bool

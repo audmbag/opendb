@@ -26,7 +26,7 @@ class ProjectSettingsController extends Controller
     {
         return response()->json([
             'data' => $this->projects->update($project, $request->validated()),
-            'message' => 'Les informations du projet ont été enregistrées.',
+            'message' => __('projects.messages.info_saved'),
         ]);
     }
 
@@ -39,7 +39,7 @@ class ProjectSettingsController extends Controller
 
         return response()->json([
             'driverConfig' => $this->projects->updateConnection($project, $request->driverData()),
-            'message' => 'La connexion à la base de données a été enregistrée.',
+            'message' => __('projects.settings.database.saved'),
         ]);
     }
 
@@ -51,7 +51,7 @@ class ProjectSettingsController extends Controller
         try {
             return response()->json(['data' => $project->driver_config->tables_info]);
         } catch (Exception $exception) {
-            $message = 'Impossible de lire les tables de la base de données : '.$exception->getMessage();
+            $message = __('projects.messages.tables_unreadable', ['error' => $exception->getMessage()]);
 
             return response()->json(['message' => $message, 'errors' => ['connection' => [$message]]], 422);
         }
@@ -61,7 +61,7 @@ class ProjectSettingsController extends Controller
     {
         $this->projects->updateAgentTables($project, $request->validated('agentDisabled'));
 
-        return response()->json(['message' => "L'accès de l'agent aux tables a été enregistré."]);
+        return response()->json(['message' => __('projects.messages.agent_tables_saved')]);
     }
 
     public function memory(Project $project): JsonResponse
@@ -82,7 +82,7 @@ class ProjectSettingsController extends Controller
             return response()->json(['message' => $exception->getMessage(), 'errors' => ['entries' => [$exception->getMessage()]]], 422);
         }
 
-        return response()->json(['data' => $memory->notes(), 'message' => "La mémoire de l'agent a été enregistrée."]);
+        return response()->json(['data' => $memory->notes(), 'message' => __('projects.messages.memory_saved')]);
     }
 
     /**
@@ -92,6 +92,6 @@ class ProjectSettingsController extends Controller
     {
         $this->projects->delete($project);
 
-        return response()->json(['message' => "Le projet « {$project->name} » a été supprimé."]);
+        return response()->json(['message' => __('projects.deleted', ['project' => $project->name])]);
     }
 }

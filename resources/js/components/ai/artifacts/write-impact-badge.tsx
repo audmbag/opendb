@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { LoaderIcon } from 'lucide-react';
 import { formatNumber, useConversationId } from '@/components/ai/artifacts/format';
 import { Badge } from '@/components/reui/badge';
@@ -9,6 +10,7 @@ import { writePreview } from '@/wayfinder/actions/App/Http/Controllers/Chat/Tool
  * The number of rows a WriteQuery waiting for approval would change, counted by running it in a transaction rolled back.
  */
 export default function WriteImpactBadge({ toolCallId }: { toolCallId: string }) {
+    const { t, tChoice } = useLaravelReactI18n();
     const conversationId = useConversationId();
 
     const { ref, data, error, processing } = useToolArtifact<WritePreview>(
@@ -26,8 +28,8 @@ export default function WriteImpactBadge({ toolCallId }: { toolCallId: string })
             ) : (
                 <Badge variant={data.affectedRows === 0 ? 'secondary' : 'warning-light'}>
                     {data.affectedRows === 0
-                        ? 'Aucune ligne affectée'
-                        : `${formatNumber(data.affectedRows ?? 0)} ligne${(data.affectedRows ?? 0) > 1 ? 's' : ''} affectée${(data.affectedRows ?? 0) > 1 ? 's' : ''}`}
+                        ? t('ai.artifacts.no_affected_rows')
+                        : tChoice('ai.artifacts.affected_rows', data.affectedRows ?? 0, { count: formatNumber(data.affectedRows ?? 0) })}
                 </Badge>
             )}
         </span>

@@ -44,11 +44,11 @@ class MailRecipientRepository
         $email = mb_strtolower(trim($email));
 
         if (filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
-            throw new RuntimeException("L'adresse « {$email} » est invalide.");
+            throw new RuntimeException(__('mail.errors.invalid_address', ['email' => $email]));
         }
 
         if ($this->isAllowed($user, $email)) {
-            throw new RuntimeException("L'adresse « {$email} » fait déjà partie des destinataires autorisés.");
+            throw new RuntimeException(__('mail.errors.already_allowed', ['email' => $email]));
         }
 
         return $user->mailRecipients()->create(['email' => $email, 'name' => filled($name) ? trim($name) : null]);
@@ -62,7 +62,7 @@ class MailRecipientRepository
         $email = mb_strtolower(trim($email));
 
         if ($user->mailRecipients()->where('email', $email)->delete() === 0) {
-            throw new RuntimeException("L'adresse « {$email} » ne fait pas partie des destinataires autorisés.");
+            throw new RuntimeException(__('mail.errors.not_allowed', ['email' => $email]));
         }
     }
 }

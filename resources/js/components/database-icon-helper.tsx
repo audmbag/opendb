@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import React from 'react';
 import IconStackGlow from '@/components/icon-stack-glow';
 
@@ -9,6 +10,7 @@ type Props = {
 } & React.ComponentProps<'img'>;
 
 export default function DatabaseIconHelper({ icon, className, forDriver, ...props }: Props) {
+    const { t } = useLaravelReactI18n();
 
     if(forDriver) {
         return (
@@ -25,7 +27,7 @@ export default function DatabaseIconHelper({ icon, className, forDriver, ...prop
             icon={
                 <img
                     src={icon}
-                    alt={props.alt || 'Database Icon'}
+                    alt={props.alt || t('projects.status.database')}
                     className="size-4"
                 />
             }

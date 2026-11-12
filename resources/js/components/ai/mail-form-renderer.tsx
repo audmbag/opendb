@@ -1,5 +1,6 @@
 import { useHttp } from '@inertiajs/react';
 import type { ToolUIPart } from 'ai';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { MailIcon, SendIcon, TriangleAlertIcon } from 'lucide-react';
 import type React from 'react';
 import { Fragment, useEffect, useMemo, useState } from 'react';
@@ -65,6 +66,7 @@ const listError = (errors: Record<string, string>, field: string): string | unde
     errors[field] ?? Object.entries(errors).find(([key]) => key.startsWith(`${field}.`))?.[1];
 
 export default function MailFormRenderer({ part, conversationId, onApprovalResponded }: Props) {
+    const { t } = useLaravelReactI18n();
     const input = (part.input ?? {}) as SendMailInput;
     const proposedAttachments = useMemo(() => stringList(input.attachments), [input.attachments]);
 
@@ -95,7 +97,7 @@ export default function MailFormRenderer({ part, conversationId, onApprovalRespo
     }, []);
 
     const options = useMemo<RecipientOption[]>(() => {
-        const sender = settings ? [{ email: settings.from_address.toLowerCase(), name: settings.from_name ?? 'Vous' }] : [];
+        const sender = settings ? [{ email: settings.from_address.toLowerCase(), name: settings.from_name ?? t('mail.you') }] : [];
 
         return [
             ...sender,
@@ -141,7 +143,7 @@ export default function MailFormRenderer({ part, conversationId, onApprovalRespo
         form.post(MailFormController.store.url({ conversation: conversationId, toolCallId: part.toolCallId }), {
             onSuccess: () => respond(true),
             onHttpException: () => {
-                setSubmitError("Ce mail n'attend plus de validation : il n'a pas été envoyé.");
+                setSubmitError(t('mail.expired'));
 
                 return false;
             },
@@ -153,7 +155,7 @@ export default function MailFormRenderer({ part, conversationId, onApprovalRespo
             <form onSubmit={submit} className="flex flex-col gap-4">
                 <div className="flex items-center gap-2 text-sm font-medium">
                     <MailIcon className="size-4" />
-                    Nouveau mail
+                    {t('mail.new')}
                 </div>
 
                 {generalError && (
@@ -164,7 +166,7 @@ export default function MailFormRenderer({ part, conversationId, onApprovalRespo
                 )}
 
                 <Field className="gap-2">
-                    <FieldLabel htmlFor="to">Destinataires</FieldLabel>
+                    <FieldLabel htmlFor="to">{t('mail.recipients')}</FieldLabel>
                     <Combobox
                         multiple
                         autoHighlight
@@ -182,7 +184,7 @@ export default function MailFormRenderer({ part, conversationId, onApprovalRespo
                                         ))}
                                         <ComboboxChipsInput
                                             id="to"
-                                            placeholder={loadingRecipients ? 'Chargement des destinataires…' : 'Ajouter un destinataire autorisé…'}
+                                            placeholder={loadingRecipients ? t('mail.loading_recipients') : t('mail.add_recipient')}
                                             aria-invalid={!!listError(errors, 'to')}
                                         />
                                     </Fragment>
@@ -191,7 +193,7 @@ export default function MailFormRenderer({ part, conversationId, onApprovalRespo
                         </ComboboxChips>
                         <ComboboxContent anchor={anchor}>
                             <ComboboxEmpty>
-                                Aucun destinataire autorisé. Ajoutez-en dans Réglages &gt; Messagerie.
+                                {t('mail.no_recipient')}
                             </ComboboxEmpty>
                             <ComboboxList>
                                 {(email: string) => (
@@ -208,7 +210,7 @@ export default function MailFormRenderer({ part, conversationId, onApprovalRespo
                 </Field>
 
                 <Input
-                    label="Objet"
+                    label={t('mail.subject')}
                     name="subject"
                     value={form.data.subject}
                     error={errors.subject}
@@ -216,7 +218,7 @@ export default function MailFormRenderer({ part, conversationId, onApprovalRespo
                 />
 
                 <Textarea
-                    label="Message"
+                    label={t('mail.body')}
                     name="body"
                     rows={6}
                     value={form.data.body}
@@ -242,7 +244,7 @@ export default function MailFormRenderer({ part, conversationId, onApprovalRespo
                         onClick={() => respond(false)}
                         disabled={form.processing}
                     >
-                        Annuler
+                        {t('common.cancel')}
                     </Button>
                     <Button
                         type="submit"
@@ -250,7 +252,7 @@ export default function MailFormRenderer({ part, conversationId, onApprovalRespo
                         processing={form.processing}
                         disabled={form.data.to.length === 0}
                     >
-                        Envoyer
+                        {t('mail.send')}
                     </Button>
                 </div>
             </form>

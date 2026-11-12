@@ -278,9 +278,22 @@ export type ConsoleResult = {
     truncated: boolean;
     affected: number | null;
     duration: number;
+    /**
+     * The table whose rows the result shows as they are, so that its cells can be changed: only in the SQL editor.
+     */
+    source?: { table: string; primaryKey: string[] } | null;
 };
+
+/**
+ * How the statements of a run of the SQL editor are kept: each one as it runs, all or none, or none at all.
+ */
+export type TransactionMode = 'auto' | 'atomic' | 'dry_run';
 
 export type ConsoleRun = {
     results: ConsoleResult[];
     error: { index: number; statement: string; message: string } | null;
+    /**
+     * The end of the transaction of the run, null in auto-commit.
+     */
+    transaction?: 'committed' | 'rolled_back' | null;
 };

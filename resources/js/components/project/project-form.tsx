@@ -1,4 +1,5 @@
 import { router } from '@inertiajs/react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     BrainCircuitIcon,
     CheckCircle2Icon,
@@ -29,6 +30,7 @@ import { useTempProjectStore } from '@/store/use-project-store';
 import ConversationController from '@/wayfinder/actions/App/Http/Controllers/ConversationController';
 
 const ProjectForm = () => {
+    const { t } = useLaravelReactI18n();
 
     const { setOpen: setIsProjectModalOpen, step: currentStep, setStep: setCurrentStep } = useProjectModal();
 
@@ -71,7 +73,7 @@ const ProjectForm = () => {
 
         if(project) {
             setIsProjectModalOpen(false);
-            toast.success('Project créé avec succès');
+            toast.success(t('projects.created'));
             router.visit(ConversationController.home.url({ project: project.id }));
         }
     }, [saveWithDisabledTables, setIsProjectModalOpen]);
@@ -87,8 +89,8 @@ const ProjectForm = () => {
             {
                 id: 'info',
                 header: {
-                    title: 'Project',
-                    description: 'Informations du projet',
+                    title: t('projects.steps.project'),
+                    description: t('projects.steps.project_description'),
                     icon: FolderIcon,
                 },
                 content: (
@@ -102,8 +104,8 @@ const ProjectForm = () => {
             {
                 id: 'database',
                 header: {
-                    title: 'Base de données',
-                    description: 'Informations de la base de données',
+                    title: t('projects.steps.database'),
+                    description: t('projects.steps.database_description'),
                     icon: DatabaseIcon,
                 },
                 content: (
@@ -117,14 +119,14 @@ const ProjectForm = () => {
             {
                 id: 'tables',
                 header: {
-                    title: 'Tables',
-                    description: "Accès de l'agent IA",
+                    title: t('projects.steps.tables'),
+                    description: t('projects.steps.tables_description'),
                     icon: BrainCircuitIcon,
                 },
                 content: <TablesSelector ref={tablesSelectorRef} />,
             },
         ],
-        [tablesSelectorRef],
+        [tablesSelectorRef, t],
     );
 
     return (
@@ -144,7 +146,7 @@ const ProjectForm = () => {
                     onClick={() => setCurrentStep((c) => c - 1)}
                     icon={ChevronLeftIcon}
                 >
-                    Précédent
+                    {t('common.previous')}
                 </Button>
                 {currentStep < steps.length ? (
                     <div className="flex items-center gap-2">
@@ -154,10 +156,10 @@ const ProjectForm = () => {
                                 icon={CopyIcon}
                                 processing={processing && triggeredButton === 'cloning'}
                                 disabled={processing}
-                                tooltip="Cloner et anonymiser la base de données plutôt que d'utiliser votre base de données originale"
+                                tooltip={t('projects.form.clone_tooltip')}
                                 onClick={initializeCloning}
                             >
-                                Cloner et anonymiser
+                                {t('projects.form.clone')}
                             </Button>
                         )}
                         <Button
@@ -168,7 +170,7 @@ const ProjectForm = () => {
                             icon={ChevronRightIcon}
                             className={'flex-row-reverse'}
                         >
-                            Suivant
+                            {t('common.next')}
                         </Button>
                     </div>
                 ) : (
@@ -177,7 +179,7 @@ const ProjectForm = () => {
                         onClick={saveProject}
                         processing={processingSave}
                     >
-                        Créer le projet
+                        {t('projects.form.create')}
                     </Button>
                 )}
             </div>

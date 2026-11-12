@@ -1,5 +1,6 @@
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { TriangleAlertIcon } from 'lucide-react';
 import type { KeyboardEvent } from 'react';
 import {
@@ -13,6 +14,7 @@ import {
 } from '@/components/ai/artifacts/query-plan/format';
 import type { StepDirection } from '@/components/ai/artifacts/query-plan/format';
 import type { PlanFlowNode } from '@/components/ai/artifacts/query-plan/layout';
+import { translateMessage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import type { PlanAlertSeverity } from '@/types/agent';
 
@@ -34,7 +36,10 @@ const accentClassName: Record<PlanAlertSeverity, string> = {
 export default function PlanNode({
     data: { node, plan, step, stepCount, selected, onSelect, onNavigate },
 }: NodeProps<PlanFlowNode>) {
+    const { t } = useLaravelReactI18n();
     const Icon = OPERATION_ICONS[node.operation];
+    const label = translateMessage(t, node.label);
+    const subtitle = translateMessage(t, node.subtitle);
     const severity = severityOf(node);
     const alert = worstAlert(node);
     const metrics = nodeMetrics(node, plan);
@@ -62,10 +67,10 @@ export default function PlanNode({
                 onKeyDown={handleKeyDown}
                 aria-pressed={selected}
                 aria-label={[
-                    `Étape ${step} sur ${stepCount} : ${node.label}`,
-                    node.subtitle,
+                    t('query_plan.step_label', { step, count: stepCount, label }),
+                    subtitle,
                     metrics,
-                    alert ? `alerte : ${alert.message}` : null,
+                    alert ? t('query_plan.alert_label', { alert: translateMessage(t, alert.message) }) : null,
                 ]
                     .filter(Boolean)
                     .join(', ')}
@@ -90,18 +95,18 @@ export default function PlanNode({
                         className="size-3.5 shrink-0 text-muted-foreground"
                     />
                     <span className="truncate text-[13px] font-semibold">
-                        {node.label}
+                        {label}
                     </span>
                     {node.badge && (
                         <span className="ml-auto inline-flex h-4.5 shrink-0 items-center rounded border px-1.25 text-[10px] font-medium text-muted-foreground">
-                            {node.badge}
+                            {translateMessage(t, node.badge)}
                         </span>
                     )}
                 </span>
 
-                {node.subtitle && (
+                {subtitle && (
                     <span className="truncate font-mono text-xs">
-                        {node.subtitle}
+                        {subtitle}
                     </span>
                 )}
 
@@ -130,7 +135,7 @@ export default function PlanNode({
                             />
                         </span>
                         <span className="text-[11px] text-muted-foreground tabular-nums">
-                            {formatShare(node.costShare ?? 0)} du coût
+                            {t('query_plan.cost_share', { share: formatShare(node.costShare ?? 0) })}
                         </span>
                     </span>
                 )}
@@ -146,7 +151,7 @@ export default function PlanNode({
                             aria-hidden="true"
                             className="size-3 shrink-0"
                         />
-                        {alert.message}
+                        {translateMessage(t, alert.message)}
                     </span>
                 )}
             </button>

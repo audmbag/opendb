@@ -2,9 +2,12 @@
 
 namespace App\Ai\Agents;
 
+use App\Ai\Agents\Concerns\AnswersInInterfaceLanguage;
 use App\Ai\Enums\AgentAccessModeEnum;
 use App\Ai\Enums\AgentEffortEnum;
 use App\Ai\Middleware\LogAgentActivity;
+use App\Ai\Middleware\StopWhenCancelled;
+use App\Ai\Services\AnswerCancellation;
 use App\Ai\Tools\Database\CreateRecord;
 use App\Ai\Tools\Database\DatabaseSchema;
 use App\Ai\Tools\Database\ExplainQuery;
@@ -24,15 +27,24 @@ use App\Ai\Tools\Mail\ManageMailRecipients;
 use App\Ai\Tools\Mail\SendMail;
 use App\Ai\Tools\Memory\UpdateProjectMemory;
 use App\Database\Contracts\DriverContract;
+use App\Enums\PrivilegeEnum;
 use App\Models\Driver;
 use App\Models\Project;
+use App\Models\User;
 use App\Repository\MailRecipientRepository;
 use App\Services\Exporter\ExporterManager;
 use App\Services\Mailer\MailerManager;
+use App\Services\Privileges\Data\PrivilegeSet;
+use App\Services\Privileges\PrivilegeManager;
 use App\Services\ProjectMemory;
 use App\Services\QueryPlan\QueryPlanManager;
+use App\Services\Workspace\ProjectWorkspace;
+use App\Services\Workspace\WorkspaceGuardedAdapter;
+use Illuminate\Contracts\Filesystem\Filesystem;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Laravel\Ai\Attributes\CacheInstructions;
 use Laravel\Ai\Attributes\CacheToolDefinitions;
+use Laravel\Ai\Attributes\RepairToolCalls;
 use Laravel\Ai\Concerns\RemembersConversations;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\Conversational;
@@ -44,61 +56,84 @@ use Laravel\Ai\Promptable;
 use Laravel\Ai\Tools\FileStorage;
 use Laravel\Ai\Tools\Filesystem\CopyFile;
 use Laravel\Ai\Tools\Filesystem\WriteFile;
+use League\Flysystem\Filesystem as Flysystem;
+use League\Flysystem\Local\LocalFilesystemAdapter;
 use Stringable;
 
 #[CacheToolDefinitions]
+#[RepairToolCalls]
 #[CacheInstructions]
 class SQLDatabaseAgent implements Agent, Conversational, HasMiddleware, HasProviderOptions, HasTools
 {
-    use Promptable, RemembersConversations;
-
-    const string FILE_DISK = 'current-project';
+    use AnswersInInterfaceLanguage, Promptable, RemembersConversations;
 
     public readonly DriverContract $driver;
+
+    /**
+     * The files of the project directory the file tools reach: the workspace of opendb only shows the folder of the user.
+     */
+    public readonly Filesystem $files;
 
     public readonly ProjectMemory $memory;
 
     public readonly ExporterManager $exporterManager;
+
+    /**
+     * The user talking to the agent, whose privileges the agent never exceeds.
+     */
+    public readonly User $user;
+
+    public readonly PrivilegeSet $privileges;
 
     public function __construct(
         public readonly AgentAccessModeEnum $accessMode,
         public readonly Project $project,
         public readonly ?string $selectedModel = null,
         public readonly AgentEffortEnum $effort = AgentEffortEnum::Default,
+        ?User $user = null,
     ) {
-        $this->configureDisk();
-
         $this->project->loadMissing(['driver_config.driver', 'user']);
-        $this->driver = $this->project->driver_config->getAgentDriver();
+        $this->user = $user ?? $this->project->user;
+        $this->files = $this->projectFiles();
+        $this->privileges = app(PrivilegeManager::class)->for($this->user);
+        $this->driver = $this->project->driver_config->agentDriverFor($this->user);
         $this->memory = new ProjectMemory($this->project);
 
         $this->exporterManager = app(ExporterManager::class);
     }
 
-    public function configureDisk(): void
+    /**
+     * A disk of its own for each agent, rooted in the project directory: the files of the other users stay out of reach.
+     */
+    private function projectFiles(): Filesystem
     {
-        config([
-            'filesystems.disks.'.self::FILE_DISK => [
-                'driver' => 'local',
-                'root' => $this->project->path,
-                'throw' => false,
-                'report' => false,
-            ],
-        ]);
+        $config = ['root' => (string) $this->project->path, 'throw' => false, 'report' => false];
+        $adapter = new WorkspaceGuardedAdapter(
+            new LocalFilesystemAdapter($config['root'], lazyRootCreation: true),
+            ProjectWorkspace::directoryOf($this->user),
+        );
+
+        return new FilesystemAdapter(new Flysystem($adapter, $config), $adapter, $config);
     }
 
     public function instructions(): Stringable|string
     {
+        $disabledTables = array_values(array_intersect($this->driver->hiddenTables(), $this->project->driver_config->disabled_tables ?? []));
+
         return view('agent.instructions.base', [
             'drivers' => Driver::pluck('name'),
+            'language' => $this->interfaceLanguage(),
         ])->render()
             ."\n\n"
             .view($this->accessMode->instructionsView())->render()
             ."\n\n"
             .view('agent.instructions.context', [
                 'project' => $this->project,
+                'user' => $this->user,
                 'accessMode' => $this->accessMode,
-                'hiddenTables' => $this->driver->hiddenTables(),
+                'hiddenTables' => $disabledTables,
+                'tablesOutOfReach' => array_values(array_diff($this->driver->hiddenTables(), $disabledTables)),
+                'privileges' => $this->driver->privileges(),
             ])->render()
             ."\n\n"
             .view('agent.instructions.memory', [
@@ -111,7 +146,7 @@ class SQLDatabaseAgent implements Agent, Conversational, HasMiddleware, HasProvi
     {
         return match ($this->accessMode) {
             AgentAccessModeEnum::ReadOnly => [
-                new ReadQuery($this->driver, $this->project->user->settings->agentMaxRows),
+                new ReadQuery($this->driver, $this->user->settings->agentMaxRows),
                 new DatabaseSchema($this->driver),
                 new FocusTable($this->driver),
                 new ListTables($this->driver),
@@ -123,10 +158,10 @@ class SQLDatabaseAgent implements Agent, Conversational, HasMiddleware, HasProvi
                 new ShowRecord($this->driver),
                 new ExplainQuery($this->driver, app(QueryPlanManager::class), $this->project->id, $this->currentConversation()),
                 new UpdateProjectMemory($this->memory),
-                ...FileStorage::readOnly(self::FILE_DISK),
+                ...FileStorage::readOnly($this->files),
             ],
             AgentAccessModeEnum::ReadWrite => [
-                new ReadQuery($this->driver, $this->project->user->settings->agentMaxRows),
+                new ReadQuery($this->driver, $this->user->settings->agentMaxRows),
                 new WriteQuery($this->driver),
                 new DatabaseSchema($this->driver),
                 new FocusTable($this->driver),
@@ -140,14 +175,16 @@ class SQLDatabaseAgent implements Agent, Conversational, HasMiddleware, HasProvi
                 new ShowRecord($this->driver),
                 new ExplainQuery($this->driver, app(QueryPlanManager::class), $this->project->id, $this->currentConversation()),
                 new UpdateProjectMemory($this->memory),
-                new ExportDatabase($this->driver, $this->exporterManager, $this->project->path, $this->project->user->settings),
-                new SendMail($this->project->user, app(MailerManager::class), $this->project->path),
-                new ManageMailRecipients($this->project->user, app(MailRecipientRepository::class)),
-                ...FileStorage::readOnly(self::FILE_DISK)
+                ...($this->mayExport() ? [new ExportDatabase($this->driver, $this->exporterManager, $this->project->workspaceOf($this->user), $this->user->settings)] : []),
+                ...($this->privileges->allows(PrivilegeEnum::SendMail, $this->project) ? [
+                    new SendMail($this->user, app(MailerManager::class), $this->project->workspaceOf($this->user)),
+                    new ManageMailRecipients($this->user, app(MailRecipientRepository::class)),
+                ] : []),
+                ...FileStorage::readOnly($this->files)
                     ->merge([
-                        new WriteFile(self::FILE_DISK),
-                        new CopyFile(self::FILE_DISK),
-                        new DeleteFile(self::FILE_DISK),
+                        new WriteFile($this->files),
+                        new CopyFile($this->files),
+                        new DeleteFile($this->files),
                     ]),
             ]
         };
@@ -158,7 +195,19 @@ class SQLDatabaseAgent implements Agent, Conversational, HasMiddleware, HasProvi
      */
     public function maxSteps(): int
     {
-        return $this->project->user->settings->agentMaxSteps;
+        return $this->user->settings->agentMaxSteps;
+    }
+
+    /**
+     * Whether the user may export the whole project or at least one of its tables.
+     */
+    private function mayExport(): bool
+    {
+        $tables = $this->driver->privileges();
+
+        return $tables === null
+            || $tables->allowsOnProject(PrivilegeEnum::Export)
+            || array_any($tables->tablePrivileges, fn (array $privileges): bool => in_array(PrivilegeEnum::Export, $privileges, true));
     }
 
     public function providerOptions(Lab|string $provider): array
@@ -172,6 +221,7 @@ class SQLDatabaseAgent implements Agent, Conversational, HasMiddleware, HasProvi
     {
         return [
             new LogAgentActivity($this->accessMode),
+            new StopWhenCancelled(fn (): ?string => $this->currentConversation(), app(AnswerCancellation::class)),
         ];
     }
 }

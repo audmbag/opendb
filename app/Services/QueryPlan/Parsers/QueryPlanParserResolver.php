@@ -27,7 +27,7 @@ final class QueryPlanParserResolver
             $driver instanceof MySQLDriver => MySQLJsonV2PlanParser::supports($output->raw) ? new MySQLJsonV2PlanParser : new MySQLPlanParser,
             $driver instanceof PostgresSQLDriver => new PostgresPlanParser,
             $driver instanceof SQLiteDriver => new SQLitePlanParser,
-            default => throw new QueryPlanException(QueryPlanException::UNSUPPORTED_DRIVER, "Le plan d'exécution n'est pas disponible pour ce moteur."),
+            default => throw new QueryPlanException(QueryPlanException::UNSUPPORTED_DRIVER, __('query_plan.errors.unsupported_driver')),
         };
     }
 }

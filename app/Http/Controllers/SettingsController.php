@@ -20,7 +20,7 @@ class SettingsController extends Controller
     {
         return response()->json([
             'data' => $this->settings->update($request->user(), 'agent', $request->validated()),
-            'message' => "Les réglages de l'agent ont été enregistrés.",
+            'message' => __('settings.messages.agent_saved'),
         ]);
     }
 
@@ -28,7 +28,7 @@ class SettingsController extends Controller
     {
         return response()->json([
             'data' => $this->settings->update($request->user(), 'export', $request->validated()),
-            'message' => 'Les réglages des exports ont été enregistrés.',
+            'message' => __('settings.messages.export_saved'),
         ]);
     }
 
@@ -36,7 +36,7 @@ class SettingsController extends Controller
     {
         $this->settings->updateAccount($request->user(), $request->validated());
 
-        return response()->json(['message' => 'Votre compte a été mis à jour.']);
+        return response()->json(['message' => __('settings.messages.account_saved')]);
     }
 
     public function about(): JsonResponse
@@ -49,7 +49,7 @@ class SettingsController extends Controller
         $databases = $this->settings->clearCaches($request->user());
 
         return response()->json([
-            'message' => "Le cache a été vidé : le schéma de {$databases} base".($databases > 1 ? 's' : '').' et la liste des modèles seront relus.',
+            'message' => trans_choice('settings.messages.cache_cleared', $databases),
         ]);
     }
 }

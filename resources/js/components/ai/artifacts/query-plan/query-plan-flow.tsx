@@ -6,6 +6,7 @@ import {
     useStoreApi,
 } from '@xyflow/react';
 import type { EdgeTypes, NodeChange, NodeTypes } from '@xyflow/react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { InfoIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -69,6 +70,7 @@ const MINIMAP_FROM_NODES = 12;
 const VISIBLE_MARGIN = 24;
 
 function PlanCanvas({ plan, selectedId, onSelect, detailPanel }: Props) {
+    const { t } = useLaravelReactI18n();
     const [layout, setLayout] = useState<Layout | null>(null);
     const [sizes, setSizes] = useState<Record<string, Size>>({});
     const selectedIdRef = useRef(selectedId);
@@ -293,7 +295,7 @@ function PlanCanvas({ plan, selectedId, onSelect, detailPanel }: Props) {
 
     return (
         <FlowCanvas<PlanFlowNode, PlanFlowEdge>
-            label="Plan d'exécution"
+            label={t('query_plan.title')}
             exportFileName={`plan-${plan.planId}`}
             isReady={layout?.isMeasured ?? false}
             aside={detailPanel}
@@ -321,16 +323,14 @@ function PlanCanvas({ plan, selectedId, onSelect, detailPanel }: Props) {
                 <details className="group max-w-60 rounded-md border bg-card/95 text-[11px] leading-4 text-muted-foreground shadow-xs backdrop-blur-sm">
                     <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-md px-2 py-1 font-medium outline-none select-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
                         <InfoIcon aria-hidden="true" className="size-3.5" />
-                        Légende
+                        {t('query_plan.legend.title')}
                     </summary>
                     <ul className="flex flex-col gap-1 border-t px-2.5 py-2">
-                        <li>
-                            Les données remontent des tables jusqu'au résultat.
-                        </li>
-                        <li>Les numéros suivent l'ordre d'exécution.</li>
-                        <li>L'épaisseur d'un lien suit les lignes transmises.</li>
-                        <li>Pointillés animés : chemin le plus coûteux.</li>
-                        <li>Bordure rouge ou orange : étape en alerte.</li>
+                        <li>{t('query_plan.legend.flow')}</li>
+                        <li>{t('query_plan.legend.numbers')}</li>
+                        <li>{t('query_plan.legend.width')}</li>
+                        <li>{t('query_plan.legend.hot_path')}</li>
+                        <li>{t('query_plan.legend.alert')}</li>
                     </ul>
                 </details>
             </Panel>

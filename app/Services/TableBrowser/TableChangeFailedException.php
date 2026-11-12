@@ -19,6 +19,6 @@ class TableChangeFailedException extends RuntimeException
 
     public static function rowMissing(int $index): self
     {
-        return new self($index, "La ligne n'existe plus : elle a peut-être été modifiée ou supprimée entre-temps.");
+        return new self($index, __('tables.errors.row_gone'));
     }
 }

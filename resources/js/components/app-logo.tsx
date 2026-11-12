@@ -19,23 +19,13 @@ const iconLogo = [
     '  ╚═════╝ ',
 ]
 
-const Lightcolors = [
-    "text-zinc-500",
-    "text-zinc-600",
-    "text-zinc-700",
-    "text-zinc-800",
-    "text-zinc-900",
-    "text-zinc-950",
-]
-
-const Darkcolors = [
-    "dark:text-zinc-600",
-    "dark:text-zinc-500",
-    "dark:text-zinc-400",
-    "dark:text-zinc-300",
-    "dark:text-zinc-200",
-    "dark:text-zinc-100",
-]
+/**
+ * The color of each line of the logo, a gradient from the muted foreground to the primary color of the current theme,
+ * so that it follows the color theme and the appearance of the interface.
+ */
+const lineColors = appLogo.map(
+    (_, index) => `color-mix(in oklch, var(--primary) ${Math.round((index / (appLogo.length - 1)) * 100)}%, var(--muted-foreground))`,
+);
 
 interface AppLogoProps extends React.ComponentProps<'div'> {
     icon?: boolean;
@@ -86,17 +76,14 @@ const AppLogo = memo(({ icon = false, size = "default", animate = true, classNam
                     className={cn(
                         'origin-center',
                         sizeClass,
-                        Lightcolors[index],
-                        Darkcolors[index],
                     )}
-                    style={
-                        animate
-                            ? {
-                                  animation: `spinXInfinite 10s infinite`,
-                                  animationDelay: `${index * 0.05}s`,
-                              }
-                            : {}
-                    }
+                    style={{
+                        color: lineColors[index],
+                        ...(animate && {
+                            animation: `spinXInfinite 10s infinite`,
+                            animationDelay: `${index * 0.05}s`,
+                        }),
+                    }}
                 >
                     {line}
                 </pre>

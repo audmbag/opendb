@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\PrivilegeEnum;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -29,5 +30,23 @@ class UserFactory extends Factory
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
         ];
+    }
+
+    /**
+     * The account that holds every privilege, like the root of MySQL.
+     */
+    public function root(): static
+    {
+        return $this->state(fn (array $attributes): array => ['is_root' => true]);
+    }
+
+    /**
+     * A user holding the privileges on the whole instance, like `GRANT … ON *.*`.
+     */
+    public function withPrivileges(PrivilegeEnum ...$privileges): static
+    {
+        return $this->afterCreating(fn (User $user) => $user->grants()->createMany(
+            array_map(fn (PrivilegeEnum $privilege): array => ['privilege' => $privilege], $privileges),
+        ));
     }
 }

@@ -5,6 +5,7 @@ use App\Models\MailRecipient;
 use App\Models\MailSetting;
 use App\Models\User;
 use App\Repository\MailRecipientRepository;
+use App\Support\TranslatableMessage;
 use Laravel\Ai\Tools\Request;
 
 beforeEach(function () {
@@ -26,19 +27,19 @@ it('lists the allowed recipients of the user with their sender address', functio
     MailRecipient::factory()->for($this->user)->create(['email' => 'paul@example.com', 'name' => 'Paul']);
     MailRecipient::factory()->create(['email' => 'other@example.com']);
 
-    expect(manageRecipients($this->user, ['action' => 'list']))->toBe("Destinataires autorisés :\n"
-        ."- me@example.com (adresse d'expéditeur de l'utilisateur, toujours autorisée)\n"
+    expect(manageRecipients($this->user, ['action' => 'list']))->toBe("Allowed recipients:\n"
+        ."- me@example.com (sender address of the user, always allowed)\n"
         .'- paul@example.com (Paul)');
 });
 
 it('says when no recipient is allowed', function () {
-    expect(manageRecipients($this->user, ['action' => 'list']))->toBe('Aucun destinataire autorisé.');
+    expect(manageRecipients($this->user, ['action' => 'list']))->toBe('No allowed recipient.');
 });
 
 it('adds a recipient in lower case', function () {
     $result = manageRecipients($this->user, ['action' => 'add', 'email' => ' Paul@Example.com ', 'name' => 'Paul']);
 
-    expect($result)->toBe('« paul@example.com » fait maintenant partie des destinataires autorisés.')
+    expect($result)->toBe('"paul@example.com" is now one of the allowed recipients.')
         ->and($this->user->mailRecipients()->sole()->only('email', 'name'))->toBe(['email' => 'paul@example.com', 'name' => 'Paul']);
 });
 
@@ -58,7 +59,7 @@ it('removes a recipient of the user only', function () {
 
     $result = manageRecipients($this->user, ['action' => 'remove', 'email' => 'paul@example.com']);
 
-    expect($result)->toBe('« paul@example.com » ne fait plus partie des destinataires autorisés.')
+    expect($result)->toBe('"paul@example.com" is no longer one of the allowed recipients.')
         ->and($this->user->mailRecipients()->exists())->toBeFalse()
         ->and($otherRecipient->fresh())->not->toBeNull();
 });
@@ -71,8 +72,8 @@ it('says when the address to remove is not allowed', function () {
 it('rejects invalid parameters', function (array $arguments, string $message) {
     expect(manageRecipients($this->user, $arguments))->toBe($message);
 })->with([
-    'add without email' => [['action' => 'add', 'email' => ' '], 'Le paramètre `email` est obligatoire pour l\'action `add`.'],
-    'unknown action' => [['action' => 'purge'], 'Action inconnue : utilise `list`, `add` ou `remove`.'],
+    'add without email' => [['action' => 'add', 'email' => ' '], 'The `email` parameter is required for the `add` action.'],
+    'unknown action' => [['action' => 'purge'], 'Unknown action: use `list`, `add` or `remove`.'],
 ]);
 
 it('asks the approval of the user only to change the list of recipients', function (array $arguments, ?string $reason) {
@@ -81,7 +82,7 @@ it('asks the approval of the user only to change the list of recipients', functi
 
     $approval = recipientsTool($this->user)->shouldRequestApproval(new Request($arguments, 'call_1'));
 
-    expect($reason === null ? $approval : $approval?->reason)->toBe($reason);
+    expect($reason === null ? $approval : TranslatableMessage::text(json_decode($approval->reason, true)))->toBe($reason);
 })->with([
     'add a new address' => [['action' => 'add', 'email' => 'Jean@Example.com'], 'Autoriser l\'envoi de mails à « jean@example.com » ?'],
     'remove a listed address' => [['action' => 'remove', 'email' => 'paul@example.com'], 'Retirer « paul@example.com » des destinataires autorisés ?'],

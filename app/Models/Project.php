@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Enums\ProjectStatusEnum;
+use App\Services\Privileges\PrivilegeManager;
+use App\Services\Workspace\ProjectWorkspace;
 use Database\Factories\ProjectFactory;
 use Illuminate\Database\Eloquent\Attributes\Appends;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -36,10 +38,35 @@ class Project extends Model
         ];
     }
 
+    /**
+     * The user who creates a project holds every privilege on it, with the grant option, to share it.
+     */
+    protected static function booted(): void
+    {
+        static::created(function (Project $project): void {
+            if ($project->user !== null) {
+                app(PrivilegeManager::class)->grantOwnership($project, $project->user);
+            }
+        });
+    }
+
     #[Scope]
     protected function clearDrafts(Builder $query): void
     {
         $query->where('status', '!=', ProjectStatusEnum::DRAFT);
+    }
+
+    /**
+     * The projects the user holds a privilege on, every one for the root or a privilege on the whole instance.
+     */
+    #[Scope]
+    protected function accessibleBy(Builder $query, User $user): void
+    {
+        $projectIds = app(PrivilegeManager::class)->for($user)->projectIds();
+
+        if ($projectIds !== null) {
+            $query->whereKey($projectIds);
+        }
     }
 
     public function driver_config(): HasOne
@@ -47,22 +74,36 @@ class Project extends Model
         return $this->hasOne(DriverConfig::class);
     }
 
+    /**
+     * The project as its pages show it, with its connection: the secrets of the connection only go to who may manage it.
+     */
+    public function withConnectionFor(User $user): static
+    {
+        $this->loadMissing('driver_config.driver');
+
+        if ($user->cannot('update', $this)) {
+            $this->driver_config?->withoutSecrets();
+        }
+
+        return $this;
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    public function conversation(): HasMany
+    public function conversations(): HasMany
     {
         return $this->hasMany(Conversation::class);
     }
 
     /**
-     * The absolute path of a folder of opendb in the project directory, like `.opendb/sql`.
+     * The folder where opendb keeps the files of the user in the project, which no other user sees.
      */
-    public function workspacePath(string $directory): string
+    public function workspaceOf(User $user): ProjectWorkspace
     {
-        return rtrim((string) $this->path, '/\\').DIRECTORY_SEPARATOR.self::WORKSPACE_DIRECTORY.DIRECTORY_SEPARATOR.$directory;
+        return new ProjectWorkspace($this, $user);
     }
 
     public function getCreatedAtDiffForHumansAttribute(): string

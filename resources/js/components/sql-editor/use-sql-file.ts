@@ -3,6 +3,7 @@ import type { TableRequestError } from '@/components/tables/api';
 import { requestTableData } from '@/components/tables/api';
 import { useValueAsRef } from '@/hooks/use-value-as-ref';
 import SqlFileController from '@/wayfinder/actions/App/Http/Controllers/SqlEditor/SqlFileController';
+import { encodePath } from './file-tree';
 import type { SaveStatus, SqlFile } from './types';
 
 /**
@@ -12,7 +13,7 @@ const SAVE_DELAY = 800;
 
 const fileArgs = (project: string, name: string) => ({
     project,
-    file: encodeURIComponent(name),
+    file: encodePath(name),
 });
 
 /**

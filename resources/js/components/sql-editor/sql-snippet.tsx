@@ -11,6 +11,10 @@ type Props = {
      * Only the first lines are highlighted and shown: a long script is cut, as in a preview.
      */
     maxLines?: number;
+    /**
+     * Written as it is, without putting the keywords in capitals: the fields of a snippet (`${table}`) are names.
+     */
+    raw?: boolean;
     className?: string;
 };
 
@@ -18,10 +22,16 @@ type Props = {
  * A few lines of SQL highlighted with the syntax theme of the application, without the frame of a code block: the
  * highlighting of the code blocks is shared, and the plain text is shown until it is ready.
  */
-export default function SqlSnippet({ sql, maxLines = 4, className }: Props) {
+export default function SqlSnippet({
+    sql,
+    maxLines = 4,
+    raw = false,
+    className,
+}: Props) {
     const { definition: theme } = useSyntaxTheme();
     const lines = sql.trim().split('\n');
-    const code = uppercaseSqlKeywords(lines.slice(0, maxLines).join('\n'));
+    const shown = lines.slice(0, maxLines).join('\n');
+    const code = raw ? shown : uppercaseSqlKeywords(shown);
     const cut = lines.length > maxLines;
     const key = `${theme.value}:${code}`;
     const cached = highlightCode(code, 'sql', theme);

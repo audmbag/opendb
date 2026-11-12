@@ -5,6 +5,7 @@ import type { CloningDriverConfig } from '@/components/cloning/cloning.types';
 import type { TablesSelectorFormRef } from '@/components/project/tables-selector';
 import type { ConnectionTestResult} from '@/hooks/use-driver-config';
 import { useDriverConfigTestConnection } from '@/hooks/use-driver-config';
+import { trans } from '@/lib/i18n';
 import { useTempProjectStore } from '@/store/use-project-store';
 import type { DriverConfig, SSHConfiguration } from '@/types/databases';
 import { DefaultDrivers } from '@/types/databases';
@@ -411,12 +412,12 @@ const useOpenProjectFolder = (projectId?: Project['id']) => {
 
         post(ProjectController.openFolder.url(projectId), {
             onError: () => {
-                toast.error("Impossible d'ouvrir le dossier du projet", {
+                toast.error(trans('projects.open_folder_failed'), {
                     id: 'open-project-folder-error',
                 });
             },
             onHttpException: () => {
-                toast.error("Impossible d'ouvrir le dossier du projet", {
+                toast.error(trans('projects.open_folder_failed'), {
                     id: 'open-project-folder-error',
                 });
 

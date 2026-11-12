@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     BanIcon,
     ClipboardCopyIcon,
@@ -11,6 +12,8 @@ import {
 import { useState } from 'react';
 import { toast } from 'sonner';
 import Button from '@/components/form/button';
+import Modal from '@/components/modals/modal';
+import ModalFooter from '@/components/modals/modal-footer';
 import {
     ActionBar,
     ActionBarClose,
@@ -19,14 +22,6 @@ import {
     ActionBarSelection,
     ActionBarSeparator,
 } from '@/components/ui/action-bar';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -56,6 +51,14 @@ type Props = {
     rows: GridRow[];
     columns: TableColumn[];
     canEditSavedRows: boolean;
+    /**
+     * Whether a saved row may be deleted, which needs DELETE on the table rather than UPDATE: like changing them by default.
+     */
+    canDeleteSavedRows?: boolean;
+    /**
+     * Whether rows may be added, which duplicating does.
+     */
+    canInsert?: boolean;
     onDelete: (rows: GridRow[]) => void;
     onDuplicate: (rows: GridRow[]) => void;
     onRevert: (rows: GridRow[]) => void;
@@ -99,12 +102,15 @@ export default function SelectionActionBar({
     rows,
     columns,
     canEditSavedRows,
+    canDeleteSavedRows = canEditSavedRows,
+    canInsert = true,
     onDelete,
     onDuplicate,
     onRevert,
     onSetValue,
     onAskChat,
 }: Props) {
+    const { t, tChoice } = useLaravelReactI18n();
     const selected = useTableGridStore((state) => state.selected);
     const clearSelection = useTableGridStore((state) => state.clearSelection);
     const [editing, setEditing] = useState(false);
@@ -114,9 +120,12 @@ export default function SelectionActionBar({
     const changeable = selection.filter(
         (row) => row.state === 'inserted' || canEditSavedRows,
     );
+    const deletable = selection.filter(
+        (row) => row.state === 'inserted' || canDeleteSavedRows,
+    );
     const allDeleted =
-        changeable.length > 0 &&
-        changeable.every((row) => row.state === 'deleted');
+        deletable.length > 0 &&
+        deletable.every((row) => row.state === 'deleted');
     const changed = selection.some(
         (row) =>
             row.state === 'deleted' ||
@@ -162,12 +171,11 @@ export default function SelectionActionBar({
         navigator.clipboard
             .writeText(text)
             .then(() =>
-                toast.success(
-                    `${count} ligne${count > 1 ? 's' : ''} copiée${count > 1 ? 's' : ''}`,
-                    { duration: 1500 },
-                ),
+                toast.success(tChoice('tables.selection.copied', count), {
+                    duration: 1500,
+                }),
             )
-            .catch(() => toast.error('Le presse-papiers est inaccessible.'));
+            .catch(() => toast.error(t('tables.selection.clipboard_failed')));
     };
 
     return (
@@ -177,12 +185,9 @@ export default function SelectionActionBar({
                 onOpenChange={(open) => !open && clearSelection()}
             >
                 <ActionBarSelection>
-                    <span>
-                        {count} ligne{count > 1 ? 's' : ''} sélectionnée
-                        {count > 1 ? 's' : ''}
-                    </span>
+                    <span>{tChoice('tables.selection.selected', count)}</span>
                     <ActionBarSeparator />
-                    <ActionBarClose aria-label="Désélectionner">
+                    <ActionBarClose aria-label={t('tables.selection.clear')}>
                         <XIcon />
                     </ActionBarClose>
                 </ActionBarSelection>
@@ -194,18 +199,22 @@ export default function SelectionActionBar({
                                 onSelect={(event) => event.preventDefault()}
                             >
                                 <ClipboardCopyIcon />
-                                Copier
+                                {t('common.copy')}
                             </ActionBarItem>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent side="top" align="start">
                             <DropdownMenuItem onSelect={() => copy('json')}>
-                                En JSON
+                                {t('tables.console.as_format', {
+                                    format: 'JSON',
+                                })}
                             </DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => copy('csv')}>
-                                En CSV
+                                {t('tables.console.as_format', {
+                                    format: 'CSV',
+                                })}
                             </DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => copy('sql')}>
-                                En instructions INSERT
+                                {t('tables.selection.as_insert')}
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
@@ -217,12 +226,14 @@ export default function SelectionActionBar({
                         disabled={changeable.length === 0}
                     >
                         <PencilLineIcon />
-                        Modifier une colonne
+                        {t('tables.selection.edit_column')}
                     </ActionBarItem>
-                    <ActionBarItem onSelect={() => onDuplicate(selection)}>
-                        <CopyPlusIcon />
-                        Dupliquer
-                    </ActionBarItem>
+                    {canInsert && (
+                        <ActionBarItem onSelect={() => onDuplicate(selection)}>
+                            <CopyPlusIcon />
+                            {t('tables.workspace.duplicate')}
+                        </ActionBarItem>
+                    )}
                     {changed && (
                         <ActionBarItem
                             onSelect={(event) => {
@@ -231,20 +242,22 @@ export default function SelectionActionBar({
                             }}
                         >
                             <Undo2Icon />
-                            Annuler les modifications
+                            {t('tables.grid.revert')}
                         </ActionBarItem>
                     )}
                     <ActionBarItem onSelect={() => onAskChat(selection)}>
                         <MessageSquareTextIcon />
-                        Demander au chat
+                        {t('tables.workspace.ask_chat')}
                     </ActionBarItem>
                     <ActionBarItem
                         variant={allDeleted ? 'secondary' : 'destructive'}
-                        onSelect={() => onDelete(changeable)}
-                        disabled={changeable.length === 0}
+                        onSelect={() => onDelete(deletable)}
+                        disabled={deletable.length === 0}
                     >
                         {allDeleted ? <BanIcon /> : <Trash2Icon />}
-                        {allDeleted ? 'Garder' : 'Supprimer'}
+                        {allDeleted
+                            ? t('tables.designer.keep')
+                            : t('common.delete')}
                     </ActionBarItem>
                 </ActionBarGroup>
             </ActionBar>
@@ -282,6 +295,7 @@ function BulkValueDialog({
     onCancel: () => void;
     onConfirm: (column: TableColumn, value: CellValue) => void;
 }) {
+    const { t, tChoice } = useLaravelReactI18n();
     const [columnName, setColumnName] = useState(columns[0]?.name ?? '');
     const [value, setValue] = useState('');
     const [isNull, setIsNull] = useState(false);
@@ -305,19 +319,22 @@ function BulkValueDialog({
     };
 
     return (
-        <Dialog open onOpenChange={(open) => !open && onCancel()}>
-            <DialogContent className="sm:max-w-md">
-                <form onSubmit={submit} className="flex flex-col gap-4">
-                    <DialogHeader>
-                        <DialogTitle>Modifier une colonne</DialogTitle>
-                        <DialogDescription>
-                            La valeur est donnée à {count} ligne
-                            {count > 1 ? 's' : ''}, en modification en attente :
-                            vous la vérifierez avant de l'appliquer.
-                        </DialogDescription>
-                    </DialogHeader>
+        <Modal
+            open
+            showHeader
+            scrollable
+            className="h-auto sm:max-w-md"
+            onOpenChange={(open) => !open && onCancel()}
+            icon={PencilLineIcon}
+            title={t('tables.selection.edit_column')}
+            description={tChoice('tables.selection.bulk_description', count)}
+        >
+            <form onSubmit={submit} className="flex flex-col">
+                <div className="flex flex-col gap-4 p-4">
                     <div className="flex flex-col gap-2">
-                        <Label htmlFor="bulk-column">Colonne</Label>
+                        <Label htmlFor="bulk-column">
+                            {t('ai.profile.headers.column')}
+                        </Label>
                         <NativeSelect
                             id="bulk-column"
                             className="w-full"
@@ -337,7 +354,7 @@ function BulkValueDialog({
                         </NativeSelect>
                     </div>
                     <div className="flex flex-col gap-2">
-                        <Label htmlFor="bulk-value">Valeur</Label>
+                        <Label htmlFor="bulk-value">{t('common.value')}</Label>
                         {column?.kind === 'boolean' ||
                         column?.kind === 'enum' ? (
                             <NativeSelect
@@ -350,7 +367,7 @@ function BulkValueDialog({
                                 }
                             >
                                 <NativeSelectOption value="" disabled>
-                                    Choisir
+                                    {t('tables.designer.choose')}
                                 </NativeSelectOption>
                                 {(column.kind === 'boolean'
                                     ? ['true', 'false']
@@ -385,24 +402,20 @@ function BulkValueDialog({
                                     }
                                     className="size-4 accent-primary"
                                 />
-                                Mettre à NULL
+                                {t('tables.grid.set_null')}
                             </Label>
                         )}
                     </div>
-                    <DialogFooter>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={onCancel}
-                        >
-                            Annuler
-                        </Button>
-                        <Button type="submit" disabled={!column}>
-                            Appliquer à {count} ligne{count > 1 ? 's' : ''}
-                        </Button>
-                    </DialogFooter>
-                </form>
-            </DialogContent>
-        </Dialog>
+                </div>
+                <ModalFooter>
+                    <Button type="button" variant="outline" onClick={onCancel}>
+                        {t('common.cancel')}
+                    </Button>
+                    <Button type="submit" disabled={!column}>
+                        {tChoice('tables.selection.apply_to', count)}
+                    </Button>
+                </ModalFooter>
+            </form>
+        </Modal>
     );
 }

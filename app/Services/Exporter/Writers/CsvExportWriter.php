@@ -50,7 +50,7 @@ class CsvExportWriter implements ExportWriter
      */
     public function writeQuery(SelectQuery $query, string $path): int
     {
-        $file = fopen($path, 'wb') ?: throw new RuntimeException("Impossible d'écrire le fichier d'export {$path}.");
+        $file = fopen($path, 'wb') ?: throw new RuntimeException(__('exports.errors.write', ['path' => $path]));
         $rowCount = 0;
 
         try {
@@ -76,7 +76,7 @@ class CsvExportWriter implements ExportWriter
 
     private function writeTable(ExportSource $source, TableExport $export, string $path): string
     {
-        $file = fopen($path, 'wb') ?: throw new RuntimeException("Impossible d'écrire le fichier d'export {$path}.");
+        $file = fopen($path, 'wb') ?: throw new RuntimeException(__('exports.errors.write', ['path' => $path]));
         $columns = $this->rows->columnNames($export->table);
 
         try {

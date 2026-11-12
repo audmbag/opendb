@@ -1,3 +1,4 @@
+import { trans } from '@/lib/i18n';
 import type { QueryParams } from '@/wayfinder';
 import type {
     ColumnKind,
@@ -24,33 +25,39 @@ export const OPERATORS: {
     needsValue: boolean;
     textual?: boolean;
 }[] = [
-    { value: '=', label: 'est égal à', needsValue: true },
-    { value: '!=', label: 'est différent de', needsValue: true },
-    { value: '>', label: 'est supérieur à', needsValue: true },
-    { value: '>=', label: 'est supérieur ou égal à', needsValue: true },
-    { value: '<', label: 'est inférieur à', needsValue: true },
-    { value: '<=', label: 'est inférieur ou égal à', needsValue: true },
-    { value: 'contains', label: 'contient', needsValue: true, textual: true },
+    { value: '=', label: 'tables.filters.operators.equals', needsValue: true },
+    { value: '!=', label: 'tables.filters.operators.not_equals', needsValue: true },
+    { value: '>', label: 'tables.filters.operators.greater', needsValue: true },
+    { value: '>=', label: 'tables.filters.operators.greater_or_equal', needsValue: true },
+    { value: '<', label: 'tables.filters.operators.less', needsValue: true },
+    { value: '<=', label: 'tables.filters.operators.less_or_equal', needsValue: true },
+    { value: 'contains', label: 'tables.filters.operators.contains', needsValue: true, textual: true },
     {
         value: 'not_contains',
-        label: 'ne contient pas',
+        label: 'tables.filters.operators.not_contains',
         needsValue: true,
         textual: true,
     },
     {
         value: 'starts_with',
-        label: 'commence par',
+        label: 'tables.filters.operators.starts_with',
         needsValue: true,
         textual: true,
     },
-    { value: 'ends_with', label: 'finit par', needsValue: true, textual: true },
-    { value: 'in', label: 'fait partie de', needsValue: true },
-    { value: 'is_null', label: 'est NULL', needsValue: false },
-    { value: 'is_not_null', label: "n'est pas NULL", needsValue: false },
+    { value: 'ends_with', label: 'tables.filters.operators.ends_with', needsValue: true, textual: true },
+    { value: 'in', label: 'tables.filters.operators.in', needsValue: true },
+    { value: 'is_null', label: 'tables.filters.operators.is_null', needsValue: false },
+    { value: 'is_not_null', label: 'tables.filters.operators.is_not_null', needsValue: false },
 ];
 
-export const operatorLabel = (operator: FilterOperator): string =>
-    OPERATORS.find((item) => item.value === operator)?.label ?? operator;
+/**
+ * The label of an operator in the language of the interface, its key being in lang/{locale}/tables.php.
+ */
+export const operatorLabel = (operator: FilterOperator): string => {
+    const label = OPERATORS.find((item) => item.value === operator)?.label;
+
+    return label ? trans(label) : operator;
+};
 
 export const operatorNeedsValue = (operator: FilterOperator): boolean =>
     OPERATORS.find((item) => item.value === operator)?.needsValue ?? true;

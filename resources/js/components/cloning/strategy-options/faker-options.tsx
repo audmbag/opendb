@@ -1,13 +1,16 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import React, { useMemo } from 'react';
 import { columnKey, useCloningStore } from '@/components/cloning/cloning-store';
 import type { FakerMethodOption } from '@/components/cloning/cloning.types';
 import FakerParameterField from '@/components/cloning/strategy-options/faker-parameter-field';
 import type { StrategyOptionsProps } from '@/components/cloning/strategy-options/types';
+import { useCloningLabels } from '@/components/cloning/use-cloning-labels';
 import Select from '@/components/form/select';
 
 const FakerOptions = ({ table, column, transformation }: StrategyOptionsProps) => {
     const applyFakerMethod = useCloningStore((s) => s.applyFakerMethod);
-    const labels = useCloningStore((s) => s.labels);
+    const { t } = useLaravelReactI18n();
+    const labels = useCloningLabels();
     const meta = useCloningStore((s) => s.meta[columnKey(table, column)]);
     const catalog = useCloningStore((s) =>
         meta?.fakerCatalogKey ? s.fakerCatalogs[meta.fakerCatalogKey] : undefined,
@@ -38,7 +41,7 @@ const FakerOptions = ({ table, column, transformation }: StrategyOptionsProps) =
     return (
         <>
             <Select
-                label="Méthode Faker"
+                label={t('cloning.ui.faker_method')}
                 value={transformation.fakerMethod}
                 onValueChange={(value) => {
                     const method = fakerOptions.find((m) => m.fakerMethod === value);
@@ -48,13 +51,13 @@ const FakerOptions = ({ table, column, transformation }: StrategyOptionsProps) =
                     }
                 }}
                 items={fakerOptions.map((m) => {
-                    const name = labels.fakerMethods[m.fakerMethod] ?? m.fakerMethod;
+                    const name = labels.fakerMethod(m.fakerMethod);
 
                     return {
                         value: m.fakerMethod,
                         label:
                             m.fakerMethod === meta?.suggestedFakerMethod?.fakerMethod
-                                ? `${name} (suggéré)`
+                                ? t('cloning.ui.suggested', { name })
                                 : name,
                     };
                 })}

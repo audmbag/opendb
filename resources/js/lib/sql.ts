@@ -229,6 +229,79 @@ export function formatSql(sql: string, driver: string): string {
 }
 
 /**
+ * The statements of a script and the script as the engine reads it: its text values, quoted identifiers, comments
+ * and dollar-quoted bodies (PostgreSQL) replaced by spaces, so that what they hold is never taken for SQL. A `;`
+ * outside them ends a statement.
+ */
+function scanSql(sql: string): {
+    bounds: { from: number; to: number }[];
+    code: string;
+} {
+    const bounds: { from: number; to: number }[] = [];
+    let code = '';
+    let start = 0;
+    let index = 0;
+
+    const mask = (end: number) => {
+        code += ' '.repeat(end - index);
+        index = end;
+    };
+
+    while (index < sql.length) {
+        const char = sql[index];
+        const next = sql[index + 1];
+
+        if (char === "'" || char === '"' || char === '`') {
+            mask(closingQuote(sql, index, char));
+        } else if (char === '-' && next === '-') {
+            const end = sql.indexOf('\n', index);
+
+            mask(end < 0 ? sql.length : end);
+        } else if (char === '/' && next === '*') {
+            const end = sql.indexOf('*/', index + 2);
+
+            mask(end < 0 ? sql.length : end + 2);
+        } else if (char === '$' && /^\$[A-Za-z_]*\$/.test(sql.slice(index))) {
+            const tag = /^\$[A-Za-z_]*\$/.exec(sql.slice(index))![0];
+            const end = sql.indexOf(tag, index + tag.length);
+
+            mask(end < 0 ? sql.length : end + tag.length);
+        } else {
+            if (char === ';') {
+                bounds.push({ from: start, to: index });
+                start = index + 1;
+            }
+
+            code += char;
+            index++;
+        }
+    }
+
+    bounds.push({ from: start, to: sql.length });
+
+    return { bounds, code };
+}
+
+/**
+ * The bounds of a statement without the blank lines and comments around it, like the end of the line of the
+ * previous one. Null when it holds nothing else.
+ */
+function trimmedBounds(
+    sql: string,
+    { from, to }: { from: number; to: number },
+): { from: number; to: number } | null {
+    const text = sql.slice(from, to);
+    const leading =
+        text.length -
+        text.replace(/^(?:\s+|--[^\n]*(?:\n|$)|\/\*[\s\S]*?\*\/)*/, '').length;
+    const trimmed = text.slice(leading).trimEnd();
+
+    return trimmed === ''
+        ? null
+        : { from: from + leading, to: from + leading + trimmed.length };
+}
+
+/**
  * The bounds of the statement under the cursor, without its delimiter and the blank lines around it: the `;` of a
  * text value, a quoted identifier, a comment or a dollar-quoted body (PostgreSQL) does not end a statement.
  * A cursor right after a `;` belongs to the statement it ends. Null when the cursor is on blank lines or comments only.
@@ -237,56 +310,69 @@ export function statementAt(
     sql: string,
     offset: number,
 ): { from: number; to: number } | null {
-    const bounds: { from: number; to: number }[] = [];
-    let start = 0;
-    let index = 0;
-
-    while (index < sql.length) {
-        const char = sql[index];
-        const next = sql[index + 1];
-
-        if (char === "'" || char === '"' || char === '`') {
-            index = closingQuote(sql, index, char);
-        } else if (char === '-' && next === '-') {
-            const end = sql.indexOf('\n', index);
-
-            index = end < 0 ? sql.length : end;
-        } else if (char === '/' && next === '*') {
-            const end = sql.indexOf('*/', index + 2);
-
-            index = end < 0 ? sql.length : end + 2;
-        } else if (char === '$') {
-            const tag = /^\$[A-Za-z_]*\$/.exec(sql.slice(index))?.[0];
-            const end = tag ? sql.indexOf(tag, index + tag.length) : -1;
-
-            index = tag ? (end < 0 ? sql.length : end + tag.length) : index + 1;
-        } else if (char === ';') {
-            bounds.push({ from: start, to: index });
-            start = index + 1;
-            index++;
-        } else {
-            index++;
-        }
-    }
-
-    bounds.push({ from: start, to: sql.length });
-
+    const { bounds } = scanSql(sql);
     const statement =
         bounds.find(({ from, to }) => offset >= from && offset <= to + 1) ??
         bounds[bounds.length - 1];
-    const text = sql.slice(statement.from, statement.to);
-    // The comments before the statement, like the end of the line of the previous one, are not part of it.
-    const leading =
-        text.length -
-        text.replace(/^(?:\s+|--[^\n]*(?:\n|$)|\/\*[\s\S]*?\*\/)*/, '').length;
-    const trimmed = text.slice(leading).trimEnd();
 
-    return trimmed === ''
-        ? null
-        : {
-              from: statement.from + leading,
-              to: statement.from + leading + trimmed.length,
-          };
+    return trimmedBounds(sql, statement);
+}
+
+/**
+ * The statements of a script, without their delimiter, each with its code as the engine reads it.
+ */
+export function splitStatements(sql: string): { text: string; code: string }[] {
+    const { bounds, code } = scanSql(sql);
+
+    return bounds.flatMap((statement) => {
+        const trimmed = trimmedBounds(sql, statement);
+
+        return trimmed
+            ? [
+                  {
+                      text: sql.slice(trimmed.from, trimmed.to),
+                      code: code.slice(trimmed.from, trimmed.to),
+                  },
+              ]
+            : [];
+    });
+}
+
+/**
+ * The names of the `:name` parameters of a script, in their order, without the casts of PostgreSQL (`::int`) or the
+ * assignments of MySQL (`:=`).
+ */
+export function parameterNames(sql: string): string[] {
+    const names = [
+        ...scanSql(sql).code.matchAll(/(?<![:\w]):([A-Za-z_]\w*)/g),
+    ].map((match) => match[1]);
+
+    return [...new Set(names)];
+}
+
+/**
+ * The statements that may lose data for good: an UPDATE or a DELETE that changes every row, a DROP or a TRUNCATE.
+ */
+export function riskyStatements(sql: string): string[] {
+    return splitStatements(sql)
+        .filter(({ code }) => {
+            // Only the WHERE of the statement itself counts, not the one of a subquery.
+            let depth = 0;
+            const topLevel = [...code]
+                .map((char) => {
+                    depth += char === '(' ? 1 : char === ')' ? -1 : 0;
+
+                    return depth > 0 && char !== '(' ? ' ' : char;
+                })
+                .join('');
+
+            return (
+                /^\s*(?:DROP|TRUNCATE)\b/i.test(topLevel) ||
+                (/^\s*(?:UPDATE|DELETE)\b/i.test(topLevel) &&
+                    !/\bWHERE\b/i.test(topLevel))
+            );
+        })
+        .map(({ text }) => text);
 }
 
 /**
@@ -321,4 +407,19 @@ export function plainIdentifier(name: string, driver: string): string {
         !KEYWORDS.has(name.toLowerCase())
         ? name
         : quoteIdentifier(name, driver);
+}
+
+/**
+ * The query a table opens with in the SQL editor: its latest rows, by id or creation date when it has one.
+ */
+export function latestRowsQuery(
+    table: string,
+    columns: string[],
+    driver: string,
+): string {
+    const order = ['id', 'created_at'].find((column) =>
+        columns.includes(column),
+    );
+
+    return `SELECT * FROM ${plainIdentifier(table, driver)}${order ? ` ORDER BY ${order} DESC` : ''} LIMIT 100;`;
 }

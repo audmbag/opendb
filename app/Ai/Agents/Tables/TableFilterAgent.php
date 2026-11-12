@@ -2,6 +2,7 @@
 
 namespace App\Ai\Agents\Tables;
 
+use App\Ai\Agents\Concerns\AnswersInInterfaceLanguage;
 use App\Services\TableBrowser\FilterOperator;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Contracts\Agent;
@@ -15,7 +16,7 @@ use Stringable;
  */
 class TableFilterAgent implements Agent, HasStructuredOutput
 {
-    use Promptable;
+    use AnswersInInterfaceLanguage, Promptable;
 
     /**
      * @param  list<array{name: string, kind: string, db_type: string, nullable: bool, options: ?list<string>, references: ?array{table: string, column: string}}>  $columns
@@ -29,32 +30,33 @@ class TableFilterAgent implements Agent, HasStructuredOutput
     public function instructions(): Stringable|string
     {
         $columns = implode("\n", array_map(fn (array $column): string => '- '.$column['name'].' : '.$column['kind'].' ('.$column['db_type'].')'
-            .($column['nullable'] ? ', peut être NULL' : '')
-            .($column['options'] !== null ? ', valeurs possibles : '.implode(', ', $column['options']) : '')
-            .($column['references'] !== null ? ", référence {$column['references']['table']}.{$column['references']['column']}" : ''), $this->columns));
+            .($column['nullable'] ? ', can be NULL' : '')
+            .($column['options'] !== null ? ', possible values: '.implode(', ', $column['options']) : '')
+            .($column['references'] !== null ? ", references {$column['references']['table']}.{$column['references']['column']}" : ''), $this->columns));
+        $language = $this->interfaceLanguage();
 
         return <<<INSTRUCTIONS
-        Tu traduis une demande en français en filtres sur la table « {$this->table} » d'un client de base de données.
-        Nous sommes le {$this->today}.
+        You turn a request of the user, written in natural language, into filters on the table "{$this->table}" of a database client.
+        Today is {$this->today}.
 
-        Colonnes de la table :
+        Columns of the table:
         {$columns}
 
-        Opérateurs disponibles :
-        - = != > >= < <= : comparaison avec une valeur
-        - contains, not_contains, starts_with, ends_with : recherche de texte, sans tenir compte de la casse
-        - in : la valeur est une liste séparée par des virgules
-        - is_null, is_not_null : sans valeur (mets null)
+        Available operators:
+        - = != > >= < <=: comparison with a value
+        - contains, not_contains, starts_with, ends_with: text search, ignoring the case
+        - in: the value is a comma-separated list
+        - is_null, is_not_null: without a value (set null)
 
-        Règles :
-        - N'utilise que les colonnes et les opérateurs listés. Ne devine pas une colonne qui n'existe pas.
-        - Écris les dates au format AAAA-MM-JJ et les dates avec heure au format AAAA-MM-JJ HH:MM:SS.
-          Une période devient deux filtres (>= début et < fin) combinés avec match = all.
-        - Écris les booléens 1 ou 0.
-        - match = all quand toutes les conditions doivent être vraies, any quand une seule suffit. Tu ne peux pas mélanger les deux.
-        - Si la demande ne peut pas être exprimée avec ces filtres (jointure, agrégat, calcul), renvoie une liste vide
-          et explique pourquoi dans explanation, en proposant de la poser dans le chat.
-        - explanation tient en une phrase courte qui décrit le filtre en français, sans répéter les noms techniques des opérateurs.
+        Rules:
+        - Only use the listed columns and operators. Do not guess a column that does not exist.
+        - Write the dates in the YYYY-MM-DD format and the dates with a time in the YYYY-MM-DD HH:MM:SS format.
+          A period becomes two filters (>= start and < end) combined with match = all.
+        - Write the booleans 1 or 0.
+        - match = all when every condition must be true, any when a single one is enough. You cannot mix both.
+        - If the request cannot be expressed with these filters (join, aggregate, computation), return an empty list
+          and explain why in explanation, suggesting to ask it in the chat.
+        - explanation is one short sentence, in {$language}, that describes the filter without repeating the technical names of the operators.
         INSTRUCTIONS;
     }
 

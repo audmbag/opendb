@@ -23,7 +23,7 @@ use Illuminate\Support\Str;
  * @property int $duration
  * @property ?string $error
  */
-#[Fillable(['project_id', 'file', 'sql', 'succeeded', 'statements', 'rows', 'duration', 'error'])]
+#[Fillable(['project_id', 'user_id', 'file', 'sql', 'succeeded', 'statements', 'rows', 'duration', 'error'])]
 class QueryHistoryEntry extends Model
 {
     /** @use HasFactory<QueryHistoryEntryFactory> */

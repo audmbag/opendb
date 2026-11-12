@@ -3,11 +3,13 @@
 namespace App\Ai\Tools\Database;
 
 use App\Database\Contracts\DriverContract;
+use App\Database\QueryBindings;
 use App\Services\QueryPlan\Exception\QueryPlanException;
 use App\Services\QueryPlan\QueryPlanManager;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
+use RuntimeException;
 use Stringable;
 
 class ExplainQuery extends BaseTool implements Tool
@@ -24,20 +26,22 @@ class ExplainQuery extends BaseTool implements Tool
 
     public function description(): Stringable|string
     {
-        return 'Calcule le plan d\'exécution d\'une requête SELECT (sans l\'exécuter) et l\'affiche dans l\'interface '
-            .'sous forme d\'arbre, en signalant les étapes coûteuses (parcours complet de table, tri temporaire). '
-            .'Ce tool te renvoie aussi un résumé des étapes et des alertes : appuie-toi dessus pour expliquer le plan '
-            .'et proposer des index concrets (CREATE INDEX …) sans les créer toi-même. Utilise-le quand l\'utilisateur '
-            .'demande pourquoi une requête est lente, son plan d\'exécution ou comment l\'optimiser. '
-            .'N\'écris pas toi-même le mot-clé EXPLAIN : passe la requête SELECT telle quelle.';
+        return 'Computes the execution plan of a SELECT query (without running it) and displays it in the interface '
+            .'as a tree, flagging the costly steps (full table scan, temporary sort). This tool also returns a '
+            .'summary of the steps and alerts to you: rely on it to explain the plan and suggest concrete indexes '
+            .'(CREATE INDEX …) without creating them yourself. Use it when the user asks why a query is slow, for '
+            .'its execution plan or how to optimize it. Do not write the EXPLAIN keyword yourself: pass the SELECT '
+            .'query as it is.';
     }
 
     public function handle(Request $request): Stringable|string
     {
         try {
-            $plan = $this->queryPlans->explain($this->driver, $this->projectId, $this->conversationId, (string) $request['query'], (array) ($request['bindings'] ?? []));
+            $plan = $this->queryPlans->explain($this->driver, $this->projectId, $this->conversationId, (string) $request['query'], QueryBindings::from($request['bindings'] ?? null));
         } catch (QueryPlanException $e) {
-            return $this->toJson($e->toArray());
+            return $this->error($this->toJson($e->toArray()));
+        } catch (RuntimeException $e) {
+            return $this->error($this->toJson(['success' => false, 'error' => $e->getMessage()]));
         }
 
         return $this->toJson($this->queryPlans->summarize($plan));

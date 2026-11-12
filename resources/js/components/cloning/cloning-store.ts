@@ -1,10 +1,9 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import  {
+import type  {
     AvailableStrategy,
     CloningClientPayload,
     CloningColumn, CloningDraft,
-    CloningLabels,
     ColumnTransformation,
     DetectedMatcher,
     FakerCatalog,
@@ -13,13 +12,6 @@ import  {
 
 
 export type ColumnKey = `${string}.${string}`;
-
-export const EMPTY_LABELS: CloningLabels = {
-    strategies: {},
-    fakerMethods: {},
-    fakerParameters: {},
-    fakerParameterOptions: {},
-};
 
 export const columnKey = (table: string, column: string): ColumnKey => `${table}.${column}`;
 
@@ -76,7 +68,6 @@ interface CloningState {
     originalPayload: CloningClientPayload | null;
     cloningId: string | null;
     fakerCatalogs: Record<string, FakerCatalog>;
-    labels: CloningLabels;
     meta: Record<ColumnKey, ColumnMeta>;
     tableOrder: string[];
     columnsByTable: Record<string, string[]>;
@@ -143,7 +134,6 @@ export const useCloningStore = create<CloningState>()(
         originalPayload: null,
         cloningId: null,
         fakerCatalogs: {},
-        labels: EMPTY_LABELS,
         meta: {},
         tableOrder: [],
         columnsByTable: {},
@@ -156,7 +146,6 @@ export const useCloningStore = create<CloningState>()(
                 state.originalPayload = payload;
                 state.cloningId = payload.cloningId;
                 state.fakerCatalogs = payload.fakerCatalogs;
-                state.labels = payload.labels ?? EMPTY_LABELS;
                 state.meta = {};
                 state.initialValues = {};
                 state.values = {};
@@ -209,7 +198,6 @@ export const useCloningStore = create<CloningState>()(
                 state.originalPayload = null;
                 state.cloningId = null;
                 state.fakerCatalogs = {};
-                state.labels = EMPTY_LABELS;
                 state.meta = {};
                 state.tableOrder = [];
                 state.columnsByTable = {};

@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { ArrowLeftIcon, ChevronRightIcon, ShapesIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ArtifactPreview } from '@/components/ai/artifact-preview-button';
@@ -15,7 +16,6 @@ import type {ExportDatabaseToolUIPart} from '@/types/agent';
 import type {
     AgentToolNameType,
     ChartToolUIPart,
-    ChartType,
     CustomOutputToolUIPart,
     ExplainQueryToolUIPart,
     KpisToolUIPart,
@@ -36,42 +36,44 @@ type ArtifactSummary = {
     description?: string;
 };
 
-const CHART_TYPE_LABELS: Record<ChartType, string> = {
-    bar: 'Histogramme',
-    line: 'Courbe',
-    area: 'Aires',
-    pie: 'Camembert',
-};
-
-const pluralize = (count: number, label: string): string => `${formatNumber(count)} ${label}${count > 1 ? 's' : ''}`;
+type Translator = ReturnType<typeof useLaravelReactI18n>;
 
 /**
  * What identifies an artifact in the list, from the output of its tool call.
  */
-const summarize = (part: CustomOutputToolUIPart): ArtifactSummary => {
+const summarize = (part: CustomOutputToolUIPart, { t, tChoice }: Translator): ArtifactSummary => {
     switch (part.type) {
         case AgentTools.ShowSchemaDiagram: {
             const { focusedTable, displayedTablesCount } = (part as ShemaDiagramToolUIPart).output;
 
             return {
-                title: focusedTable ? `Schéma de ${focusedTable}` : 'Schéma de la base de données',
-                description: displayedTablesCount === undefined ? undefined : pluralize(displayedTablesCount, 'table'),
+                title: focusedTable ? t('ai.artifacts.schema_of', { table: focusedTable }) : t('flow.database_schema'),
+                description:
+                    displayedTablesCount === undefined
+                        ? undefined
+                        : tChoice('tables.counts.tables', displayedTablesCount, { count: formatNumber(displayedTablesCount) }),
             };
         }
         case AgentTools.ShowQueryResults: {
             const { title, totalRows } = (part as QueryResultsToolUIPart).output;
 
-            return { title: title ?? 'Résultats de la requête', description: pluralize(totalRows, 'ligne') };
+            return {
+                title: title ?? t('ai.artifacts.query_results'),
+                description: tChoice('tables.counts.rows', totalRows, { count: formatNumber(totalRows) }),
+            };
         }
         case AgentTools.ShowKpis:
-            return { title: 'Indicateurs clés', description: (part as KpisToolUIPart).output.labels.join(', ') };
+            return { title: t('ai.artifacts.kpis'), description: (part as KpisToolUIPart).output.labels.join(', ') };
         case AgentTools.ShowChart: {
             const { title, chartType, xColumn, yColumns } = (part as ChartToolUIPart).output;
 
-            return { title: title ?? `${yColumns.join(', ')} par ${xColumn}`, description: CHART_TYPE_LABELS[chartType] };
+            return {
+                title: title ?? t('ai.artifacts.chart_title', { y: yColumns.join(', '), x: xColumn }),
+                description: t(`ai.artifacts.chart_types.${chartType}`),
+            };
         }
         case AgentTools.ProfileTable:
-            return { title: `Profil de ${(part as ProfileTableToolUIPart).output.table}` };
+            return { title: t('ai.artifacts.profile_of', { table: (part as ProfileTableToolUIPart).output.table }) };
         case AgentTools.ShowRecord: {
             const { table, key } = (part as RecordToolUIPart).output;
 
@@ -79,17 +81,18 @@ const summarize = (part: CustomOutputToolUIPart): ArtifactSummary => {
         }
         case AgentTools.ExplainQuery:
             return {
-                title: "Plan d'exécution",
+                title: t('query_plan.title'),
                 description: ((part as ExplainQueryToolUIPart).input as { query?: string } | undefined)?.query,
             };
         default:
-            return { title: 'Artefact' };
+            return { title: t('ai.artifacts.artifact') };
     }
 };
 
 const ArtifactRow = ({ part, onOpen }: { part: CustomOutputToolUIPart; onOpen: () => void }) => {
+    const translator = useLaravelReactI18n();
     const metadata = getMetadata(part.type as AgentToolNameType);
-    const { title, description } = summarize(part);
+    const { title, description } = summarize(part, translator);
 
     return (
         <button
@@ -114,6 +117,8 @@ const ArtifactRow = ({ part, onOpen }: { part: CustomOutputToolUIPart; onOpen: (
  * An export has no other content than its file, so it is listed as it is.
  */
 export default function ArtifactPanel({ artifacts }: { artifacts: ConversationArtifact[] }) {
+    const translator = useLaravelReactI18n();
+    const { t } = translator;
     const { setDataPreviewExpanded } = useChatLayout();
 
     const [selectedToolCallId, setSelectedToolCallId] = useState<string | null>(null);
@@ -135,13 +140,13 @@ export default function ArtifactPanel({ artifacts }: { artifacts: ConversationAr
                         variant="ghost"
                         size="icon-sm"
                         autoFocus
-                        aria-label="Revenir à la liste des artefacts"
+                        aria-label={t('ai.artifacts.back_to_list')}
                         onClick={() => setSelectedToolCallId(null)}
                     >
                         <ArrowLeftIcon />
                     </Button>
                     <span className="truncate text-sm font-medium">
-                        {summarize(selected.part).title}
+                        {summarize(selected.part, translator).title}
                     </span>
                 </div>
                 <div className="flex-1 overflow-auto p-3">
@@ -159,13 +164,13 @@ export default function ArtifactPanel({ artifacts }: { artifacts: ConversationAr
             className="h-full"
             innerPadding={false}
             innerClassName="flex h-full flex-col"
-            title={`Artefacts (${artifacts.length ? formatNumber(artifacts.length) : ''})`}
+            title={t('ai.artifacts.list_title', { count: artifacts.length ? formatNumber(artifacts.length) : '' })}
         >
             {artifacts.length === 0 ? (
                 <EmptyState
                     icon={ShapesIcon}
-                    title="Aucun artefact"
-                    description="Il n'y a pas d'artefacts à afficher pour cette conversation."
+                    title={t('ai.artifacts.empty')}
+                    description={t('ai.artifacts.empty_description')}
                 />
             ) : (
                 <ul className="flex min-h-0 flex-1 flex-col overflow-auto">

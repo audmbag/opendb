@@ -23,7 +23,7 @@ enum ExportCompression: string
     public static function parse(string $output): self
     {
         return self::tryFrom($output)
-            ?? throw new RuntimeException("Format de compression inconnu : {$output}. Formats possibles : ".implode(', ', self::values()).'.');
+            ?? throw new RuntimeException(__('exports.errors.unknown_compression', ['compression' => $output, 'formats' => implode(', ', self::values())]));
     }
 
     /**

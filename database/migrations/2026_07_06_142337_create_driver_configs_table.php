@@ -22,6 +22,7 @@ return new class extends Migration
             $table->string('password')->nullable();
             $table->json('ssh')->nullable();
             $table->json('disabled_tables')->nullable();
+            $table->boolean('read_only')->default(false);
         });
     }
 

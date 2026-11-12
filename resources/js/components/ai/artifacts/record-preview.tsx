@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { CheckIcon, CircleAlertIcon, CopyIcon, FileTextIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useConversationId } from '@/components/ai/artifacts/format';
@@ -22,6 +23,7 @@ type Props = {
 const COPIED_DURATION = 1600;
 
 export default function RecordPreview({ part, enabled }: Props) {
+    const { t } = useLaravelReactI18n();
     const conversationId = useConversationId();
     const cardRef = useRef<HTMLDivElement>(null);
 
@@ -76,7 +78,7 @@ export default function RecordPreview({ part, enabled }: Props) {
                     !error && (
                         <Button variant="outline" size="sm" onClick={copyAsJson}>
                             {copied ? <CheckIcon /> : <CopyIcon />}
-                            {copied ? 'Copié' : 'Copier en JSON'}
+                            {copied ? t('common.copied') : t('ai.record.copy_json')}
                         </Button>
                     )
                 }
@@ -89,13 +91,13 @@ export default function RecordPreview({ part, enabled }: Props) {
                     <div className="p-2">
                         <Alert variant="destructive" className="border-destructive/30">
                             <CircleAlertIcon />
-                            <AlertTitle>Impossible d'afficher l'enregistrement</AlertTitle>
+                            <AlertTitle>{t('ai.record.display_failed')}</AlertTitle>
                             <AlertDescription className="text-muted-foreground!">{error}</AlertDescription>
                         </Alert>
                     </div>
                 ) : (
                     <div className="flex flex-wrap gap-px bg-border">
-                        <section aria-label="Colonnes" className="@container min-w-0 flex-[999_1_30rem] bg-card">
+                        <section aria-label={t('ai.record.columns')} className="@container min-w-0 flex-[999_1_30rem] bg-card">
                             <RecordFields
                                 key={describeLocation(current)}
                                 record={data}
@@ -104,7 +106,7 @@ export default function RecordPreview({ part, enabled }: Props) {
                                 onOpen={open}
                             />
                         </section>
-                        <section aria-label="Relations" className="min-w-0 flex-[1_1_18rem] bg-card">
+                        <section aria-label={t('ai.record.relations')} className="min-w-0 flex-[1_1_18rem] bg-card">
                             <RecordRelations record={data} onOpen={open} />
                         </section>
                     </div>

@@ -2,6 +2,7 @@
 
 use App\Ai\Tools\Database\WriteQuery;
 use App\Models\User;
+use App\Support\TranslatableMessage;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
 use Laravel\Ai\Tools\Request;
@@ -39,7 +40,9 @@ it('does not ask to approve an administration operation that will be rejected', 
 });
 
 it('explains what the statement does when asking for approval', function (string $sql, string $explanation) {
-    expect($this->tool->shouldRequestApproval(new Request(['query' => $sql]))->reason)->toContain($explanation);
+    $reason = $this->tool->shouldRequestApproval(new Request(['query' => $sql]))->reason;
+
+    expect(TranslatableMessage::text(json_decode($reason, true)))->toContain($explanation);
 })->with([
     'delete' => ['DELETE FROM contacts WHERE id = 1', 'supprime définitivement des lignes'],
     'drop' => ['DROP TABLE contacts', 'supprime définitivement un objet'],
@@ -51,7 +54,7 @@ it('explains what the statement does when asking for approval', function (string
 ]);
 
 it('does not claim what the query does when its statement is not the destructive one', function (string $sql, string $keyword) {
-    $reason = $this->tool->shouldRequestApproval(new Request(['query' => $sql]))->reason;
+    $reason = TranslatableMessage::text(json_decode($this->tool->shouldRequestApproval(new Request(['query' => $sql]))->reason, true));
 
     expect($reason)->toContain("le mot-clé {$keyword}")
         ->not->toContain('supprime définitivement')
@@ -69,7 +72,7 @@ it('runs without approval a query whose destructive word and semicolons are only
     $request = new Request(['query' => "INSERT INTO contacts (name) VALUES ('{$name}');", 'bindings' => []]);
 
     expect($this->tool->shouldRequestApproval($request))->toBeNull()
-        ->and((string) $this->tool->handle($request))->toBe('Requête exécutée avec succès.')
+        ->and((string) $this->tool->handle($request))->toBe('Query run successfully.')
         ->and($this->driver->executeReadOnly('SELECT name FROM contacts')[0]->name)->toBe("DELETE; DROP TABLE contacts; l'ami");
 });
 
@@ -94,6 +97,6 @@ it('still asks to approve then runs a change of structure', function () {
     $sql = 'ALTER TABLE contacts ADD COLUMN role VARCHAR(20)';
 
     expect($this->tool->shouldRequestApproval(new Request(['query' => $sql])))->not->toBeNull()
-        ->and((string) $this->tool->handle(new Request(['query' => $sql, 'bindings' => []])))->toBe('Requête exécutée avec succès.')
+        ->and((string) $this->tool->handle(new Request(['query' => $sql, 'bindings' => []])))->toBe('Query run successfully.')
         ->and(collect($this->driver->executeReadOnly('PRAGMA table_info(contacts)'))->pluck('name'))->toContain('role');
 });

@@ -8,4 +8,6 @@ export interface Project extends BaseModel {
     driver_config?: DriverConfig;
     created_at_diff_for_humans: string;
     status: 'draft' | 'inactive';
+    /** Whether the user may change or delete the project, given with the recent projects. */
+    can_manage?: boolean;
 }

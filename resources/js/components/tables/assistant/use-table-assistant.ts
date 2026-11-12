@@ -1,9 +1,8 @@
 import { useRef, useState } from 'react';
+import { trans } from '@/lib/i18n';
 import { useAgentSettingsStore } from '@/store/use-agent-settings-store';
 import type { TableRequestError } from '../api';
 import { requestTableData } from '../api';
-
-const NO_MODEL_MESSAGE = "Choisissez un modèle d'IA pour utiliser l'assistant.";
 
 /**
  * A request to one of the AI helpers, with the model chosen in the chat. A new question cancels the one still running.
@@ -21,7 +20,7 @@ export function useTableAssistant<T>() {
         const selectedModel = useAgentSettingsStore.getState().selectedModel;
 
         if (!selectedModel) {
-            setError(NO_MODEL_MESSAGE);
+            setError(trans('tables.assistant.no_model'));
 
             return null;
         }
@@ -52,7 +51,7 @@ export function useTableAssistant<T>() {
             if (!requestError.cancelled) {
                 setError(
                     requestError.errors.provider || requestError.errors.model
-                        ? NO_MODEL_MESSAGE
+                        ? trans('tables.assistant.no_model')
                         : requestError.first(),
                 );
             }

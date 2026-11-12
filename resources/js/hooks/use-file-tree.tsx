@@ -16,6 +16,7 @@ import {
     PaletteIcon,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { trans } from '@/lib/i18n';
 import FileTreeController from '@/wayfinder/actions/App/Http/Controllers/FileTreeController';
 
 const INDENT = 20;
@@ -44,6 +45,7 @@ const getFileIcon = (
     switch (extension) {
         case 'tsx':
         case 'ts':
+        case 'sql':
             return (
                 <FileCodeIcon className="pointer-events-none size-4 text-blue-500" />
             );
@@ -172,7 +174,7 @@ const useFileFetch = (onlyFolders?: boolean, targetFileExtensions?: string[], in
             });
 
             if (!response) {
-                throw new Error(`Impossible de lire le dossier ${path}`);
+                throw new Error(trans('files.read_folder_failed', { path }));
             }
 
             return response;
@@ -288,7 +290,7 @@ const useFileTree = (
         isItemFolder: (item) => item.getItemData()?.type === 'folder',
         createLoadingItemData: () => ({
             id: 'loading',
-            name: 'Chargement...',
+            name: trans('common.loading'),
             type: 'file',
         }),
         dataLoader: {
@@ -379,4 +381,4 @@ const useFileTree = (
     };
 };
 
-export { type FileNode, useFileFetch, useFileTree, getFileIcon, getDisplayPath };
+export { type FileNode, useFileFetch, useFileTree, getFileIcon, getDisplayPath, buildIndex, isSameOrParentPath };

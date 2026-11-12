@@ -2,6 +2,7 @@ import React from 'react';
 import { useCloningStore } from '@/components/cloning/cloning-store';
 import type { FakerParameter } from '@/components/cloning/cloning.types';
 import type { ColumnProps } from '@/components/cloning/strategy-options/types';
+import { useCloningLabels } from '@/components/cloning/use-cloning-labels';
 import Input from '@/components/form/input';
 import Select from '@/components/form/select';
 import Switch from '@/components/form/switch';
@@ -18,8 +19,8 @@ const FakerParameterField = ({
     value: unknown;
 }) => {
     const setFakerArgument = useCloningStore((s) => s.setFakerArgument);
-    const labels = useCloningStore((s) => s.labels);
-    const label = labels.fakerParameters[parameter.name] ?? parameter.name;
+    const labels = useCloningLabels();
+    const label = labels.fakerParameter(parameter.name);
     const current = value ?? parameter.default;
 
     if (parameter.type === 'boolean') {
@@ -42,7 +43,7 @@ const FakerParameterField = ({
                 onValueChange={(v) => setFakerArgument(table, column, index, v)}
                 items={(parameter.options ?? []).map((option) => ({
                     value: option,
-                    label: labels.fakerParameterOptions[option] ?? option,
+                    label: labels.fakerParameterOption(option),
                 }))}
             />
         );

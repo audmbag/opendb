@@ -1,4 +1,5 @@
 import type { UIMessage } from 'ai';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     ChartColumnIcon,
     ChevronDownIcon,
@@ -21,7 +22,8 @@ import {
     Trash2Icon,
     XIcon,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import type { LucideIcon } from 'lucide-react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useDefaultLayout } from 'react-resizable-panels';
 import { toast } from 'sonner';
 import { describeKey } from '@/components/ai/artifacts/record/format';
@@ -35,11 +37,17 @@ import InsightsPanel from '@/components/tables/assistant/insights-panel';
 import QuickChatPanel from '@/components/tables/assistant/quick-chat-panel';
 import DataGrid from '@/components/tables/data-grid/data-grid';
 import type { GridRow } from '@/components/tables/data-grid/data-grid';
-import { booleanOf, cellRawText } from '@/components/tables/data-grid/format';
+import { cellRawText } from '@/components/tables/data-grid/format';
 import type { GridActions } from '@/components/tables/data-grid/grid-context-menu';
 import { useColumnWidths } from '@/components/tables/data-grid/use-column-widths';
 import DefinitionView from '@/components/tables/definition-view';
 import FilterBar, { createFilter } from '@/components/tables/filter-bar';
+import {
+    buildGridRows,
+    editCell,
+    keyOf,
+    truncated,
+} from '@/components/tables/grid-rows';
 import InsertRecordPanel from '@/components/tables/insert-record-panel';
 import PaginationBar from '@/components/tables/pagination-bar';
 import PendingChangesBar from '@/components/tables/pending-changes-bar';
@@ -51,7 +59,6 @@ import type {
     Filter,
     FilterMatch,
     FilterSuggestion,
-    Row,
     TableColumn,
     TableStructure,
     TableSummary,
@@ -76,10 +83,10 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useConversation } from '@/hooks/use-conversation';
+import { usePrivileges } from '@/hooks/use-privileges';
 import { useTableRowCount, useTableRows } from '@/hooks/use-table-rows';
 import { cn } from '@/lib/utils';
 import {
-    rowKeyOf,
     useTableChangesApi,
     useTableChangesStore,
 } from '@/store/use-table-changes-store';
@@ -146,43 +153,7 @@ type SidePanel =
  */
 const CHAT_ROWS_LIMIT = 20;
 
-/**
- * Text longer than this is cut before being sent to the chat: a row is context, not the question.
- */
-const CHAT_CONTEXT_LIMIT = 4000;
-
-const AGENT_DISABLED_REASON =
-    "L'assistant n'a pas accès à cette table : elle est désactivée dans les paramètres du projet.";
-
-/**
- * A value typed in the grid that equals the one in the database, whatever the way it is written ("36" and 36, true and 1).
- */
-const sameCellValue = (
-    column: TableColumn,
-    value: CellValue,
-    original: CellValue,
-): boolean => {
-    if (column.kind === 'boolean') {
-        return booleanOf(value) === booleanOf(original);
-    }
-
-    return (
-        value === original ||
-        (value !== null &&
-            original !== null &&
-            String(value) === String(original))
-    );
-};
-
-const keyOf = (row: Row, primaryKey: string[]): RecordKey =>
-    Object.fromEntries(
-        primaryKey.map((column) => [column, row[column] ?? null]),
-    );
-
-const truncated = (text: string) =>
-    text.length > CHAT_CONTEXT_LIMIT
-        ? `${text.slice(0, CHAT_CONTEXT_LIMIT)}…`
-        : text;
+const AGENT_DISABLED_REASON = 'tables.workspace.agent_disabled';
 
 /**
  * The tab of a table: its rows, its structure and its definition, the changes waiting to be applied, the rows ticked
@@ -203,6 +174,7 @@ export default function Workspace({
     onAction,
     onOpenConsole,
 }: Props) {
+    const { t, tChoice } = useLaravelReactI18n();
     const [view, setView] = useState<TableView>(initialView);
     const [localRefresh, setLocalRefresh] = useState(0);
     const refreshKey = localRefresh + dataVersion;
@@ -235,11 +207,29 @@ export default function Workspace({
 
     const columns = useMemo(() => structure?.columns ?? [], [structure]);
     const primaryKey = useMemo(() => structure?.primaryKey ?? [], [structure]);
-    const canEditSavedRows = primaryKey.length > 0;
+    const { canOnProject } = usePrivileges();
+    // A saved row is only reached through its primary key: changed with UPDATE on the table, deleted with DELETE.
+    const hasPrimaryKey = primaryKey.length > 0;
+    const canEditSavedRows = hasPrimaryKey && canOnProject('update', table);
+    const canDeleteSavedRows = hasPrimaryKey && canOnProject('delete', table);
+    const canInsert = canOnProject('insert', table);
+    const canExport = canOnProject('export', table);
+    // The actions on the whole table the privileges of the user allow, like in the context menu of the list.
+    const tableActions = (
+        [
+            { action: 'design', label: 'tables.workspace.edit_structure', icon: PencilRulerIcon, group: 'structure', allowed: canOnProject('alter', table) },
+            { action: 'rename', label: 'tables.workspace.rename', icon: TextCursorInputIcon, group: 'structure', allowed: canOnProject('alter', table) },
+            { action: 'duplicate', label: 'tables.workspace.duplicate', icon: CopyPlusIcon, group: 'structure', allowed: canOnProject('create') },
+            { action: 'import', label: 'tables.workspace.import_csv', icon: FileUpIcon, group: 'files', allowed: canOnProject('import', table) && canInsert },
+            { action: 'export', label: 'tables.workspace.export_sql', icon: DownloadIcon, group: 'files', allowed: canExport },
+            { action: 'truncate', label: 'tables.truncate.confirm', icon: EraserIcon, group: 'danger', allowed: canOnProject('drop', table) },
+            { action: 'drop', label: 'tables.drop.confirm', icon: Trash2Icon, group: 'danger', allowed: canOnProject('drop', table) },
+        ] satisfies { action: TableAction; label: string; icon: LucideIcon; group: string; allowed: boolean }[]
+    ).filter((item) => item.allowed);
     const { widths, resize } = useColumnWidths(project.id, table, columns);
     const disabledReason = summary.agentAccessEnabled
         ? null
-        : AGENT_DISABLED_REASON;
+        : t(AGENT_DISABLED_REASON);
 
     // The address keeps the view of the shown tab, so a reload or a shared link opens the same rows.
     useEffect(() => {
@@ -340,80 +330,22 @@ export default function Workspace({
     const offset =
         ((page?.page ?? view.page) - 1) * (page?.perPage ?? view.perPage);
 
-    const gridRows = useMemo<GridRow[]>(() => {
-        const rowErrors = (prefix: string): Record<string, string> => {
-            const located: Record<string, string> = {};
-
-            for (const [key, message] of Object.entries(errors)) {
-                if (key === prefix) {
-                    located[''] = message;
-                } else if (key.startsWith(`${prefix}:`)) {
-                    located[key.slice(prefix.length + 1)] = message;
-                }
-            }
-
-            return located;
-        };
-
-        const inserted: GridRow[] = inserts.map((insert) => ({
-            id: `insert:${insert.id}`,
-            state: 'inserted',
-            values: insert.values,
-            original: null,
-            rowKey: null,
-            insertId: insert.id,
-            number: null,
-            changed: Object.keys(insert.values),
-            errors: rowErrors(`insert:${insert.id}`),
-        }));
-
-        const saved: GridRow[] = (page?.rows ?? []).map((row, index) => {
-            const rowKey = primaryKey.length
-                ? rowKeyOf(keyOf(row, primaryKey))
-                : null;
-            const update = rowKey ? updates[rowKey] : undefined;
-            const errorsOfRow = rowKey
-                ? {
-                      ...rowErrors(`update:${rowKey}`),
-                      ...rowErrors(`delete:${rowKey}`),
-                  }
-                : {};
-
-            return {
-                id: rowKey ?? `row:${offset + index}`,
-                state: rowKey && deletes[rowKey] ? 'deleted' : 'saved',
-                values: update ? { ...row, ...update.values } : row,
-                original: row,
-                rowKey,
-                insertId: null,
-                number: offset + index + 1,
-                changed: update ? Object.keys(update.values) : [],
-                errors: errorsOfRow,
-            };
-        });
-
-        return [...inserted, ...saved];
-    }, [page, inserts, updates, deletes, errors, primaryKey, offset]);
+    const gridRows = useMemo<GridRow[]>(
+        () =>
+            buildGridRows(page?.rows ?? [], offset, primaryKey, {
+                inserts,
+                updates,
+                deletes,
+                errors,
+            }),
+        [page, inserts, updates, deletes, errors, primaryKey, offset],
+    );
 
     const setCellValue = (
         row: GridRow,
         column: TableColumn,
         value: CellValue,
-    ) => {
-        if (row.state === 'inserted' && row.insertId) {
-            changes.setInsertValue(row.insertId, column.name, value);
-        } else if (row.rowKey && row.original) {
-            const original = row.original[column.name] ?? null;
-
-            changes.setValue(
-                row.rowKey,
-                keyOf(row.original, primaryKey),
-                column.name,
-                sameCellValue(column, value, original) ? original : value,
-                original,
-            );
-        }
-    };
+    ) => editCell(changes, primaryKey, row, column, value);
 
     const askChat = (text: string) =>
         startConversation({ text: truncated(text), files: [] });
@@ -490,7 +422,7 @@ export default function Workspace({
             navigator.clipboard
                 .writeText(JSON.stringify(row.values, null, 2))
                 .then(() =>
-                    toast.success('Ligne copiée en JSON', { duration: 1500 }),
+                    toast.success(t('tables.workspace.row_copied'), { duration: 1500 }),
                 );
         },
         setValue: setCellValue,
@@ -516,15 +448,15 @@ export default function Workspace({
         openRow: (row) => {
             if (row.state === 'inserted' || !row.original) {
                 toast.info(
-                    "Cette ligne n'existe pas encore : appliquez les modifications pour l'enregistrer.",
+                    t('tables.workspace.row_not_saved'),
                 );
 
                 return;
             }
 
-            if (!canEditSavedRows) {
+            if (!hasPrimaryKey) {
                 toast.info(
-                    "Sans clé primaire, une ligne de cette table ne peut pas être désignée pour l'ouvrir.",
+                    t('tables.workspace.row_without_key'),
                 );
 
                 return;
@@ -535,7 +467,7 @@ export default function Workspace({
                 location: { table, key: keyOf(row.original, primaryKey) },
             });
         },
-        duplicateRow: (row) => addRow(copiedValues(row)),
+        duplicateRow: canInsert ? (row) => addRow(copiedValues(row)) : undefined,
         toggleDelete: (row) => {
             if (row.state === 'inserted' && row.insertId) {
                 changes.removeInsert(row.insertId);
@@ -549,7 +481,9 @@ export default function Workspace({
         revertRow: (row) => row.rowKey && changes.revertRow(row.rowKey),
         askChat: (row) =>
             askChat(
-                `Dans la table « ${table} », explique-moi cette ligne et ce qui la relie au reste de la base${row.original && canEditSavedRows ? ` (${describeKey(keyOf(row.original, primaryKey))})` : ''} :\n\n${JSON.stringify(row.values, null, 2)}`,
+                row.original && hasPrimaryKey
+                    ? t('tables.workspace.ask_row_with_key', { table, key: describeKey(keyOf(row.original, primaryKey)), values: JSON.stringify(row.values, null, 2) })
+                    : t('tables.workspace.ask_row', { table, values: JSON.stringify(row.values, null, 2) }),
             ),
         followReference,
     };
@@ -581,10 +515,9 @@ export default function Workspace({
             }
 
             toast.success(
-                `${rows.length} ligne${rows.length > 1 ? 's' : ''} ajoutée${rows.length > 1 ? 's' : ''} en haut de la grille`,
+                tChoice('tables.workspace.rows_added', rows.length),
                 {
-                    description:
-                        'Elles seront enregistrées avec les autres modifications.',
+                    description: t('tables.workspace.rows_added_description'),
                 },
             );
         },
@@ -608,11 +541,14 @@ export default function Workspace({
         },
         onAskChat: (rows: GridRow[]) =>
             askChat(
-                `Dans la table « ${table} », que remarques-tu sur ces ${rows.length} lignes${rows.length > CHAT_ROWS_LIMIT ? ` (les ${CHAT_ROWS_LIMIT} premières)` : ''} ?\n\n${JSON.stringify(
-                    rows.slice(0, CHAT_ROWS_LIMIT).map((row) => row.values),
-                    null,
-                    2,
-                )}`,
+                (rows.length > CHAT_ROWS_LIMIT
+                    ? t('tables.workspace.ask_rows_limited', { table, count: rows.length, limit: CHAT_ROWS_LIMIT })
+                    : t('tables.workspace.ask_rows', { table, count: rows.length })) +
+                    `\n\n${JSON.stringify(
+                        rows.slice(0, CHAT_ROWS_LIMIT).map((row) => row.values),
+                        null,
+                        2,
+                    )}`,
             ),
     };
 
@@ -629,7 +565,10 @@ export default function Workspace({
         );
 
         askChat(
-            `Parle-moi de la table « ${table} » : ce qu'elle contient, à quoi elle sert et ce qui est notable dans ses données.${filters.length ? `\nJe regarde les lignes où ${filters.join(view.match === 'any' ? ' ou ' : ' et ')}.` : ''}`,
+            t('tables.workspace.ask_table', { table }) +
+                (filters.length
+                    ? `\n${t('tables.workspace.ask_table_filters', { filters: filters.join(view.match === 'any' ? ` ${t('tables.filters.or')} ` : ` ${t('tables.filters.and')} `) })}`
+                    : ''),
         );
     };
 
@@ -637,12 +576,12 @@ export default function Workspace({
         panel?.type === 'record'
             ? `${panel.location.table}, ${describeKey(panel.location.key)}`
             : panel?.type === 'insights'
-              ? 'Analyse de la table'
+              ? t('tables.workspace.insights')
               : panel?.type === 'insert'
-                ? `Nouvelle ligne dans ${table}`
+                ? t('tables.workspace.new_row', { table })
                 : panel?.type === 'chat'
-                  ? `Chat rapide · ${table}`
-                  : 'Index conseillés';
+                  ? t('tables.workspace.quick_chat_title', { table })
+                  : t('tables.workspace.advised_indexes');
 
     const { defaultLayout, onLayoutChanged } = useDefaultLayout({
         id: 'project-tables-workspace',
@@ -671,7 +610,7 @@ export default function Workspace({
                         </h1>
                         <span className="shrink-0 text-sm text-muted-foreground tabular-nums">
                             {count
-                                ? `${count.estimated ? 'environ ' : ''}${formatInteger(count.total)} ligne${count.total > 1 ? 's' : ''}`
+                                ? tChoice(count.estimated ? 'tables.workspace.about_rows' : 'tables.counts.rows', count.total, { count: formatInteger(count.total) })
                                 : ''}
                         </span>
                     </div>
@@ -682,9 +621,9 @@ export default function Workspace({
                         className="self-end"
                     >
                         <TabsList variant="line" className="h-9">
-                            <TabsTrigger value="data">Données</TabsTrigger>
+                            <TabsTrigger value="data">{t('tables.workspace.tabs.data')}</TabsTrigger>
                             <TabsTrigger value="structure">
-                                Structure
+                                {t('tables.workspace.tabs.structure')}
                             </TabsTrigger>
                             <TabsTrigger value="definition">DDL</TabsTrigger>
                         </TabsList>
@@ -708,7 +647,7 @@ export default function Workspace({
                             aria-pressed={panel?.type === 'insights'}
                         >
                             <ChartColumnIcon />
-                            Analyser
+                            {t('tables.workspace.analyze')}
                         </Button>
                         <Button
                             variant={
@@ -727,7 +666,7 @@ export default function Workspace({
                             aria-pressed={panel?.type === 'indexes'}
                         >
                             <GaugeIcon />
-                            Index
+                            {t('tables.workspace.indexes')}
                         </Button>
                         <Button
                             variant={
@@ -742,10 +681,10 @@ export default function Workspace({
                                 )
                             }
                             aria-pressed={panel?.type === 'chat'}
-                            tooltip="Poser une question rapide sur cette table, sans ouvrir de conversation"
+                            tooltip={t('tables.workspace.quick_chat_tooltip')}
                         >
                             <MessagesSquareIcon />
-                            Chat rapide
+                            {t('tables.workspace.quick_chat')}
                         </Button>
                         <Button
                             variant="ghost"
@@ -753,70 +692,38 @@ export default function Workspace({
                             onClick={askAboutTable}
                         >
                             <MessageSquareTextIcon />
-                            Demander au chat
+                            {t('tables.workspace.ask_chat')}
                         </Button>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button
-                                    variant="ghost"
-                                    size="icon-sm"
-                                    aria-label="Actions sur la table"
-                                    tooltip="Actions sur la table"
-                                >
-                                    <EllipsisIcon />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-56">
-                                <DropdownMenuItem
-                                    onSelect={() => onAction('design', table)}
-                                >
-                                    <PencilRulerIcon />
-                                    Modifier la structure
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                    onSelect={() => onAction('rename', table)}
-                                >
-                                    <TextCursorInputIcon />
-                                    Renommer
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                    onSelect={() =>
-                                        onAction('duplicate', table)
-                                    }
-                                >
-                                    <CopyPlusIcon />
-                                    Dupliquer
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                    onSelect={() => onAction('import', table)}
-                                >
-                                    <FileUpIcon />
-                                    Importer un CSV
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                    onSelect={() => onAction('export', table)}
-                                >
-                                    <DownloadIcon />
-                                    Exporter en SQL
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                    variant="destructive"
-                                    onSelect={() => onAction('truncate', table)}
-                                >
-                                    <EraserIcon />
-                                    Vider la table
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                    variant="destructive"
-                                    onSelect={() => onAction('drop', table)}
-                                >
-                                    <Trash2Icon />
-                                    Supprimer la table
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                        {tableActions.length > 0 && (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        aria-label={t('tables.workspace.actions')}
+                                        tooltip={t('tables.workspace.actions')}
+                                    >
+                                        <EllipsisIcon />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-56">
+                                    {tableActions.map((item, index) => (
+                                        <Fragment key={item.action}>
+                                            {index > 0 && item.group !== tableActions[index - 1].group && (
+                                                <DropdownMenuSeparator />
+                                            )}
+                                            <DropdownMenuItem
+                                                variant={item.group === 'danger' ? 'destructive' : undefined}
+                                                onSelect={() => onAction(item.action, table)}
+                                            >
+                                                <item.icon />
+                                                {t(item.label)}
+                                            </DropdownMenuItem>
+                                        </Fragment>
+                                    ))}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        )}
                     </div>
                 </header>
 
@@ -871,8 +778,8 @@ export default function Workspace({
                                     onClick={() =>
                                         setRefreshKey(refreshKey + 1)
                                     }
-                                    aria-label="Relire les lignes"
-                                    tooltip="Relire les lignes"
+                                    aria-label={t('tables.workspace.reload_rows')}
+                                    tooltip={t('tables.workspace.reload_rows')}
                                 >
                                     <RefreshCwIcon
                                         className={cn(
@@ -881,95 +788,97 @@ export default function Workspace({
                                         )}
                                     />
                                 </Button>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="sm">
-                                            <DownloadIcon />
-                                            Exporter
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent
-                                        align="end"
-                                        className="w-64"
-                                    >
-                                        <DropdownMenuItem asChild>
-                                            <a href={exportUrl('csv')} download>
-                                                CSV
-                                                <span className="ml-auto text-xs text-muted-foreground">
-                                                    {activeFilters
-                                                        ? 'lignes filtrées'
-                                                        : 'toute la table'}
-                                                </span>
-                                            </a>
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem asChild>
-                                            <a
-                                                href={exportUrl('json')}
-                                                download
-                                            >
-                                                JSON
-                                                <span className="ml-auto text-xs text-muted-foreground">
-                                                    {activeFilters
-                                                        ? 'lignes filtrées'
-                                                        : 'toute la table'}
-                                                </span>
-                                            </a>
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                                <ButtonGroup>
-                                    <Button
-                                        size="sm"
-                                        onClick={() => addRow()}
-                                        disabled={!structure}
-                                        tooltip="Ajouter une ligne dans la grille, enregistrée avec les autres modifications"
-                                    >
-                                        <PlusIcon />
-                                        Ajouter une ligne
-                                    </Button>
+                                {canExport && (
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button
-                                                size="icon-sm"
-                                                disabled={!structure}
-                                                aria-label="Autres façons d'ajouter une ligne"
-                                            >
-                                                <ChevronDownIcon />
+                                            <Button variant="ghost" size="sm">
+                                                <DownloadIcon />
+                                                {t('tables.workspace.export')}
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent
                                             align="end"
-                                            className="w-72"
+                                            className="w-64"
                                         >
-                                            <DropdownMenuItem
-                                                onSelect={() => addRow()}
-                                            >
-                                                <Table2Icon />
-                                                <span className="flex flex-col">
-                                                    Dans la grille
-                                                    <span className="text-xs text-muted-foreground">
-                                                        Enregistrée avec les
-                                                        autres modifications
+                                            <DropdownMenuItem asChild>
+                                                <a href={exportUrl('csv')} download>
+                                                    CSV
+                                                    <span className="ml-auto text-xs text-muted-foreground">
+                                                        {activeFilters
+                                                            ? t('tables.workspace.filtered_rows')
+                                                            : t('tables.workspace.whole_table')}
                                                     </span>
-                                                </span>
+                                                </a>
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem
-                                                onSelect={() =>
-                                                    setPanel({ type: 'insert' })
-                                                }
-                                            >
-                                                <FormInputIcon />
-                                                <span className="flex flex-col">
-                                                    Avec un formulaire
-                                                    <span className="text-xs text-muted-foreground">
-                                                        Vérifiée et enregistrée
-                                                        aussitôt
+                                            <DropdownMenuItem asChild>
+                                                <a
+                                                    href={exportUrl('json')}
+                                                    download
+                                                >
+                                                    JSON
+                                                    <span className="ml-auto text-xs text-muted-foreground">
+                                                        {activeFilters
+                                                            ? t('tables.workspace.filtered_rows')
+                                                            : t('tables.workspace.whole_table')}
                                                     </span>
-                                                </span>
+                                                </a>
                                             </DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
-                                </ButtonGroup>
+                                )}
+                                {canInsert && (
+                                    <ButtonGroup>
+                                        <Button
+                                            size="sm"
+                                            onClick={() => addRow()}
+                                            disabled={!structure}
+                                            tooltip={t('tables.workspace.add_row_tooltip')}
+                                        >
+                                            <PlusIcon />
+                                            {t('tables.workspace.add_row')}
+                                        </Button>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button
+                                                    size="icon-sm"
+                                                    disabled={!structure}
+                                                    aria-label={t('tables.workspace.other_ways')}
+                                                >
+                                                    <ChevronDownIcon />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent
+                                                align="end"
+                                                className="w-72"
+                                            >
+                                                <DropdownMenuItem
+                                                    onSelect={() => addRow()}
+                                                >
+                                                    <Table2Icon />
+                                                    <span className="flex flex-col">
+                                                        {t('tables.workspace.in_grid')}
+                                                        <span className="text-xs text-muted-foreground">
+                                                            {t('tables.workspace.in_grid_description')}
+                                                        </span>
+                                                    </span>
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem
+                                                    onSelect={() =>
+                                                        setPanel({ type: 'insert' })
+                                                    }
+                                                >
+                                                    <FormInputIcon />
+                                                    <span className="flex flex-col">
+                                                        {t('tables.workspace.with_form')}
+                                                        <span className="text-xs text-muted-foreground">
+                                                            {t('tables.workspace.with_form_description')}
+                                                        </span>
+                                                    </span>
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </ButtonGroup>
+                                )}
                             </div>
                         </div>
 
@@ -988,9 +897,9 @@ export default function Workspace({
 
                         {!canEditSavedRows && structure && (
                             <p className="border-b px-3 py-1.5 text-xs text-muted-foreground">
-                                Cette table n'a pas de clé primaire : ses lignes
-                                ne peuvent pas être désignées, donc ni modifiées
-                                ni supprimées. Vous pouvez en ajouter.
+                                {primaryKey.length === 0
+                                    ? t('tables.workspace.no_primary_key')
+                                    : t('tables.workspace.no_update_privilege')}
                             </p>
                         )}
 
@@ -998,11 +907,11 @@ export default function Workspace({
                             <div className="flex flex-1 items-center justify-center p-6">
                                 <EmptyState
                                     icon={SearchXIcon}
-                                    title="Impossible de lire ces lignes"
+                                    title={t('tables.workspace.read_failed')}
                                     description={rowsState.error}
                                     actions={[
                                         {
-                                            label: 'Retirer les filtres',
+                                            label: t('tables.workspace.clear_filters'),
                                             variant: 'outline',
                                             onClick: () =>
                                                 changeView({
@@ -1026,6 +935,7 @@ export default function Workspace({
                                 widths={widths}
                                 sorts={view.sorts}
                                 canEditSavedRows={canEditSavedRows}
+                                canDeleteSavedRows={canDeleteSavedRows}
                                 loading={rowsState.loading}
                                 onSort={(column, additive) =>
                                     changeView({
@@ -1043,11 +953,11 @@ export default function Workspace({
                                     activeFilters ? (
                                         <EmptyState
                                             icon={SearchXIcon}
-                                            title="Aucune ligne ne correspond"
-                                            description="Les filtres excluent toutes les lignes de la table."
+                                            title={t('tables.workspace.no_match')}
+                                            description={t('tables.workspace.no_match_description')}
                                             actions={[
                                                 {
-                                                    label: 'Retirer les filtres',
+                                                    label: t('tables.workspace.clear_filters'),
                                                     variant: 'outline',
                                                     onClick: () =>
                                                         changeFilters(
@@ -1060,23 +970,23 @@ export default function Workspace({
                                     ) : (
                                         <EmptyState
                                             icon={Table2Icon}
-                                            title="Cette table est vide"
-                                            description="Ajoutez une première ligne : elle sera enregistrée quand vous appliquerez les modifications."
-                                            actions={[
+                                            title={t('tables.workspace.empty')}
+                                            description={t('tables.workspace.empty_description')}
+                                            actions={canInsert ? [
                                                 {
-                                                    label: 'Ajouter une ligne',
+                                                    label: t('tables.workspace.add_row'),
                                                     icon: PlusIcon,
                                                     onClick: () => addRow(),
                                                 },
                                                 {
-                                                    label: 'Avec un formulaire',
+                                                    label: t('tables.workspace.with_form'),
                                                     variant: 'outline',
                                                     onClick: () =>
                                                         setPanel({
                                                             type: 'insert',
                                                         }),
                                                 },
-                                            ]}
+                                            ] : []}
                                         />
                                     )
                                 }
@@ -1098,6 +1008,8 @@ export default function Workspace({
                                 rows={gridRows}
                                 columns={columns}
                                 canEditSavedRows={canEditSavedRows}
+                                canDeleteSavedRows={canDeleteSavedRows}
+                                canInsert={canInsert}
                                 {...selectionActions}
                             />
                         )}
@@ -1124,7 +1036,7 @@ export default function Workspace({
                             projectId={project.id}
                             structure={structure}
                             onOpenTable={(next) => onOpenTable(next)}
-                            onEditStructure={() => onAction('design', table)}
+                            onEditStructure={canOnProject('alter', table) ? () => onAction('design', table) : undefined}
                         />
                     ) : (
                         <Skeleton className="m-4 h-64" />
@@ -1159,7 +1071,7 @@ export default function Workspace({
                                 variant="ghost"
                                 size="icon-sm"
                                 onClick={() => setPanel(null)}
-                                aria-label="Fermer le panneau"
+                                aria-label={t('tables.workspace.close_panel')}
                             >
                                 <XIcon />
                             </Button>

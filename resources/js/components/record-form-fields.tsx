@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import Input from '@/components/form/input';
 import Select from '@/components/form/select';
 import Switch from '@/components/form/switch';
@@ -59,10 +60,10 @@ export const initialRecordValues = (
         ]),
     );
 
-const fieldDescription = (field: RecordFormField): string =>
+const fieldDescription = (field: RecordFormField, t: (key: string) => string): string =>
     [
         field.db_type,
-        field.unique ? 'unique' : null,
+        field.unique ? t('tables.records.unique') : null,
         field.references
             ? `→ ${field.references.table}.${field.references.column}`
             : null,
@@ -80,13 +81,15 @@ export default function RecordFormFields({
     onChange,
     className,
 }: Props) {
+    const { t } = useLaravelReactI18n();
+
     const renderField = (field: RecordFormField) => {
         const value = values[field.name] ?? '';
         const label = `${field.name}${field.required ? ' *' : ''}`;
         const error = errors[field.name];
         const placeholder =
             field.default !== null && field.default !== ''
-                ? `Défaut : ${field.default}`
+                ? t('tables.records.default', { value: String(field.default) })
                 : undefined;
 
         switch (field.type) {
@@ -96,7 +99,7 @@ export default function RecordFormFields({
                         key={field.name}
                         name={field.name}
                         label={label}
-                        description={fieldDescription(field)}
+                        description={fieldDescription(field, t)}
                         error={error}
                         orientation="horizontal"
                         className="rounded-md border p-3"
@@ -112,7 +115,7 @@ export default function RecordFormFields({
                         key={field.name}
                         name={field.name}
                         label={label}
-                        description={fieldDescription(field)}
+                        description={fieldDescription(field, t)}
                         error={error}
                         value={String(value)}
                         onValueChange={(selected) =>
@@ -131,7 +134,7 @@ export default function RecordFormFields({
                         key={field.name}
                         name={field.name}
                         label={label}
-                        description={fieldDescription(field)}
+                        description={fieldDescription(field, t)}
                         error={error}
                         placeholder={
                             placeholder ??
@@ -153,7 +156,7 @@ export default function RecordFormFields({
                         key={field.name}
                         name={field.name}
                         label={label}
-                        description={fieldDescription(field)}
+                        description={fieldDescription(field, t)}
                         error={error}
                         type={INPUT_TYPES[field.type] ?? 'text'}
                         step={field.type === 'decimal' ? 'any' : undefined}

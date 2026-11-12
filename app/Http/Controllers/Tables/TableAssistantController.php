@@ -84,7 +84,7 @@ class TableAssistantController extends TableController
                 ->chat($this->agentDriver($project), $table, $request->view(), $chat, $provider->id, $request->selectedModel())
                 ->usingProtocol(new VercelDataProtocolWithModel($chat->messageId()));
         } catch (TableNotFoundException $exception) {
-            throw new NotFoundHttpException("Cette table n'existe pas dans la base de données.", $exception);
+            throw new NotFoundHttpException(__('tables.errors.table_not_found'), $exception);
         }
     }
 
@@ -144,17 +144,17 @@ class TableAssistantController extends TableController
     }
 
     /**
-     * The driver given to the agent, which hides the tables disabled in the settings of the project.
+     * The driver given to the agent, which hides the tables disabled in the settings of the project and never does more than the user.
      */
     protected function agentDriver(Project $project): DriverContract
     {
-        return $project->driver_config->getAgentDriver();
+        return $project->driver_config->agentDriverFor(request()->user());
     }
 
     protected function assertReadable(Project $project, string $table): void
     {
         if (in_array($table, $project->driver_config->disabled_tables ?? [], true)) {
-            throw new AccessDeniedHttpException("L'assistant n'a pas accès à cette table : elle est désactivée dans les paramètres du projet.");
+            throw new AccessDeniedHttpException(__('tables.workspace.agent_disabled'));
         }
     }
 
@@ -165,7 +165,7 @@ class TableAssistantController extends TableController
             $exception instanceof ProviderOverloadedException => __('chat.stream_errors.overloaded'),
             $exception instanceof InsufficientCreditsException => __('chat.stream_errors.insufficient_credits'),
             $exception instanceof ProviderConnectionException => __('chat.stream_errors.connection'),
-            default => "L'assistant n'a pas pu répondre. Vérifiez le modèle choisi puis réessayez.",
+            default => __('tables.quick_chat.failed'),
         };
     }
 }

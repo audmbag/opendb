@@ -17,12 +17,12 @@ trait AuthenticatesUser
     protected function authenticateUser(): ?User
     {
         $credentials = [
-            'name' => $this->option('name') ?? text("Nom d'utilisateur", required: true),
-            'password' => password('Mot de passe', required: true),
+            'name' => $this->option('name') ?? text(__('login.username'), required: true),
+            'password' => password(__('login.password'), required: true),
         ];
 
         if (! Auth::validate($credentials)) {
-            $this->error('Identifiants incorrects.');
+            $this->error(__('console.invalid_credentials'));
 
             return null;
         }

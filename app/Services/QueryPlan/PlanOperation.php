@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\QueryPlan;
 
+use App\Support\TranslatableMessage;
+
 /**
  * Les étapes d'un plan d'exécution normalisé, communes à tous les moteurs.
  */
@@ -28,28 +30,9 @@ enum PlanOperation: string
     case Union = 'union';
     case Other = 'other';
 
-    public function label(): string
+    public function label(): TranslatableMessage
     {
-        return match ($this) {
-            self::Result => 'Résultat',
-            self::FullScan => 'Parcours complet',
-            self::IndexFullScan => "Parcours complet de l'index",
-            self::RangeScan => "Parcours d'intervalle",
-            self::IndexLookup => 'Recherche par index',
-            self::UniqueLookup => 'Recherche unique',
-            self::NestedLoop => 'Jointure en boucle',
-            self::HashJoin => 'Jointure par hachage',
-            self::MergeJoin => 'Jointure par fusion',
-            self::Hash => 'Table de hachage',
-            self::Group => 'Regroupement',
-            self::Sort => 'Tri',
-            self::Distinct => 'Dédoublonnage',
-            self::Limit => 'Limite',
-            self::Subquery => 'Sous-requête',
-            self::Materialize => 'Matérialisation',
-            self::Union => 'Union',
-            self::Other => 'Autre étape',
-        };
+        return new TranslatableMessage("query_plan.operations.{$this->value}");
     }
 
     /**

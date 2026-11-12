@@ -1,4 +1,5 @@
 import { usePage } from '@inertiajs/react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     BrainCircuitIcon,
     BrainIcon,
@@ -6,11 +7,13 @@ import {
     PencilIcon,
     PencilOffIcon,
     PlusIcon,
+    SquareIcon,
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { toast } from 'sonner';
+import { formatBytes } from '@/components/ai/artifacts/format';
 import AttachmentItem from '@/components/ai/attachment-item';
 import ModelSelector from '@/components/ai/model-selector';
 import { Attachments } from '@/components/ai-elements/attachments';
@@ -41,6 +44,7 @@ import {
     MentionItem,
 } from '@/components/ui/mention';
 import { getFileIcon } from '@/hooks/use-file-tree';
+import { usePrivileges } from '@/hooks/use-privileges';
 import { getMentionQuery, searchProjectFiles, useProjectFiles } from '@/hooks/use-project-files';
 import { PROMPT_HOTKEY_OPTIONS } from '@/lib/hotkeys';
 import { cn } from '@/lib/utils';
@@ -77,6 +81,7 @@ const PromptInputAttachmentsDisplay = ({ className }: { className?: string }) =>
 };
 
 const AttachmentButton = ({ className, size = 'sm', ...props }: React.ComponentProps<typeof Button>) => {
+    const { t } = useLaravelReactI18n();
 
     const attachments = usePromptInputAttachments();
 
@@ -89,7 +94,7 @@ const AttachmentButton = ({ className, size = 'sm', ...props }: React.ComponentP
     return (
         <Button
             {...props}
-            tooltip={['Ajouter un fichier', ['Ctrl', 'U']]}
+            tooltip={[t('ai.prompt.add_file'), ['Ctrl', 'U']]}
             icon={PlusIcon}
             variant="secondary"
             className={cn('size-10 rounded-full', className)}
@@ -106,6 +111,7 @@ interface FileMentionProps extends React.ComponentProps<typeof Mention> {
 }
 
 const FileMention = ({ children, query, paths, isLoading, ...props }: FileMentionProps) => {
+    const { t } = useLaravelReactI18n();
     const entries = useMemo(
         () => searchProjectFiles(paths ?? [], query),
         [paths, query],
@@ -118,7 +124,7 @@ const FileMention = ({ children, query, paths, isLoading, ...props }: FileMentio
             </MentionInput>
             <MentionContent className="flex max-h-80 w-96 max-w-[calc(100vw-2rem)] flex-col p-1">
                 <div className="flex items-center justify-between gap-2 px-2 pt-1 pb-1.5 text-xs text-muted-foreground">
-                    <span>Fichiers du projet</span>
+                    <span>{t('ai.prompt.project_files')}</span>
                     <span className="flex items-center gap-1">
                         <Kbd>↑</Kbd>
                         <Kbd>↓</Kbd>
@@ -128,7 +134,7 @@ const FileMention = ({ children, query, paths, isLoading, ...props }: FileMentio
                 <div className="min-h-0 overflow-y-auto">
                     {entries.length === 0 ? (
                         <MentionItem value="__empty" disabled className="text-muted-foreground">
-                            {isLoading ? 'Chargement des fichiers...' : 'Aucun fichier correspondant'}
+                            {isLoading ? t('ai.prompt.loading_files') : t('ai.prompt.no_matching_file')}
                         </MentionItem>
                     ) : (
                         entries.map((entry) => (
@@ -155,18 +161,27 @@ export default function PromptInput({
     onSubmit,
     suggestions = true,
     loading = false,
+    onStop,
     variant = 'primary',
     ...props
 }: {
     suggestions?: boolean;
     onSubmit?: (message: AIPromptInputMessage) => void;
     loading?: boolean;
+    /**
+     * Stop the answer being written: while loading, the submit button becomes a stop button.
+     */
+    onStop?: () => void;
     variant?: 'primary' | 'secondary';
 } & Omit<React.ComponentProps<'div'>, 'children' | 'onSubmit'>) {
+    const { t } = useLaravelReactI18n();
     const { props: { project } } = usePage<{ project?: Project }>();
     const isCompact = variant === 'secondary';
 
-    const accessMode = useAgentSettingsStore((state) => state.accessMode);
+    // The agent never does more than the user: without a privilege changing the database, it only reads.
+    const { writes } = usePrivileges();
+    const chosenAccessMode = useAgentSettingsStore((state) => state.accessMode);
+    const accessMode: AgentAccessMode = writes ? chosenAccessMode : 'read-only';
     const setAccessMode = useAgentSettingsStore((state) => state.setAccessMode);
     const effort = useAgentSettingsStore((state) => state.effort);
     const setEffort = useAgentSettingsStore((state) => state.setEffort);
@@ -175,9 +190,9 @@ export default function PromptInput({
     // The dot needs Shift on an AZERTY keyboard.
     useHotkeys(
         ['mod+.', 'mod+shift+.'],
-        () => setAccessMode(accessMode === 'read-only' ? 'read-write' : 'read-only'),
+        () => writes && setAccessMode(accessMode === 'read-only' ? 'read-write' : 'read-only'),
         PROMPT_HOTKEY_OPTIONS,
-        [accessMode, setAccessMode],
+        [accessMode, setAccessMode, writes],
     );
 
     useHotkeys(
@@ -245,13 +260,24 @@ export default function PromptInput({
         [onSubmit],
     );
 
-    const submitButton = (
+    const submitButton = loading && onStop ? (
+        <Button
+            tooltip={t('ai.prompt.stop')}
+            aria-label={t('ai.prompt.stop')}
+            icon={SquareIcon}
+            className={cn('size-10 rounded-full [&_svg]:fill-current', {
+                'size-8 rounded-lg': isCompact,
+            })}
+            onClick={onStop}
+            size="sm"
+        />
+    ) : (
         <PromptInputSubmit asChild>
             <Button
                 tooltip={
                     hasSelectedModel
-                        ? ['Envoyer le prompt', ['⏎']]
-                        : 'Sélectionnez un modèle pour envoyer le prompt'
+                        ? [t('ai.prompt.send'), ['⏎']]
+                        : t('ai.prompt.select_model')
                 }
                 icon={CornerDownLeftIcon}
                 className={cn('size-10 rounded-full', {
@@ -286,15 +312,11 @@ export default function PromptInput({
                 maxFileSize={10 * 1024 * 1024}
                 onError={(error) => {
                     if (error.code === 'max_files') {
-                        toast.error(
-                            'Vous ne pouvez pas ajouter plus de 3 fichiers à la fois.',
-                        );
+                        toast.error(t('ai.prompt.max_files', { count: 3 }));
                     }
 
                     if (error.code === 'max_file_size') {
-                        toast.error(
-                            'Le fichier sélectionné dépasse la taille maximale autorisée de 10MB.',
-                        );
+                        toast.error(t('ai.prompt.max_file_size', { size: formatBytes(10 * 1024 * 1024) }));
                     }
                 }}
             >
@@ -320,7 +342,7 @@ export default function PromptInput({
                             className={
                                 isCompact ? 'min-h-12 py-3.5' : 'min-h-15 py-4'
                             }
-                            placeholder="Démander n'importe quoi... (@ pour mentionner un fichier)"
+                            placeholder={t('ai.prompt.placeholder')}
                             value={prompt}
                             onChange={(e) => {
                                 setPrompt(e.target.value);
@@ -375,7 +397,7 @@ export default function PromptInput({
                         />
                     )}
                     <Select
-                        optionsLabel="Mode d'accès"
+                        optionsLabel={t('ai.prompt.access_mode')}
                         value={accessMode}
                         onValueChange={(value) =>
                             setAccessMode(value as AgentAccessMode)
@@ -383,25 +405,29 @@ export default function PromptInput({
                         position={isCompact ? 'popper' : 'item-aligned'}
                         button
                         size={toolbarControlSize}
-                        tooltip={["Choisir le mode d'action", ['Ctrl', '.']]}
+                        tooltip={[t('shortcuts.access_mode'), ['Ctrl', '.']]}
                         items={[
                             {
-                                label: 'Lecture seule',
+                                label: t('ai.access_modes.read-only'),
                                 value: 'read-only',
                                 icon: PencilOffIcon,
                             },
-                            {
-                                label: 'Lecture et écriture',
-                                value: 'read-write',
-                                icon: PencilIcon,
-                            },
+                            ...(writes
+                                ? [
+                                      {
+                                          label: t('ai.access_modes.read-write'),
+                                          value: 'read-write',
+                                          icon: PencilIcon,
+                                      },
+                                  ]
+                                : []),
                         ]}
                     />
                 </div>
                 <div className="flex items-center gap-2">
                     <ModelSelector size={toolbarControlSize} />
                     <Select
-                        optionsLabel="Effort de réflexion"
+                        optionsLabel={t('ai.prompt.effort')}
                         value={effort}
                         onValueChange={(value) =>
                             setEffort(value as AgentEffort)
@@ -410,17 +436,17 @@ export default function PromptInput({
                         button
                         size={toolbarControlSize}
                         tooltip={[
-                            "Choisir l'effort de réflexion",
+                            t('shortcuts.effort'),
                             ['Ctrl', 'Shift', 'D'],
                         ]}
                         items={[
                             {
-                                label: 'Par défaut',
+                                label: t('ai.efforts.default'),
                                 value: 'default',
                                 icon: BrainIcon,
                             },
                             {
-                                label: 'Élevé',
+                                label: t('ai.efforts.high'),
                                 value: 'high',
                                 icon: BrainCircuitIcon,
                             },

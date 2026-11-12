@@ -7,6 +7,7 @@ import {
 import type { EdgeProps, EdgeTypes } from '@xyflow/react';
 import { useMemo } from 'react';
 import { cn } from '@/lib/utils';
+import Cardinality from './cardinality';
 import type { Point, RelationshipEdgeType } from './types';
 
 function pathLength(points: Point[]): number {
@@ -102,6 +103,9 @@ export function RelationshipEdge({
     style,
 }: EdgeProps<RelationshipEdgeType>) {
     const isActive = data?.active ?? false;
+    const isImplicit = data?.implicit ?? false;
+    const isDraft = data?.draft ?? false;
+    const cardinality = isImplicit ? undefined : data?.cardinality;
     const points = useMemo<Point[]>(
         () => [
             { x: sourceX, y: sourceY },
@@ -147,33 +151,63 @@ export function RelationshipEdge({
                     ...style,
                     strokeWidth: isActive ? 2 : 1.5,
                     ...(isActive && { strokeDasharray: '6 4' }),
+                    ...(isImplicit && !isActive && { strokeDasharray: '3 4' }),
+                    ...(isDraft && !isActive && { strokeDasharray: '6 4' }),
                 }}
                 className={cn(
                     isActive
                         ? 'flow-edge-animated stroke-primary'
-                        : 'stroke-muted-foreground',
+                        : isDraft
+                          ? 'stroke-emerald-500'
+                          : isImplicit
+                            ? 'stroke-muted-foreground/60'
+                            : 'stroke-muted-foreground',
                 )}
             />
-            <EdgeLabelRenderer>
-                {[
-                    { point: { x: sourceX, y: sourceY }, target: false },
-                    { point: { x: targetX, y: targetY }, target: true },
-                ].map(({ point, target }, index) => (
-                    <div
-                        key={index}
-                        style={{
-                            position: 'absolute',
-                            transform: `translate(-50%, -50%) translate(${point.x}px, ${point.y}px)`,
-                            pointerEvents: 'none',
-                        }}
-                        className={cn(
-                            'h-2.5 w-2.5 border-2 border-muted-foreground bg-background',
-                            target && 'bg-muted-foreground',
-                            isActive && 'border-primary',
-                            isActive && target && 'bg-primary',
-                        )}
+            {cardinality && (
+                <>
+                    {/* The table holding the foreign key: none, one or many rows for each referenced row. */}
+                    <Cardinality
+                        x={sourceX}
+                        y={sourceY}
+                        position={sourcePosition}
+                        most={cardinality.unique ? 'one' : 'many'}
+                        optional
+                        isActive={isActive}
                     />
-                ))}
+                    {/* The referenced table: one row, or none when the foreign key may be NULL. */}
+                    <Cardinality
+                        x={targetX}
+                        y={targetY}
+                        position={targetPosition}
+                        most="one"
+                        optional={cardinality.nullable}
+                        isActive={isActive}
+                    />
+                </>
+            )}
+            <EdgeLabelRenderer>
+                {!cardinality &&
+                    !isImplicit &&
+                    [
+                        { point: { x: sourceX, y: sourceY }, target: false },
+                        { point: { x: targetX, y: targetY }, target: true },
+                    ].map(({ point, target }, index) => (
+                        <div
+                            key={index}
+                            style={{
+                                position: 'absolute',
+                                transform: `translate(-50%, -50%) translate(${point.x}px, ${point.y}px)`,
+                                pointerEvents: 'none',
+                            }}
+                            className={cn(
+                                'h-2.5 w-2.5 border-2 border-muted-foreground bg-background',
+                                target && 'bg-muted-foreground',
+                                isActive && 'border-primary',
+                                isActive && target && 'bg-primary',
+                            )}
+                        />
+                    ))}
                 {data?.showForeignKeys && data.sourceColumn && (
                     <div
                         style={{

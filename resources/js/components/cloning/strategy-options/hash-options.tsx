@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import React from 'react';
 import { useCloningStore } from '@/components/cloning/cloning-store';
 import type { StrategyOptionsProps } from '@/components/cloning/strategy-options/types';
@@ -12,6 +13,7 @@ const HASH_ALGORITHMS = [
 ];
 
 const HashOptions = ({ table, column, transformation }: StrategyOptionsProps) => {
+    const { t } = useLaravelReactI18n();
     const setField = useCloningStore((s) => s.setField);
 
     if (transformation.strategy !== 'hash') {
@@ -20,7 +22,7 @@ const HashOptions = ({ table, column, transformation }: StrategyOptionsProps) =>
 
     return (
         <Select
-            label="Algorithme"
+            label={t('cloning.ui.hash_algorithm')}
             value={transformation.algorithm}
             onValueChange={(value) => setField(table, column, 'algorithm', value)}
             items={HASH_ALGORITHMS}

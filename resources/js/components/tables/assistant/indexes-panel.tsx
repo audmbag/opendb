@@ -1,5 +1,7 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { MessageSquareTextIcon } from 'lucide-react';
 import { useState } from 'react';
+import Alert from '@/components/alert';
 import {
     CodeBlock,
     CodeBlockActions,
@@ -7,7 +9,6 @@ import {
     CodeBlockHeader,
     CodeBlockTitle,
 } from '@/components/code-block';
-import Alert from '@/components/alert';
 import Button from '@/components/form/button';
 import { Badge } from '@/components/reui/badge';
 import { uppercaseSqlKeywords } from '@/lib/sql';
@@ -28,9 +29,9 @@ const IMPACTS: Record<
     IndexSuggestions['indexes'][number]['impact'],
     { label: string; variant: 'warning' | 'secondary' | 'outline' }
 > = {
-    high: { label: 'Gain important', variant: 'warning' },
-    medium: { label: 'Gain moyen', variant: 'secondary' },
-    low: { label: 'Gain faible', variant: 'outline' },
+    high: { label: 'tables.assistant.impacts.high', variant: 'warning' },
+    medium: { label: 'tables.assistant.impacts.medium', variant: 'secondary' },
+    low: { label: 'tables.assistant.impacts.low', variant: 'outline' },
 };
 
 /**
@@ -43,6 +44,7 @@ export default function IndexesPanel({
     disabledReason,
     onAskChat,
 }: Props) {
+    const { t } = useLaravelReactI18n();
     const { ask, result, error, processing, reset } =
         useTableAssistant<IndexSuggestions>();
     const [askedFor, setAskedFor] = useState<string | null>(null);
@@ -67,9 +69,7 @@ export default function IndexesPanel({
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
             <div className="flex items-start justify-between gap-3">
                 <p className="text-sm text-muted-foreground">
-                    L'assistant lit le plan d'exécution de la vue actuelle, avec
-                    ses filtres et son tri, et propose les index qui
-                    l'accéléreraient. Aucun index n'est créé.
+                    {t('tables.assistant.indexes_description')}
                 </p>
                 <Button
                     size="sm"
@@ -79,21 +79,21 @@ export default function IndexesPanel({
                     tooltip={disabledReason ?? undefined}
                     processing={processing}
                 >
-                    {result ? 'Relancer' : 'Analyser la vue'}
+                    {result ? t('tables.assistant.rerun') : t('tables.assistant.analyze_view')}
                 </Button>
             </div>
 
             {disabledReason && (
                 <Alert
                     variant="warning"
-                    title="Assistant indisponible"
+                    title={t('tables.assistant.unavailable')}
                     message={disabledReason}
                 />
             )}
             {error && (
                 <Alert
                     variant="destructive"
-                    title="L'assistant n'a pas répondu"
+                    title={t('tables.assistant.no_answer')}
                     message={error}
                 />
             )}
@@ -112,8 +112,8 @@ export default function IndexesPanel({
                             }
                             title={
                                 alert.severity === 'danger'
-                                    ? 'Problème dans le plan'
-                                    : 'À surveiller dans le plan'
+                                    ? t('tables.assistant.plan_problem')
+                                    : t('tables.assistant.plan_warning')
                             }
                             message={alert.message}
                         />
@@ -130,7 +130,7 @@ export default function IndexesPanel({
                                     variant={IMPACTS[index.impact].variant}
                                     className="shrink-0"
                                 >
-                                    {IMPACTS[index.impact].label}
+                                    {t(IMPACTS[index.impact].label)}
                                 </Badge>
                             </div>
                             <CodeBlock
@@ -152,7 +152,7 @@ export default function IndexesPanel({
 
                     <details className="text-sm text-muted-foreground">
                         <summary className="cursor-pointer select-none hover:text-foreground">
-                            Requête analysée
+                            {t('query_plan.sql.analyzed_query')}
                         </summary>
                         <code className="mt-2 block font-mono text-xs break-all">
                             {uppercaseSqlKeywords(result.query)}
@@ -165,12 +165,12 @@ export default function IndexesPanel({
                         className="self-start"
                         onClick={() =>
                             onAskChat(
-                                `Analyse le plan d'exécution de cette requête et explique-moi les index proposés :\n\n${result.query}`,
+                                `${t('tables.assistant.ask_indexes')}\n\n${result.query}`,
                             )
                         }
                     >
                         <MessageSquareTextIcon />
-                        Approfondir dans le chat
+                        {t('tables.assistant.dig_in_chat')}
                     </Button>
                 </>
             )}

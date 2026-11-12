@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useProvider } from '@/hooks/use-provider';
@@ -13,6 +14,7 @@ const ModelItem = ({
     model: AiModel;
     onToggle: (status: boolean) => void;
 }) => {
+    const { t } = useLaravelReactI18n();
     const { toggleProvider, toggleModelProcessing } = useProvider();
 
     return (
@@ -25,7 +27,7 @@ const ModelItem = ({
                 <span className="text-base">{model.label}</span>
                 {model.context_window && (
                     <Badge variant="outline" className="text-xs">
-                        Contexte :
+                        {t('settings.models.context')}
                         <span className="font-semibold">
                             {numberFormat(model.context_window)}
                         </span>

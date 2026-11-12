@@ -2,6 +2,7 @@
 
 namespace App\Ai\Tools\FileStorage;
 
+use App\Support\TranslatableMessage;
 use Laravel\Ai\Approvals\Approval;
 use Laravel\Ai\Concerns\InteractsWithApprovals;
 use Laravel\Ai\Contracts\Approvable;
@@ -17,6 +18,8 @@ class DeleteFile extends AIDeleteFileTool implements Approvable
         $path = (string) $request->string('path');
         $rootDir = rtrim($this->disk()->path(''), '/');
 
-        return Approval::required("Cette action supprime le fichier [$path] du repertoire [$rootDir].");
+        return Approval::required(
+            (new TranslatableMessage('ai.approvals.delete_file', ['path' => $path, 'directory' => $rootDir]))->toJson(),
+        );
     }
 }

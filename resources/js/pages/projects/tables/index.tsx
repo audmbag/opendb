@@ -1,4 +1,5 @@
 import { Head, router } from '@inertiajs/react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     DatabaseIcon,
     EraserIcon,
@@ -36,6 +37,7 @@ import {
     ResizablePanel,
     ResizablePanelGroup,
 } from '@/components/ui/resizable';
+import { usePrivileges } from '@/hooks/use-privileges';
 import {
     createTableChangesStore,
     pendingChangesCount,
@@ -56,6 +58,10 @@ type Props = {
     tables: TableSummary[];
     table: string | null;
     structure?: TableStructure | null;
+    /**
+     * The columns of every table, completed in the consoles once deferred.
+     */
+    completion?: Record<string, string[]>;
 };
 
 type TabStores = { changes: TableChangesStore; grid: TableGridStore };
@@ -73,7 +79,7 @@ type OpenTab =
           dataVersion: number;
           stores: TabStores;
       }
-    | { id: string; kind: 'console'; title: string; initialSql: string };
+    | { id: string; kind: 'console'; number: number; initialSql: string };
 
 type Dialog =
     | { type: 'designer'; table: string | null }
@@ -154,7 +160,12 @@ export default function TablesIndex({
     tables,
     table,
     structure,
+    completion,
 }: Props) {
+    const { t, tChoice } = useLaravelReactI18n();
+    // What the privileges of the user refuse on the whole database is left out, like the server would refuse it.
+    const { canOnProject, canSomewhere } = usePrivileges();
+    const canCreateTable = canOnProject('create');
     const [tabs, setTabs] = useState<OpenTab[]>(() =>
         restoreTabs(project.id, tables, table),
     );
@@ -209,7 +220,7 @@ export default function TablesIndex({
     const reloadTables = () => {
         setSchemaVersion((version) => version + 1);
         router.reload({
-            only: ['tables'],
+            only: ['tables', 'completion'],
             onFinish: () => setAddressVersion((version) => version + 1),
         });
     };
@@ -260,7 +271,7 @@ export default function TablesIndex({
         const tab: OpenTab = {
             id: newTabId('console'),
             kind: 'console',
-            title: count === 0 ? 'Console SQL' : `Console SQL ${count + 1}`,
+            number: count + 1,
             initialSql,
         };
 
@@ -310,12 +321,12 @@ export default function TablesIndex({
                 .map(({ tab }) => (tab.kind === 'table' ? tab.table : ''))
                 .join(', ');
             const confirmed = await AlertDialog.call({
-                title: 'Abandonner les modifications ?',
-                description: `${count} modification${count > 1 ? 's' : ''} de ${names} ne ${count > 1 ? 'sont' : 'est'} pas appliquée${count > 1 ? 's' : ''}. En fermant, elle${count > 1 ? 's' : ''} sera${count > 1 ? 'ont' : ''} perdue${count > 1 ? 's' : ''}.`,
+                title: t('tables.discard.title'),
+                description: tChoice('tables.discard.description', count, { tables: names }),
                 icon: Trash2Icon,
                 variant: 'destructive',
-                confirmText: 'Abandonner',
-                cancelText: 'Garder ouvert',
+                confirmText: t('tables.discard.confirm'),
+                cancelText: t('tables.discard.keep_open'),
             });
 
             if (!confirmed) {
@@ -371,13 +382,12 @@ export default function TablesIndex({
                 return;
             case 'truncate': {
                 const confirmed = await AlertDialog.call({
-                    title: `Vider ${name} ?`,
-                    description:
-                        'Toutes les lignes de la table seront supprimées et ses identifiants repartiront de 1. Cela ne peut pas être annulé.',
+                    title: t('tables.truncate.title', { table: name }),
+                    description: t('tables.truncate.description'),
                     icon: EraserIcon,
                     variant: 'destructive',
-                    confirmText: 'Vider la table',
-                    cancelText: 'Annuler',
+                    confirmText: t('tables.truncate.confirm'),
+                    cancelText: t('common.cancel'),
                 });
 
                 if (!confirmed) {
@@ -389,12 +399,12 @@ export default function TablesIndex({
                         deleted: number;
                     }>('post', TableDesignController.truncate.url(args));
 
-                    toast.success(`${name} est vide`, {
-                        description: `${formatInteger(deleted)} ligne${deleted > 1 ? 's' : ''} supprimée${deleted > 1 ? 's' : ''}`,
+                    toast.success(t('tables.truncate.done', { table: name }), {
+                        description: tChoice('tables.truncate.deleted_rows', deleted, { count: formatInteger(deleted) }),
                     });
                     touchRows(name);
                 } catch (exception) {
-                    toast.error(`${name} n'a pas été vidée`, {
+                    toast.error(t('tables.truncate.failed', { table: name }), {
                         description: (exception as TableRequestError).first(),
                     });
                 }
@@ -403,13 +413,12 @@ export default function TablesIndex({
             }
             case 'drop': {
                 const confirmed = await AlertDialog.call({
-                    title: `Supprimer ${name} ?`,
-                    description:
-                        'La table, ses lignes, ses index et ses clés étrangères seront supprimés. Une table référencée par une autre est refusée par la base. Cela ne peut pas être annulé.',
+                    title: t('tables.drop.title', { table: name }),
+                    description: t('tables.drop.description'),
                     icon: Trash2Icon,
                     variant: 'destructive',
-                    confirmText: 'Supprimer la table',
-                    cancelText: 'Annuler',
+                    confirmText: t('tables.drop.confirm'),
+                    cancelText: t('common.cancel'),
                 });
 
                 if (!confirmed) {
@@ -422,7 +431,7 @@ export default function TablesIndex({
                         TableDesignController.destroy.url(args),
                     );
 
-                    toast.success(`${name} a été supprimée`);
+                    toast.success(t('tables.drop.done', { table: name }));
                     // The address must not name the dropped table when the list is read again.
                     window.history.replaceState(
                         window.history.state,
@@ -441,7 +450,7 @@ export default function TablesIndex({
                     );
                     reloadTables();
                 } catch (exception) {
-                    toast.error(`${name} n'a pas été supprimée`, {
+                    toast.error(t('tables.drop.failed', { table: name }), {
                         description: (exception as TableRequestError).first(),
                     });
                 }
@@ -455,10 +464,17 @@ export default function TablesIndex({
         panelIds: ['tables-list', 'tables-workspace'],
     });
 
+    const tabTitle = (tab: OpenTab): string =>
+        tab.kind === 'table'
+            ? tab.table
+            : tab.number === 1
+              ? t('tables.console.title')
+              : t('tables.console.numbered_title', { number: tab.number });
+
     const tabItems = tabs.map((tab) => ({
         id: tab.id,
         kind: tab.kind,
-        title: tab.kind === 'table' ? tab.table : tab.title,
+        title: tabTitle(tab),
         changes: tab.kind === 'table' ? tab.stores.changes : null,
     }));
 
@@ -466,11 +482,7 @@ export default function TablesIndex({
         <>
             <Head
                 title={
-                    activeTab
-                        ? activeTab.kind === 'table'
-                            ? activeTab.table
-                            : activeTab.title
-                        : 'Tables'
+                    activeTab ? tabTitle(activeTab) : t('projects.menu.tables')
                 }
             />
 
@@ -497,14 +509,22 @@ export default function TablesIndex({
                         schemaVersion={schemaVersion}
                         onOpen={openTable}
                         onAction={runAction}
-                        onCreateTable={() =>
-                            setDialog({ type: 'designer', table: null })
+                        onCreateTable={
+                            canCreateTable
+                                ? () => setDialog({ type: 'designer', table: null })
+                                : undefined
                         }
                         onOpenConsole={() => openConsole()}
-                        onImport={() =>
-                            setDialog({ type: 'import', table: null })
+                        onImport={
+                            canSomewhere('import')
+                                ? () => setDialog({ type: 'import', table: null })
+                                : undefined
                         }
-                        onExport={() => setDialog({ type: 'export' })}
+                        onExport={
+                            canSomewhere('export')
+                                ? () => setDialog({ type: 'export' })
+                                : undefined
+                        }
                     />
                 </ResizablePanel>
                 <ResizableHandle
@@ -545,6 +565,7 @@ export default function TablesIndex({
                                                 projectId={project.id}
                                                 driver={driver}
                                                 tables={tableNames}
+                                                completion={completion}
                                                 initialSql={tab.initialSql}
                                                 onSchemaChanged={reloadTables}
                                             />
@@ -601,11 +622,11 @@ export default function TablesIndex({
                                                 <div className="flex flex-1 items-center justify-center rounded-lg rounded-t-none border bg-background p-6">
                                                     <EmptyState
                                                         icon={Table2Icon}
-                                                        title="Cette table n'existe plus"
-                                                        description={`${tab.table} a été renommée ou supprimée hors de cet onglet.`}
+                                                        title={t('tables.missing.title')}
+                                                        description={t('tables.missing.description', { table: tab.table })}
                                                         actions={[
                                                             {
-                                                                label: "Fermer l'onglet",
+                                                                label: t('tables.missing.close_tab'),
                                                                 variant:
                                                                     'outline',
                                                                 onClick: () =>
@@ -630,37 +651,41 @@ export default function TablesIndex({
                                 icon={tables.length ? Table2Icon : DatabaseIcon}
                                 title={
                                     tables.length
-                                        ? 'Choisissez une table'
-                                        : 'Aucune table'
+                                        ? t('tables.empty.choose')
+                                        : t('tables.empty.none')
                                 }
                                 description={
                                     tables.length
-                                        ? `La base contient ${formatInteger(tables.length)} table${tables.length > 1 ? 's' : ''}. Chacune s'ouvre dans un onglet, qui garde ses filtres et ses modifications quand vous passez à une autre.`
-                                        : 'Cette base de données ne contient encore aucune table.'
+                                        ? tChoice('tables.empty.choose_description', tables.length, { count: formatInteger(tables.length) })
+                                        : t('tables.empty.none_description')
                                 }
                                 actions={[
                                     ...(tables.length
                                         ? [
                                               {
-                                                  label: `Ouvrir ${tables[0].name}`,
+                                                  label: t('tables.empty.open', { table: tables[0].name }),
                                                   variant: 'outline' as const,
                                                   onClick: () =>
                                                       openTable(tables[0].name),
                                               },
                                           ]
                                         : []),
-                                    {
-                                        label: 'Créer une table',
-                                        icon: PlusIcon,
-                                        variant: tables.length
-                                            ? ('ghost' as const)
-                                            : ('default' as const),
-                                        onClick: () =>
-                                            setDialog({
-                                                type: 'designer',
-                                                table: null,
-                                            }),
-                                    },
+                                    ...(canCreateTable
+                                        ? [
+                                              {
+                                                  label: t('tables.create'),
+                                                  icon: PlusIcon,
+                                                  variant: tables.length
+                                                      ? ('ghost' as const)
+                                                      : ('default' as const),
+                                                  onClick: () =>
+                                                      setDialog({
+                                                          type: 'designer',
+                                                          table: null,
+                                                      }),
+                                              },
+                                          ]
+                                        : []),
                                     {
                                         label: 'Console SQL',
                                         icon: SquareTerminalIcon,
@@ -708,7 +733,7 @@ export default function TablesIndex({
 
                         if (dialog.mode === 'rename') {
                             toast.success(
-                                `${dialog.table} s'appelle désormais ${name}`,
+                                t('tables.renamed', { from: dialog.table, to: name }),
                             );
                             window.history.replaceState(
                                 window.history.state,
@@ -719,7 +744,7 @@ export default function TablesIndex({
                             );
                             retarget(dialog.table, name);
                         } else {
-                            toast.success(`${name} a été créée`);
+                            toast.success(t('tables.created', { table: name }));
                             openTable(name);
                         }
 

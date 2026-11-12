@@ -7,6 +7,7 @@ import {
     useReactFlow,
 } from '@xyflow/react';
 import type { Edge, Node, ReactFlowProps } from '@xyflow/react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import '@xyflow/react/dist/style.css';
 import {
     ImageDownIcon,
@@ -46,6 +47,16 @@ type Props<NodeType extends Node, EdgeType extends Edge> = Omit<
      * Frame the nodes in the view, instead of the default fitView. Called once the canvas is ready and whenever its size changes.
      */
     onFitView?: () => void;
+    /**
+     * Whether the wheel zooms outside the full screen view. Off by default, so that the wheel scrolls the conversation
+     * holding the canvas; a page made of the canvas alone turns it on.
+     */
+    zoomOnScroll?: boolean;
+    /**
+     * Whether the nodes are framed again whenever the canvas is resized. A canvas the user moves around in turns it
+     * off, so that opening a panel beside it keeps the view where it is.
+     */
+    fitOnResize?: boolean;
     className?: string;
     canvasClassName?: string;
     asideClassName?: string;
@@ -55,13 +66,16 @@ type Props<NodeType extends Node, EdgeType extends Edge> = Omit<
     children?: ReactNode;
 };
 
-export const FLOW_ARIA_LABELS = {
-    'controls.ariaLabel': 'Contrôles du graphe',
-    'controls.zoomIn.ariaLabel': 'Zoom avant',
-    'controls.zoomOut.ariaLabel': 'Zoom arrière',
-    'controls.fitView.ariaLabel': 'Ajuster à la vue',
-    'minimap.ariaLabel': "Vue d'ensemble",
-};
+/**
+ * The labels React Flow gives to its controls, in the language of the interface.
+ */
+const flowAriaLabels = (t: (key: string) => string) => ({
+    'controls.ariaLabel': t('flow.controls'),
+    'controls.zoomIn.ariaLabel': t('flow.zoom_in'),
+    'controls.zoomOut.ariaLabel': t('flow.zoom_out'),
+    'controls.fitView.ariaLabel': t('flow.fit_view'),
+    'minimap.ariaLabel': t('flow.minimap'),
+});
 
 /**
  * Whether the viewer asked the system to limit animations: viewport moves are then instant.
@@ -108,12 +122,15 @@ export default function FlowCanvas<
     isReady = true,
     aside,
     onFitView,
+    zoomOnScroll = false,
+    fitOnResize = true,
     className,
     canvasClassName,
     asideClassName,
     children,
     ...flowProps
 }: Props<NodeType, EdgeType>) {
+    const { t } = useLaravelReactI18n();
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
     const canvasRef = useRef<HTMLDivElement>(null);
@@ -175,7 +192,13 @@ export default function FlowCanvas<
         }
 
         let frame = 0;
+        let hasFitted = false;
         const observer = new ResizeObserver(() => {
+            if (hasFitted && !fitOnResize) {
+                return;
+            }
+
+            hasFitted = true;
             cancelAnimationFrame(frame);
             frame = requestAnimationFrame(fit);
         });
@@ -186,7 +209,7 @@ export default function FlowCanvas<
             observer.disconnect();
             cancelAnimationFrame(frame);
         };
-    }, [fit, isReady, isFullscreen]);
+    }, [fit, fitOnResize, isReady, isFullscreen]);
 
     const handleExport = useCallback(async () => {
         if (isExporting || !canvasRef.current) {
@@ -198,15 +221,15 @@ export default function FlowCanvas<
         try {
             await exportFlowImage(getNodes(), canvasRef.current, exportFileName);
         } catch (error) {
-            console.error("Erreur lors de l'export de l'image", error);
+            console.error(error);
         } finally {
             setIsExporting(false);
         }
     }, [exportFileName, getNodes, isExporting]);
 
     const fullscreenLabel = isFullscreen
-        ? 'Quitter le plein écran'
-        : 'Afficher en plein écran';
+        ? t('flow.exit_fullscreen')
+        : t('flow.enter_fullscreen');
 
     const body = (
         <>
@@ -222,9 +245,9 @@ export default function FlowCanvas<
             >
                 <ReactFlow<NodeType, EdgeType>
                     {...flowProps}
-                    ariaLabelConfig={FLOW_ARIA_LABELS}
-                    zoomOnScroll={isFullscreen}
-                    preventScrolling={isFullscreen}
+                    ariaLabelConfig={flowAriaLabels(t)}
+                    zoomOnScroll={isFullscreen || zoomOnScroll}
+                    preventScrolling={isFullscreen || zoomOnScroll}
                     style={themeStyle}
                     className={cn(!isReady && 'opacity-0')}
                 >
@@ -243,8 +266,8 @@ export default function FlowCanvas<
                         <ControlButton
                             onClick={handleExport}
                             disabled={isExporting || !isReady}
-                            title="Exporter en PNG"
-                            aria-label="Exporter en PNG"
+                            title={t('flow.export_png')}
+                            aria-label={t('flow.export_png')}
                         >
                             {isExporting ? (
                                 <Loader2Icon

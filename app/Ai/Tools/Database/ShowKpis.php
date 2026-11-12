@@ -3,6 +3,7 @@
 namespace App\Ai\Tools\Database;
 
 use App\Database\Contracts\DriverContract;
+use App\Database\QueryBindings;
 use App\Database\SelectQuery;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Contracts\Tool;
@@ -22,13 +23,13 @@ class ShowKpis extends BaseTool implements Tool
 
     public function description(): Stringable|string
     {
-        return 'Affiche des cartes de métriques (KPI) dans l\'interface, sous forme d\'artefact. Chaque carte exécute '
-            .'sa propre requête SELECT qui doit renvoyer UNE seule valeur (une ligne, une colonne, ex. '
-            .'`SELECT COUNT(*) FROM orders WHERE created_at >= :since`). Ce tool ne te renvoie pas les valeurs. '
-            .'Avec `format`, percent attend une valeur déjà en pourcentage (ex. 12.5) et duration une valeur en secondes. Avec le format '
-            .'currency, `currency` est obligatoire : le code ISO 4217 de la devise (EUR, USD, CHF, XOF…), tel que précisé par '
-            .'l\'utilisateur ou par les données (colonne `currency`, nom de colonne explicite). Ne suppose jamais une devise : '
-            .'si elle est inconnue, demande-la à l\'utilisateur avant d\'appeler ce tool.';
+        return 'Displays metric cards (KPIs) in the interface, as an artifact. Each card runs its own SELECT query, '
+            .'which must return ONE single value (one row, one column, e.g. `SELECT COUNT(*) FROM orders WHERE '
+            .'created_at >= :since`). This tool does not return the values to you. With `format`, percent expects '
+            .'a value already in percent (e.g. 12.5) and duration a value in seconds. With the currency format, '
+            .'`currency` is required: the ISO 4217 code of the currency (EUR, USD, CHF, XOF…), as given by the '
+            .'user or by the data (a `currency` column, an explicit column name). Never assume a currency: if it '
+            .'is unknown, ask the user before calling this tool.';
     }
 
     public function handle(Request $request): Stringable|string
@@ -37,19 +38,19 @@ class ShowKpis extends BaseTool implements Tool
             $kpis = array_values((array) ($request['kpis'] ?? []));
 
             if ($kpis === [] || count($kpis) > self::MAX_KPIS) {
-                throw new RuntimeException('Le paramètre `kpis` doit contenir entre 1 et '.self::MAX_KPIS.' cartes.');
+                throw new RuntimeException('The `kpis` parameter must hold between 1 and '.self::MAX_KPIS.' cards.');
             }
 
             foreach ($kpis as $index => $kpi) {
                 if (blank($kpi['label'] ?? null)) {
-                    throw new RuntimeException("La carte n°{$index} n'a pas de `label`.");
+                    throw new RuntimeException("Card #{$index} has no `label`.");
                 }
 
                 if (($kpi['format'] ?? null) === 'currency' && self::currencyOf($kpi) === null) {
-                    throw new RuntimeException("La carte « {$kpi['label']} » est au format currency : précise sa devise dans `currency` (code ISO 4217, ex. EUR, USD). Si tu ne la connais pas, demande-la à l'utilisateur.");
+                    throw new RuntimeException("The card \"{$kpi['label']}\" uses the currency format: give its currency in `currency` (ISO 4217 code, e.g. EUR, USD). If you do not know it, ask the user.");
                 }
 
-                new SelectQuery($this->driver, (string) ($kpi['query'] ?? ''), $kpi['bindings'] ?? []);
+                new SelectQuery($this->driver, (string) ($kpi['query'] ?? ''), QueryBindings::from($kpi['bindings'] ?? null));
             }
 
             return [
@@ -76,16 +77,16 @@ class ShowKpis extends BaseTool implements Tool
         return [
             'kpis' => $schema->array()
                 ->items($schema->object(fn ($schema) => [
-                    'label' => $schema->string()->required()->description('Libellé court de la métrique (ex. "Chiffre d\'affaires").'),
+                    'label' => $schema->string()->required()->description('Short label of the metric (e.g. "Revenue").'),
                     ...$this->selectQuerySchema($schema),
-                    'format' => $schema->string()->enum(self::FORMATS)->required()->description('Format d\'affichage de la valeur.'),
-                    'currency' => $schema->string()->nullable()->description('Code ISO 4217 de la devise (ex. "EUR", "USD", "CHF"), obligatoire avec le format currency.'),
-                    'unit' => $schema->string()->nullable()->description('Suffixe optionnel affiché après la valeur (ex. "commandes").'),
+                    'format' => $schema->string()->enum(self::FORMATS)->required()->description('Display format of the value.'),
+                    'currency' => $schema->string()->nullable()->description('ISO 4217 code of the currency (e.g. "EUR", "USD", "CHF"), required with the currency format.'),
+                    'unit' => $schema->string()->nullable()->description('Optional suffix displayed after the value (e.g. "orders").'),
                 ]))
                 ->min(1)
                 ->max(self::MAX_KPIS)
                 ->required()
-                ->description('Les cartes à afficher, dans l\'ordre.'),
+                ->description('The cards to display, in order.'),
         ];
     }
 }

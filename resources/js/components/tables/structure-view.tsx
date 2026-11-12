@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     ArrowRightIcon,
     KeyRoundIcon,
@@ -21,7 +22,10 @@ type Props = {
     projectId: string;
     structure: TableStructure;
     onOpenTable: (table: string) => void;
-    onEditStructure: () => void;
+    /**
+     * Opens the designer of the table, left out when the privileges of the user do not let them change it.
+     */
+    onEditStructure?: () => void;
 };
 
 function Section({
@@ -119,31 +123,34 @@ export default function StructureView({
     onOpenTable,
     onEditStructure,
 }: Props) {
+    const { t } = useLaravelReactI18n();
     const [showDiagram, setShowDiagram] = useState(false);
     const relations =
         structure.foreignKeys.length + structure.incomingReferences.length;
 
     return (
         <div className="flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto p-4">
-            <div className="-mb-4 flex justify-end">
-                <Button variant="outline" size="sm" onClick={onEditStructure}>
-                    <PencilRulerIcon />
-                    Modifier la structure
-                </Button>
-            </div>
-            <Section title="Colonnes" count={structure.columns.length}>
+            {onEditStructure && (
+                <div className="-mb-4 flex justify-end">
+                    <Button variant="outline" size="sm" onClick={onEditStructure}>
+                        <PencilRulerIcon />
+                        {t('tables.workspace.edit_structure')}
+                    </Button>
+                </div>
+            )}
+            <Section title={t('ai.record.columns')} count={structure.columns.length}>
                 <div className="overflow-x-auto rounded-lg border">
                     <table className="w-full text-left text-sm">
                         <thead className="bg-muted/60 text-muted-foreground">
                             <tr>
-                                <th className="px-3 py-2 font-medium">Nom</th>
-                                <th className="px-3 py-2 font-medium">Type</th>
+                                <th className="px-3 py-2 font-medium">{t('tables.designer.columns.name')}</th>
+                                <th className="px-3 py-2 font-medium">{t('tables.designer.columns.type')}</th>
                                 <th className="px-3 py-2 font-medium">NULL</th>
                                 <th className="px-3 py-2 font-medium">
-                                    Défaut
+                                    {t('tables.structure.default')}
                                 </th>
                                 <th className="px-3 py-2 font-medium">
-                                    Contraintes
+                                    {t('tables.structure.constraints')}
                                 </th>
                             </tr>
                         </thead>
@@ -155,7 +162,7 @@ export default function StructureView({
                                             {column.primary && (
                                                 <KeyRoundIcon
                                                     className="size-3.5 text-warning"
-                                                    aria-label="Clé primaire"
+                                                    aria-label={t('tables.designer.columns.primary_key')}
                                                 />
                                             )}
                                             {column.name}
@@ -165,7 +172,7 @@ export default function StructureView({
                                         {column.db_type}
                                     </td>
                                     <td className="px-3 py-2 text-muted-foreground">
-                                        {column.nullable ? 'oui' : 'non'}
+                                        {column.nullable ? t('common.yes') : t('common.no')}
                                     </td>
                                     <td
                                         className="max-w-48 truncate px-3 py-2 font-mono text-xs text-muted-foreground"
@@ -177,17 +184,17 @@ export default function StructureView({
                                         <span className="flex flex-wrap items-center gap-1.5">
                                             {column.auto_increment && (
                                                 <Badge variant="outline">
-                                                    auto-incrément
+                                                    {t('tables.structure.auto_increment')}
                                                 </Badge>
                                             )}
                                             {column.unique && (
                                                 <Badge variant="outline">
-                                                    unique
+                                                    {t('tables.records.unique')}
                                                 </Badge>
                                             )}
                                             {column.generated && (
                                                 <Badge variant="outline">
-                                                    calculée
+                                                    {t('tables.structure.generated')}
                                                 </Badge>
                                             )}
                                             {column.references && (
@@ -220,7 +227,7 @@ export default function StructureView({
             </Section>
 
             <Section
-                title="Index"
+                title={t('tables.list.sections.indexes')}
                 count={
                     structure.indexes.length +
                     (structure.primaryKey.length ? 1 : 0)
@@ -229,7 +236,7 @@ export default function StructureView({
                 <ul className="flex flex-col divide-y rounded-lg border text-sm">
                     {structure.primaryKey.length > 0 && (
                         <li className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2">
-                            <span className="font-medium">Clé primaire</span>
+                            <span className="font-medium">{t('tables.designer.columns.primary_key')}</span>
                             <span className="font-mono text-xs text-muted-foreground">
                                 ({structure.primaryKey.join(', ')})
                             </span>
@@ -245,24 +252,23 @@ export default function StructureView({
                                 ({index.columns.join(', ')})
                             </span>
                             {index.unique && (
-                                <Badge variant="outline">unique</Badge>
+                                <Badge variant="outline">{t('tables.records.unique')}</Badge>
                             )}
                         </li>
                     ))}
                     {structure.indexes.length === 0 &&
                         structure.primaryKey.length === 0 && (
                             <li className="px-3 py-4 text-muted-foreground">
-                                Cette table n'a ni clé primaire ni index :
-                                chaque recherche la parcourt en entier.
+                                {t('tables.structure.no_index')}
                             </li>
                         )}
                 </ul>
             </Section>
 
-            <Section title="Relations" count={relations}>
+            <Section title={t('ai.record.relations')} count={relations}>
                 {relations === 0 ? (
                     <p className="text-sm text-muted-foreground">
-                        Aucune clé étrangère ne relie cette table aux autres.
+                        {t('tables.structure.no_relation')}
                     </p>
                 ) : (
                     <ul className="flex flex-col divide-y rounded-lg border text-sm">
@@ -275,7 +281,7 @@ export default function StructureView({
                                     {foreignKey.columns.join(', ')}
                                 </span>
                                 <span className="text-muted-foreground">
-                                    référence
+                                    {t('tables.structure.references')}
                                 </span>
                                 <TableLink
                                     table={foreignKey.references_table}
@@ -288,7 +294,7 @@ export default function StructureView({
                                     foreignKey.on_delete.toLowerCase() !==
                                         'no action' && (
                                         <span className="text-xs text-muted-foreground">
-                                            à la suppression :{' '}
+                                            {t('tables.structure.on_delete')}{' '}
                                             {foreignKey.on_delete.toLowerCase()}
                                         </span>
                                     )}
@@ -307,7 +313,7 @@ export default function StructureView({
                                     ({reference.columns.join(', ')})
                                 </span>
                                 <span className="text-muted-foreground">
-                                    référence cette table
+                                    {t('tables.structure.references_this')}
                                 </span>
                             </li>
                         ))}
@@ -328,7 +334,7 @@ export default function StructureView({
                             onClick={() => setShowDiagram(true)}
                         >
                             <WorkflowIcon />
-                            Afficher le diagramme
+                            {t('tables.structure.show_diagram')}
                         </Button>
                     ))}
             </Section>

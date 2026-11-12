@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { ThemedToken } from 'shiki';
@@ -8,6 +9,7 @@ import {
 } from '@/components/ai/artifacts/query-plan/format';
 import { highlightCode } from '@/components/code-block';
 import { useSyntaxTheme } from '@/hooks/use-syntax-theme';
+import { translateMessage } from '@/lib/i18n';
 import { uppercaseSqlKeywords } from '@/lib/sql';
 import { cn } from '@/lib/utils';
 import type { CellValue, PlanNode, QueryPlan } from '@/types/agent';
@@ -210,6 +212,7 @@ export default function QueryPlanSql({
     selectedId,
     onSelect,
 }: Props) {
+    const { t, tChoice } = useLaravelReactI18n();
     const parameters = Object.entries(bindings);
     const order = executionOrder(plan);
     const lines = sqlLines(uppercaseSqlKeywords(query));
@@ -218,10 +221,10 @@ export default function QueryPlanSql({
     return (
         <div className="mx-4 mb-3 overflow-hidden rounded-lg border">
             <div className="flex min-h-8.5 flex-wrap items-center justify-between gap-2 border-b bg-muted/40 px-3 text-xs text-muted-foreground">
-                <span>Requête analysée</span>
+                <span>{t('query_plan.sql.analyzed_query')}</span>
                 {parameters.length > 0 && (
                     <span className="inline-flex flex-wrap items-center gap-1.5 py-1">
-                        {parameters.length > 1 ? 'Paramètres' : 'Paramètre'}
+                        {tChoice('query_plan.sql.parameters', parameters.length)}
                         {parameters.map(([name, value]) => (
                             <span
                                 key={name}
@@ -235,7 +238,7 @@ export default function QueryPlanSql({
             </div>
             <div className="overflow-x-auto py-1.5">
                 <ol
-                    aria-label="Lignes de la requête"
+                    aria-label={t('query_plan.sql.lines')}
                     className="w-max min-w-full font-mono text-[12.5px] leading-[1.7]"
                 >
                     {lines.map((line, index) => {
@@ -272,7 +275,7 @@ export default function QueryPlanSql({
                                         {steps.map((step) => (
                                             <span
                                                 key={step.id}
-                                                title={step.label}
+                                                title={translateMessage(t, step.label)}
                                                 className={cn(
                                                     'flex size-4.5 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-muted-foreground tabular-nums transition-colors',
                                                     step.id === selectedId &&
@@ -306,12 +309,16 @@ export default function QueryPlanSql({
                                             )
                                         }
                                         aria-pressed={isActive}
-                                        aria-label={`Ligne ${index + 1} : ${line}. Voir l'étape ${steps
-                                            .map(
-                                                (step) =>
-                                                    `${order.get(step.id)} (${step.label})`,
-                                            )
-                                            .join(', ')}`}
+                                        aria-label={t('query_plan.sql.line', {
+                                            number: index + 1,
+                                            line,
+                                            steps: steps
+                                                .map(
+                                                    (step) =>
+                                                        `${order.get(step.id)} (${translateMessage(t, step.label)})`,
+                                                )
+                                                .join(', '),
+                                        })}
                                         className={cn(
                                             lineClassName,
                                             'cursor-pointer outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',

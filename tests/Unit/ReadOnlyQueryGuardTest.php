@@ -1,6 +1,9 @@
 <?php
 
 use App\Database\ReadOnlyQueryGuard;
+use Tests\TestCase;
+
+pest()->extend(TestCase::class);
 
 it('accepts a single SELECT and returns it without its final semicolon', function (string $sql, string $expected) {
     expect(ReadOnlyQueryGuard::assertSelect($sql))->toBe($expected);

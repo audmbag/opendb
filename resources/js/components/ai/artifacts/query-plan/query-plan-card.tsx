@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { TriangleAlertIcon } from 'lucide-react';
 import { useState } from 'react';
 import {
@@ -36,13 +37,14 @@ const pillClassName =
     'inline-flex h-6.5 items-center gap-1.5 rounded-full border px-2.5 text-xs';
 
 function AlertsPill({ plan }: { plan: QueryPlan }) {
+    const { t, tChoice } = useLaravelReactI18n();
     const { danger, warn } = plan.totals.alerts;
     const total = danger + warn;
 
     if (total === 0) {
         return (
             <span className={cn(pillClassName, 'text-muted-foreground')}>
-                Aucune alerte
+                {t('query_plan.no_alert')}
             </span>
         );
     }
@@ -58,7 +60,7 @@ function AlertsPill({ plan }: { plan: QueryPlan }) {
             )}
         >
             <TriangleAlertIcon aria-hidden="true" className="size-3.25" />
-            {total} {total > 1 ? 'alertes' : 'alerte'}
+            {tChoice('query_plan.alerts_count', total)}
         </span>
     );
 }
@@ -74,6 +76,7 @@ export function QueryPlanSummary({
     plan: QueryPlan;
     version: PlanVersion;
 }) {
+    const { t } = useLaravelReactI18n();
     const shown = planVersion(plan, version);
     const change =
         version === 'after' ? (plan.comparison?.costChange ?? null) : null;
@@ -82,7 +85,7 @@ export function QueryPlanSummary({
         <div className="flex flex-wrap items-center justify-end gap-2">
             {shown.hasCosts && shown.totals.cost !== null && (
                 <span className={pillClassName}>
-                    <span className="text-muted-foreground">Coût</span>
+                    <span className="text-muted-foreground">{t('query_plan.details.cost')}</span>
                     <span className="font-medium tabular-nums">
                         {formatCost(shown.totals.cost)}
                     </span>
@@ -104,7 +107,7 @@ export function QueryPlanSummary({
                 <span className="font-medium tabular-nums">
                     {formatRows(shown.totals.rowsRead)}
                 </span>
-                <span className="text-muted-foreground">lignes lues</span>
+                <span className="text-muted-foreground">{t('query_plan.rows_read')}</span>
             </span>
             <AlertsPill plan={shown} />
         </div>
@@ -121,6 +124,7 @@ export default function QueryPlanCard({
     version,
     onVersionChange,
 }: Props) {
+    const { t } = useLaravelReactI18n();
     const [tab, setTab] = useState<Tab>('tree');
     const shown = planVersion(plan, version);
     const [selectedId, setSelectedId] = useState(() =>
@@ -152,13 +156,13 @@ export default function QueryPlanCard({
                     <div className="text-muted-foreground">
                         {index ? (
                             <>
-                                Plan recalculé après la création de{' '}
+                                {t('query_plan.recomputed_after')}{' '}
                                 <span className="font-mono text-foreground">
                                     {index}
                                 </span>
                             </>
                         ) : (
-                            'Plan recalculé'
+                            t('query_plan.recomputed')
                         )}
                     </div>
                     <Tabs
@@ -167,12 +171,12 @@ export default function QueryPlanCard({
                             changeVersion(value as PlanVersion)
                         }
                     >
-                        <TabsList aria-label="Version du plan">
+                        <TabsList aria-label={t('query_plan.version')}>
                             <TabsTrigger value="before" className="px-3">
-                                Avant
+                                {t('query_plan.before')}
                             </TabsTrigger>
                             <TabsTrigger value="after" className="px-3">
-                                Après
+                                {t('query_plan.after')}
                             </TabsTrigger>
                         </TabsList>
                     </Tabs>
@@ -195,24 +199,24 @@ export default function QueryPlanCard({
                 className="gap-0"
             >
                 <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 px-4 pb-3">
-                    <TabsList aria-label="Affichage du plan">
+                    <TabsList aria-label={t('query_plan.display')}>
                         <TabsTrigger value="tree" className="px-3">
-                            Arbre
+                            {t('query_plan.tabs.tree')}
                         </TabsTrigger>
                         <TabsTrigger value="table" className="px-3">
-                            Tableau
+                            {t('query_plan.tabs.table')}
                         </TabsTrigger>
                         <TabsTrigger value="json" className="px-3">
-                            JSON brut
+                            {t('query_plan.tabs.json')}
                         </TabsTrigger>
                     </TabsList>
                     {tab === 'tree' && (
                         <span className="text-xs text-muted-foreground">
-                            Clique sur une étape ou une ligne de la requête ·{' '}
+                            {t('query_plan.tree_hint')} ·{' '}
                             <kbd className="rounded border bg-muted px-1 font-sans text-[10px]">
                                 ← ↑ → ↓
                             </kbd>{' '}
-                            pour parcourir l'arbre
+                            {t('query_plan.tree_keys_hint')}
                         </span>
                     )}
                 </div>
@@ -257,8 +261,8 @@ export default function QueryPlanCard({
 
             <div className="border-t px-4 py-3 text-xs text-muted-foreground">
                 {shown.hasCosts
-                    ? `Plan estimé par ${ENGINE_NAMES[shown.driver]} sans exécuter la requête. Les nombres de lignes et les coûts sont des estimations de l'optimiseur.`
-                    : 'SQLite ne fournit ni coût ni estimation de lignes : seule la structure du plan est affichée.'}
+                    ? t('query_plan.estimated_by', { engine: ENGINE_NAMES[shown.driver] })
+                    : t('query_plan.sqlite_note')}
             </div>
         </>
     );

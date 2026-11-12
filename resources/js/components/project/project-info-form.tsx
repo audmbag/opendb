@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import React, { useImperativeHandle } from 'react';
 import InputFile from '@/components/form/input-file';
 import type {
@@ -29,6 +30,7 @@ const ProjectInfoForm = ({
     onFinish
 }: Props) => {
 
+    const { t } = useLaravelReactI18n();
     const { submit, data, errors, setData } = useProjectInfo({ defaults, onStart, onFinish });
 
     useImperativeHandle(ref, () => ({
@@ -38,9 +40,9 @@ const ProjectInfoForm = ({
     return (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input
-                label="Nom du projet"
+                label={t('projects.form.name')}
                 name="name"
-                placeholder="Ex: Mon super projet"
+                placeholder={t('projects.form.name_placeholder')}
                 value={data.name}
                 onChange={(e) => setData('name', e.target.value)}
                 error={errors?.name}
@@ -53,9 +55,9 @@ const ProjectInfoForm = ({
                 onChange={(e) => setData('path', e)}
             />
             <Textarea
-                label="Description du projet"
+                label={t('projects.form.description')}
                 name="description"
-                placeholder="Ex: Un projet pour gérer mes tâches"
+                placeholder={t('projects.form.description_placeholder')}
                 className="max-h-52 sm:col-span-2"
                 error={errors?.description}
                 value={data.description}

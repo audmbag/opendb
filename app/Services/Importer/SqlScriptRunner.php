@@ -49,6 +49,7 @@ class SqlScriptRunner
 
                 try {
                     AdminStatementGuard::assertNotAdministrative($statement);
+                    $driver->assertQueryAllowed($statement);
                     $connection->unprepared($statement);
                     $report['executed']++;
                 } catch (QueryException|RuntimeException $exception) {

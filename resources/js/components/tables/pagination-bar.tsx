@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
 import { formatInteger } from '@/components/ai/artifacts/table-profile/format';
 import Button from '@/components/form/button';
@@ -30,6 +31,7 @@ export default function PaginationBar({
     onPageChange,
     onPerPageChange,
 }: Props) {
+    const { t } = useLaravelReactI18n();
     const first = (page - 1) * perPage + 1;
     const last = (page - 1) * perPage + rowsOnPage;
     const lastPage =
@@ -41,22 +43,23 @@ export default function PaginationBar({
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t px-3 py-1.5 text-sm text-muted-foreground">
             <p className="tabular-nums" aria-live="polite">
                 {rowsOnPage === 0
-                    ? 'Aucune ligne'
-                    : `Lignes ${formatInteger(first)} à ${formatInteger(last)}`}
+                    ? t('tables.pagination.no_rows')
+                    : t('tables.pagination.rows', { first: formatInteger(first), last: formatInteger(last) })}
                 {count ? (
                     <span>
                         {' '}
-                        sur {count.estimated ? 'environ ' : ''}
-                        {formatInteger(count.total)}
+                        {count.estimated
+                            ? t('tables.pagination.of_about', { total: formatInteger(count.total) })
+                            : t('tables.pagination.of', { total: formatInteger(count.total) })}
                     </span>
                 ) : (
-                    <span className="text-muted-foreground/60"> sur …</span>
+                    <span className="text-muted-foreground/60"> {t('tables.pagination.of', { total: '…' })}</span>
                 )}
             </p>
 
             <div className="flex items-center gap-2">
                 <label className="flex items-center gap-2">
-                    Par page
+                    {t('tables.pagination.per_page')}
                     <NativeSelect
                         size="sm"
                         value={perPage}
@@ -82,7 +85,7 @@ export default function PaginationBar({
                     size="icon-sm"
                     disabled={page <= 1}
                     onClick={() => onPageChange(page - 1)}
-                    aria-label="Page précédente"
+                    aria-label={t('common.previous_page')}
                 >
                     <ChevronLeftIcon />
                 </Button>
@@ -91,7 +94,7 @@ export default function PaginationBar({
                     size="icon-sm"
                     disabled={!hasMore}
                     onClick={() => onPageChange(page + 1)}
-                    aria-label="Page suivante"
+                    aria-label={t('common.next_page')}
                 >
                     <ChevronRightIcon />
                 </Button>

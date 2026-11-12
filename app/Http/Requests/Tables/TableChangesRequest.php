@@ -45,8 +45,8 @@ class TableChangesRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'changes.required' => 'Aucune modification à appliquer.',
-            'changes.max' => 'Impossible d\'appliquer plus de '.self::MAX_CHANGES.' modifications à la fois.',
+            'changes.required' => __('requests.changes.required'),
+            'changes.max' => __('requests.changes.max', ['max' => self::MAX_CHANGES]),
         ];
     }
 }

@@ -1,10 +1,13 @@
 import type { EditorView } from '@uiw/react-codemirror';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { FileWarningIcon } from 'lucide-react';
 import { useEffect } from 'react';
 import Alert from '@/components/alert';
 import { EmptyState } from '@/components/empty-state';
 import Button from '@/components/form/button';
 import QueryConsole from '@/components/tables/console/query-console';
+import type { ConsoleEditor } from '@/components/tables/console/query-console';
+import type { Snippet } from '@/components/tables/console/sql-snippets';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { SaveStatus, SqlFile } from './types';
 import { useSqlFile } from './use-sql-file';
@@ -15,10 +18,11 @@ type Props = {
     driver: string;
     tables: string[];
     completion?: Record<string, string[]>;
-    runUrl?: string;
-    exportUrl?: string;
-    explainUrl?: string;
-    reviewUrl?: string;
+    snippets: Snippet[];
+    /**
+     * What the editor adds to the console, the file of the tab apart.
+     */
+    editor: Omit<ConsoleEditor, 'fileName'>;
     onSchemaChanged: () => void;
     onStatusChange: (status: SaveStatus) => void;
     onEditorReady: (view: EditorView) => void;
@@ -29,12 +33,11 @@ type Props = {
     /**
      * The size of the file once written, shown in the list of files.
      */
-    onSaved: (size: number) => void;
+    onSaved?: (size: number) => void;
     /**
      * The file as the editor just created it, with the query it opens with.
      */
     initial?: SqlFile;
-    onRan?: () => void;
 };
 
 /**
@@ -47,18 +50,16 @@ export default function SqlFileTab({
     driver,
     tables,
     completion,
-    runUrl,
-    exportUrl,
-    explainUrl,
-    reviewUrl,
+    snippets,
+    editor,
     onSchemaChanged,
     onStatusChange,
     onEditorReady,
     onFlushReady,
     onSaved,
     initial,
-    onRan,
 }: Props) {
+    const { t } = useLaravelReactI18n();
     const file = useSqlFile(projectId, name, onSaved, initial);
 
     useEffect(() => {
@@ -75,11 +76,11 @@ export default function SqlFileTab({
             <div className="flex flex-1 items-center justify-center p-6">
                 <EmptyState
                     icon={FileWarningIcon}
-                    title={`${name} n'a pas pu être ouvert`}
+                    title={t('sql_editor.tab.open_failed', { name })}
                     description={file.error ?? undefined}
                     actions={[
                         {
-                            label: 'Réessayer',
+                            label: t('common.retry'),
                             variant: 'outline',
                             onClick: () => void file.reload(),
                         },
@@ -102,8 +103,8 @@ export default function SqlFileTab({
                     variant="destructive"
                     title={
                         file.status === 'conflict'
-                            ? 'Fichier modifié sur le disque'
-                            : "L'enregistrement a échoué"
+                            ? t('sql_editor.tab.conflict')
+                            : t('sql_editor.tab.save_failed')
                     }
                     message={file.error ?? ''}
                     className="m-3 mb-0 w-auto"
@@ -116,14 +117,14 @@ export default function SqlFileTab({
                                     variant="outline"
                                     onClick={() => void file.reload()}
                                 >
-                                    Recharger le fichier
+                                    {t('sql_editor.tab.reload')}
                                 </Button>
                                 <Button
                                     size="sm"
                                     variant="ghost"
                                     onClick={() => void file.overwrite()}
                                 >
-                                    Garder ma version
+                                    {t('sql_editor.tab.keep_mine')}
                                 </Button>
                             </>
                         ) : (
@@ -132,7 +133,7 @@ export default function SqlFileTab({
                                 variant="outline"
                                 onClick={() => void file.flush()}
                             >
-                                Réessayer
+                                {t('common.retry')}
                             </Button>
                         )}
                     </div>
@@ -143,16 +144,10 @@ export default function SqlFileTab({
                 driver={driver}
                 tables={tables}
                 completion={completion}
+                snippets={snippets}
                 sql={file.sql}
                 onSqlChange={file.setSql}
-                runUrl={runUrl}
-                runData={{ file: name }}
-                exportUrl={exportUrl}
-                exportName={name}
-                explainUrl={explainUrl}
-                reviewUrl={reviewUrl}
-                onRan={onRan}
-                withLocalHistory={false}
+                editor={{ ...editor, fileName: name }}
                 onSchemaChanged={onSchemaChanged}
                 onEditorReady={onEditorReady}
             />

@@ -66,6 +66,19 @@ class SystemInfoService
     }
 
     /**
+     * Langue de la machine (fr pour fr_FR), si elle fait partie des langues données, sinon la langue par défaut.
+     *
+     * @param  list<string>  $supportedLanguages  Langues acceptées, au format de lang/ (fr, en)
+     * @param  string  $default  Langue renvoyée si celle de la machine est inconnue ou n'est pas acceptée
+     */
+    public function language(array $supportedLanguages, string $default = 'en'): string
+    {
+        $language = Str::before($this->locale($default), '_');
+
+        return in_array($language, $supportedLanguages, true) ? $language : $default;
+    }
+
+    /**
      * Dossier personnel de l'utilisateur courant.
      */
     public function homeDirectory(): string

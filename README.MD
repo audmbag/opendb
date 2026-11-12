@@ -32,4 +32,3 @@ de la base de données, clé API, etc.)
 ⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️
 
 
-A faire : Annulation d'une réponse d'un agent, Hors périmètre : requêtes paramétrées, édition des cellules du résultat, graphiques, annulation d'une requête, transactions manuelles.

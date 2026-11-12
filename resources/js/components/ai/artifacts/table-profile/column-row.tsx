@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { ArrowRightIcon, ChevronRightIcon } from 'lucide-react';
 import { useId } from 'react';
 import type { ReactNode } from 'react';
@@ -43,11 +44,13 @@ export function ProfileColumnWidths() {
  * A bound of a column: its smallest or largest value, or for a text column the length of its shortest or longest value.
  */
 function Bound({ value, length, label }: { value: DerivedColumn['min']; length: number | null; label: string }) {
+    const { t } = useLaravelReactI18n();
+
     if (length !== null) {
         return (
             <td className={cellClassName}>
-                <div className="truncate text-sm tabular-nums" title={`Longueur ${label} : ${formatInteger(length)} caractères`}>
-                    {formatInteger(length)} <span className="text-xs text-muted-foreground">car.</span>
+                <div className="truncate text-sm tabular-nums" title={t(label, { length: formatInteger(length) })}>
+                    {formatInteger(length)} <span className="text-xs text-muted-foreground">{t('ai.profile.chars_short')}</span>
                 </div>
             </td>
         );
@@ -71,18 +74,19 @@ function Detail({ label, children }: { label: string; children: ReactNode; mono?
     );
 }
 
-function lengthDetail(column: DerivedColumn): string {
+function lengthDetail(column: DerivedColumn, t: (key: string, replacements?: Record<string, string>) => string): string {
     if (column.averageLength === null) {
-        return column.kind === 'text' ? '–' : 'Non applicable (type non textuel)';
+        return column.kind === 'text' ? '–' : t('ai.profile.not_applicable');
     }
 
-    return `${formatLength(column.averageLength)} caractères`;
+    return t('ai.profile.chars', { length: formatLength(column.averageLength) });
 }
 
 /**
  * A column of the profile, which unfolds the frequent values and the details of its statistics in the row below.
  */
 export default function ColumnRow({ column, sampleSize, open, onToggle }: Props) {
+    const { t } = useLaravelReactI18n();
     const detailId = useId();
 
     return (
@@ -101,7 +105,7 @@ export default function ColumnRow({ column, sampleSize, open, onToggle }: Props)
                             className="size-7 text-muted-foreground"
                             aria-expanded={open}
                             aria-controls={detailId}
-                            aria-label={`Détail de la colonne ${column.name}`}
+                            aria-label={t('ai.profile.column_detail', { column: column.name })}
                             onClick={onToggle}
                         >
                             <ChevronRightIcon
@@ -147,7 +151,7 @@ export default function ColumnRow({ column, sampleSize, open, onToggle }: Props)
                     <div className="flex items-center gap-1">
                         {column.cardinality ? (
                             <Badge variant="outline">
-                                {column.cardinality}
+                                {t(`ai.profile.cardinality.${column.cardinality}`)}
                             </Badge>
                         ) : (
                             column.distinctRate !== null && (
@@ -168,12 +172,12 @@ export default function ColumnRow({ column, sampleSize, open, onToggle }: Props)
                 <Bound
                     value={column.min}
                     length={column.minLength}
-                    label="minimale"
+                    label="ai.profile.min_length"
                 />
                 <Bound
                     value={column.max}
                     length={column.maxLength}
-                    label="maximale"
+                    label="ai.profile.max_length"
                 />
 
                 <td
@@ -201,31 +205,39 @@ export default function ColumnRow({ column, sampleSize, open, onToggle }: Props)
                             id={detailId}
                             className="grid grid-cols-2 gap-2 p-2"
                         >
-                            <CardFrame title={'Valeurs les plus fréquentes'}>
+                            <CardFrame title={t('ai.profile.top_values')}>
                                 <TopValuesList column={column} />
                             </CardFrame>
-                            <CardFrame title={'Détails de la colonne'}>
+                            <CardFrame title={t('ai.profile.column_details')}>
                                 <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-5 gap-y-2 text-sm">
-                                    <Detail label="Type">{column.type}</Detail>
-                                    <Detail label="Renseignées">
-                                        {formatInteger(column.filled)} sur{' '}
-                                        {formatInteger(sampleSize)}
+                                    <Detail label={t('ai.profile.type')}>{column.type}</Detail>
+                                    <Detail label={t('ai.profile.filled')}>
+                                        {t('cloning.ui.count_of', {
+                                            count: formatInteger(column.filled),
+                                            total: formatInteger(sampleSize),
+                                        })}
                                     </Detail>
                                     <Detail label="NULL">
                                         {formatInteger(column.nullCount)} (
                                         {formatPercent(column.nullRate)})
                                     </Detail>
-                                    <Detail label="Distinctes">
+                                    <Detail label={t('ai.profile.distinct')}>
                                         {column.distinctCount === null
-                                            ? 'Non calculées pour ce type de colonne'
-                                            : `${formatInteger(column.distinctCount)}${column.distinctRate === null ? '' : ` (${formatPercent(column.distinctRate)} des valeurs renseignées)`}`}
+                                            ? t('ai.profile.not_computed')
+                                            : column.distinctRate === null
+                                              ? formatInteger(column.distinctCount)
+                                              : t('ai.profile.distinct_rate', {
+                                                    count: formatInteger(column.distinctCount),
+                                                    rate: formatPercent(column.distinctRate),
+                                                })}
                                     </Detail>
                                     {column.minLength !== null &&
                                     column.maxLength !== null ? (
-                                        <Detail label="Longueur min / max">
-                                            {formatInteger(column.minLength)} /{' '}
-                                            {formatInteger(column.maxLength)}{' '}
-                                            caractères
+                                        <Detail label={t('ai.profile.min_max_length')}>
+                                            {t('ai.profile.chars_range', {
+                                                min: formatInteger(column.minLength),
+                                                max: formatInteger(column.maxLength),
+                                            })}
                                         </Detail>
                                     ) : (
                                         <Detail label="Min / Max">
@@ -234,8 +246,8 @@ export default function ColumnRow({ column, sampleSize, open, onToggle }: Props)
                                             {formatValue(column.max)}
                                         </Detail>
                                     )}
-                                    <Detail label="Long. moyenne">
-                                        {lengthDetail(column)}
+                                    <Detail label={t('ai.profile.average_length')}>
+                                        {lengthDetail(column, t)}
                                     </Detail>
                                 </dl>
                             </CardFrame>

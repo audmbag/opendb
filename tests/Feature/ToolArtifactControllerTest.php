@@ -304,8 +304,9 @@ it('returns 404 for the preview of a write that is no longer waiting for approva
 describe('download', function () {
     beforeEach(function () {
         $this->projectPath = realpath(sys_get_temp_dir()).DIRECTORY_SEPARATOR.uniqid('tool-artifact-project-');
-        mkdir($this->projectPath.'/.opendb/exports', recursive: true);
-        file_put_contents($this->projectPath.'/.opendb/exports/shop_20261025_101800.zip', 'archive');
+        $this->exports = '.opendb/users/'.$this->user->id.'/exports';
+        mkdir($this->projectPath.'/'.$this->exports, recursive: true);
+        file_put_contents($this->projectPath.'/'.$this->exports.'/shop_20261025_101800.zip', 'archive');
         file_put_contents($this->projectPath.'/.env', 'APP_KEY=secret');
         $this->project->update(['path' => $this->projectPath]);
     });
@@ -324,15 +325,15 @@ describe('download', function () {
         ], MessageStatus::Completed);
     }
 
-    it('downloads the archive written by the export in the folder of opendb', function () {
-        $conversation = conversationWithExport($this->user, $this->project, '.opendb/exports/shop_20261025_101800.zip');
+    it('downloads the archive written by the export in the folder of the user', function () {
+        $conversation = conversationWithExport($this->user, $this->project, $this->exports.'/shop_20261025_101800.zip');
 
         $response = $this->actingAs($this->user)->get("/conversations/{$conversation->id}/tool-calls/call_1/artifact/download");
 
         $response->assertOk()->assertDownload('shop_20261025_101800.zip');
     });
 
-    it('downloads the archive of an older conversation, moved to the folder of opendb', function () {
+    it('downloads the archive of an older conversation, moved to the folder of the user', function () {
         $conversation = conversationWithExport($this->user, $this->project, 'exports/shop_20261025_101800.zip');
 
         $this->actingAs($this->user)
@@ -360,8 +361,17 @@ describe('download', function () {
         'sql file of the editor' => ['.opendb/sql/../../.env'],
     ]);
 
+    it('never reads the exports of another user of the project', function () {
+        $other = User::factory()->create();
+        mkdir($this->projectPath.'/.opendb/users/'.$other->id.'/exports', recursive: true);
+        file_put_contents($this->projectPath.'/.opendb/users/'.$other->id.'/exports/secret_20261025_101800.zip', 'archive');
+        $conversation = conversationWithExport($this->user, $this->project, '.opendb/users/'.$other->id.'/exports/secret_20261025_101800.zip');
+
+        $this->actingAs($this->user)->get("/conversations/{$conversation->id}/tool-calls/call_1/artifact/download")->assertNotFound();
+    });
+
     it('returns 404 when the conversation belongs to another user', function () {
-        $conversation = conversationWithExport($this->user, $this->project, '.opendb/exports/shop_20261025_101800.zip');
+        $conversation = conversationWithExport($this->user, $this->project, $this->exports.'/shop_20261025_101800.zip');
 
         $this->actingAs(User::factory()->create())->get("/conversations/{$conversation->id}/tool-calls/call_1/artifact/download")->assertNotFound();
     });

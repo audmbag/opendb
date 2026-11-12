@@ -60,6 +60,15 @@ return [
             'replace_placeholders' => true,
         ],
 
+        'mcp-logs' => [
+            'driver' => 'daily',
+            // Configured in AppServiceProvider::configureApp() to point to the log directory of the current user (~/.opendb/logs/mcp.log).
+            'path' => null,
+            'level' => 'info',
+            'days' => 14,
+            'replace_placeholders' => true,
+        ],
+
         'stack' => [
             'driver' => 'stack',
             'channels' => explode(',', (string) env('LOG_STACK', 'single')),

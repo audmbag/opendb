@@ -1,4 +1,5 @@
 import type { ItemInstance } from '@headless-tree/core';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { AlertTriangleIcon, FileIcon, FolderOpenIcon, HomeIcon, SearchIcon, SearchXIcon } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { Fragment, useEffect } from 'react';
@@ -35,6 +36,7 @@ interface TreeContentProps extends ModalContentProps {
 
 
 const SelectFileModal = createCallable<SelectFolderModalProps, FileNode | null>(({ onlyFolders, targetFileExtensions, initialPath, call }) => {
+    const { t } = useLaravelReactI18n();
 
     return (
         <Modal
@@ -49,15 +51,15 @@ const SelectFileModal = createCallable<SelectFolderModalProps, FileNode | null>(
             icon={onlyFolders ? FolderOpenIcon : FileIcon}
             title={
                 onlyFolders
-                    ? 'Sélectionner un dossier'
-                    : 'Sélectionner un fichier'
+                    ? t('files.select_folder')
+                    : t('files.select_file')
             }
             description={
                 onlyFolders
-                    ? 'Parcourez votre dossier personnel'
+                    ? t('files.browse_home')
                     : targetFileExtensions?.length
-                      ? `Fichiers acceptés : ${targetFileExtensions.map((extension) => `.${extension}`).join(', ')}`
-                      : 'Parcourez votre dossier personnel'
+                      ? t('files.accepted_files', { extensions: targetFileExtensions.map((extension) => `.${extension}`).join(', ') })
+                      : t('files.browse_home')
             }
             className="h-140 sm:max-w-130"
         >
@@ -74,6 +76,7 @@ const SelectFileModal = createCallable<SelectFolderModalProps, FileNode | null>(
 
 
 const ModalContent = ({ onCancel, onConfirm, onlyFolders, targetFileExtensions, initialPath }: ModalContentProps) => {
+    const { t } = useLaravelReactI18n();
 
     const { rootFolder, isFetching, hasError, retry, fetchFolder } = useFileFetch(onlyFolders, targetFileExtensions, initialPath);
 
@@ -81,11 +84,11 @@ const ModalContent = ({ onCancel, onConfirm, onlyFolders, targetFileExtensions, 
         return (
             <EmptyState
                 icon={AlertTriangleIcon}
-                title="Impossible de parcourir les fichiers"
-                description="Le dossier n'a pas pu être lu. Vérifiez qu'il existe et que vous y avez accès."
+                title={t('files.browse_failed')}
+                description={t('files.browse_failed_description')}
                 actions={[
-                    { label: 'Annuler', variant: 'outline', onClick: onCancel },
-                    { label: 'Réessayer', onClick: retry },
+                    { label: t('common.cancel'), variant: 'outline', onClick: onCancel },
+                    { label: t('common.retry'), onClick: retry },
                 ]}
             />
         );
@@ -133,6 +136,8 @@ function TreeSkeleton() {
 function TreeContent({ rootFolder, onCancel, onConfirm, fetchFolder, onlyFolders, targetFileExtensions, initialPath }: TreeContentProps) {
     'use no memo';
 
+    const { t, tChoice } = useLaravelReactI18n();
+
     const { tree, indent, selectedFolder, failedItemIds, isSelectable } = useFileTree(
         rootFolder,
         fetchFolder,
@@ -148,7 +153,7 @@ function TreeContent({ rootFolder, onCancel, onConfirm, fetchFolder, onlyFolders
         }
     }, [searchValue, tree]);
 
-    const emptyLabel = onlyFolders ? 'Aucun dossier' : 'Aucun fichier compatible';
+    const emptyLabel = onlyFolders ? t('files.no_folder') : t('files.no_compatible_file');
 
     const getEmptyFolderLabel = (item: ItemInstance<FileNode>): string | null => {
         if (!item.isFolder() || !item.isExpanded() || item.isLoading()) {
@@ -156,7 +161,7 @@ function TreeContent({ rootFolder, onCancel, onConfirm, fetchFolder, onlyFolders
         }
 
         if (failedItemIds.has(item.getId())) {
-            return "Impossible d'ouvrir ce dossier";
+            return t('files.open_folder_failed');
         }
 
         return item.getChildren().length === 0 ? emptyLabel : null;
@@ -177,11 +182,11 @@ function TreeContent({ rootFolder, onCancel, onConfirm, fetchFolder, onlyFolders
                         <input
                             {...tree.getSearchInputElementProps()}
                             autoFocus
-                            placeholder="Rechercher..."
+                            placeholder={t('common.search_ellipsis')}
                             className="w-full bg-transparent text-sm outline-none"
                         />
                         <span className="shrink-0 text-xs text-muted-foreground">
-                            {tree.getSearchMatchingItems().length} résultat(s)
+                            {tChoice('files.results', tree.getSearchMatchingItems().length)}
                         </span>
                     </div>
                 )}
@@ -193,8 +198,8 @@ function TreeContent({ rootFolder, onCancel, onConfirm, fetchFolder, onlyFolders
                         title={emptyLabel}
                         description={
                             targetFileExtensions?.length
-                                ? `Aucun fichier ${targetFileExtensions.map((extension) => `.${extension}`).join(', ')} dans votre dossier personnel.`
-                                : 'Votre dossier personnel est vide.'
+                                ? t('files.no_matching_file', { extensions: targetFileExtensions.map((extension) => `.${extension}`).join(', ') })
+                                : t('files.home_empty')
                         }
                     />
                 ) : (
@@ -242,18 +247,18 @@ function TreeContent({ rootFolder, onCancel, onConfirm, fetchFolder, onlyFolders
 
             <div className="flex items-center justify-between gap-2">
                 <p className="hidden items-center gap-1.5 text-xs whitespace-nowrap text-muted-foreground sm:flex">
-                    <Kbd>↵</Kbd> Valider
-                    <Kbd className="ml-2">Aa</Kbd> Rechercher
+                    <Kbd>↵</Kbd> {t('files.validate')}
+                    <Kbd className="ml-2">Aa</Kbd> {t('common.search')}
                 </p>
                 <div className="ml-auto flex gap-2">
                     <Button variant="outline" onClick={onCancel}>
-                        Annuler
+                        {t('common.cancel')}
                     </Button>
                     <Button
                         disabled={!selectedFolder}
                         onClick={() => selectedFolder && onConfirm(selectedFolder)}
                     >
-                        Sélectionner le {onlyFolders ? 'dossier' : 'fichier'}
+                        {onlyFolders ? t('files.select_this_folder') : t('files.select_this_file')}
                     </Button>
                 </div>
             </div>
@@ -269,6 +274,7 @@ interface SelectionSummaryProps {
 }
 
 function SelectionSummary({ rootFolder, selected, onlyFolders }: SelectionSummaryProps) {
+    const { t } = useLaravelReactI18n();
     const isRoot = selected?.id === rootFolder.id;
 
     return (
@@ -297,7 +303,7 @@ function SelectionSummary({ rootFolder, selected, onlyFolders }: SelectionSummar
                             <span className="truncate">{selected.name}</span>
                             {isRoot && (
                                 <Badge variant="secondary">
-                                    Dossier personnel
+                                    {t('files.home_folder')}
                                 </Badge>
                             )}
                         </span>
@@ -313,8 +319,8 @@ function SelectionSummary({ rootFolder, selected, onlyFolders }: SelectionSummar
                 ) : (
                     <span className="text-sm text-muted-foreground">
                         {onlyFolders
-                            ? 'Aucun dossier sélectionné'
-                            : 'Aucun fichier sélectionné'}
+                            ? t('files.no_folder_selected')
+                            : t('files.no_file_selected')}
                     </span>
                 )}
             </div>

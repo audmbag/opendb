@@ -31,7 +31,7 @@ it('inserts the values submitted in the form once the call is approved', functio
 
     $result = (string) new CreateRecord($driver)->handle(new Request(['table' => 'contacts'], 'call_1'));
 
-    expect($result)->toBe('Enregistrement créé dans `contacts` : {"id":1,"email":"ada@example.com","active":false}');
+    expect($result)->toBe('Record created in `contacts`: {"id":1,"email":"ada@example.com","active":false}');
     expect($driver->getConnection()->table('contacts')->get(['id', 'email', 'active'])->map(fn ($row) => (array) $row)->all())
         ->toBe([['id' => 1, 'email' => 'ada@example.com', 'active' => 0]]);
     expect(Cache::has(CreateRecord::submissionCacheKey('call_1')))->toBeFalse();
@@ -43,7 +43,7 @@ it('does not insert anything when no values were submitted for the call', functi
 
     $result = (string) new CreateRecord($driver)->handle(new Request(['table' => 'contacts'], 'call_1'));
 
-    expect($result)->toBe("Aucune donnée de formulaire n'a été soumise pour cet appel : l'enregistrement n'a pas été créé.");
+    expect($result)->toBe('No form data was submitted for this call: the record was not created.');
     expect($driver->getConnection()->table('contacts')->count())->toBe(0);
 });
 
@@ -54,6 +54,6 @@ it('does not insert values submitted for another table than the one of the call'
 
     $result = (string) new CreateRecord($driver)->handle(new Request(['table' => 'contacts'], 'call_1'));
 
-    expect($result)->toBe("Aucune donnée de formulaire n'a été soumise pour cet appel : l'enregistrement n'a pas été créé.");
+    expect($result)->toBe('No form data was submitted for this call: the record was not created.');
     expect($driver->getConnection()->table('contacts')->count())->toBe(0);
 });

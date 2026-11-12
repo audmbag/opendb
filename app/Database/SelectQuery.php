@@ -58,7 +58,7 @@ class SelectQuery
 
         if ($sortColumn !== null) {
             if (! in_array($sortColumn, $this->columns(), true)) {
-                throw new RuntimeException("La colonne de tri [{$sortColumn}] n'existe pas dans le résultat de la requête.");
+                throw new RuntimeException(__('database.errors.sort_column', ['column' => $sortColumn]));
             }
 
             $sql .= ' ORDER BY '.$this->quoteIdentifier($sortColumn)

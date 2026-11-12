@@ -28,3 +28,7 @@ export interface ConversationSearchResult extends Omit<Conversation, 'messages'>
      */
     excerpt: string | null;
 }
+
+export interface ArchivedConversation extends Omit<Conversation, 'messages'> {
+    messages_count: number;
+}

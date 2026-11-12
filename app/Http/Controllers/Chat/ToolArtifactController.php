@@ -5,20 +5,19 @@ namespace App\Http\Controllers\Chat;
 use App\Ai\Tools\Database\ExplainQuery;
 use App\Ai\Tools\Database\ExportDatabase;
 use App\Ai\Tools\Database\ProfileTable;
-use App\Ai\Tools\Database\ShowChart;
 use App\Ai\Tools\Database\ShowKpis;
 use App\Ai\Tools\Database\ShowQueryResults;
 use App\Ai\Tools\Database\ShowRecord;
 use App\Ai\Tools\Database\WriteQuery;
 use App\Database\Contracts\DriverContract;
 use App\Database\Exceptions\TableNotFoundException;
-use App\Database\RecordInspector;
-use App\Database\SelectQuery;
-use App\Database\TableProfiler;
+use App\Database\QueryBindings;
 use App\Http\Controllers\Controller;
 use App\Models\Project;
 use App\Repository\ConversationRepository;
 use App\Services\QueryPlan\QueryPlanManager;
+use App\Services\ToolArtifact\ToolArtifactManager;
+use App\Services\Workspace\ProjectWorkspace;
 use Closure;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
@@ -26,7 +25,6 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Laravel\Ai\Models\Conversation;
 use RuntimeException;
-use Str;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -36,10 +34,9 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 class ToolArtifactController extends Controller
 {
-    public const int MAX_CSV_ROWS = 10000;
-
     public function __construct(
         protected ConversationRepository $conversationRepository,
+        protected ToolArtifactManager $artifacts,
     ) {}
 
     /**
@@ -63,32 +60,19 @@ class ToolArtifactController extends Controller
         $direction = $validated['direction'] ?? 'asc';
 
         return $this->artifact(function () use ($conversation, $arguments, $validated, $page, $perPage, $sort, $direction) {
-            $query = new SelectQuery($this->driver($conversation), (string) ($arguments['query'] ?? ''), $arguments['bindings'] ?? []);
-            $outputFileName = Str::slug($arguments['title'] ?? 'résultats').'.csv';
+            $driver = $this->driver($conversation);
 
             if (($validated['format'] ?? 'json') === 'csv') {
-                $rows = $query->rows(self::MAX_CSV_ROWS, 0, $sort, $direction);
-
-                return response()->streamDownload(function () use ($query, $rows) {
+                return response()->streamDownload(function () use ($driver, $arguments, $sort, $direction) {
                     $output = fopen('php://output', 'w');
 
-                    fputcsv($output, $rows === [] ? $query->columns() : array_keys($rows[0]), escape: '');
-
-                    foreach ($rows as $row) {
-                        fputcsv($output, array_map(fn (mixed $value) => is_scalar($value) || $value === null ? $value : json_encode($value), $row), escape: '');
-                    }
+                    $this->artifacts->writeCsv($driver, $arguments, $output, $sort, $direction);
 
                     fclose($output);
-                }, $outputFileName, ['Content-Type' => 'text/csv; charset=UTF-8']);
+                }, $this->artifacts->csvFileName($arguments), ['Content-Type' => 'text/csv; charset=UTF-8']);
             }
 
-            return [
-                'columns' => $query->columns(),
-                'rows' => $query->rows($perPage, ($page - 1) * $perPage, $sort, $direction),
-                'total' => $query->count(),
-                'page' => $page,
-                'perPage' => $perPage,
-            ];
+            return $this->artifacts->results($driver, $arguments, $page, $perPage, $sort, $direction);
         });
     }
 
@@ -98,32 +82,8 @@ class ToolArtifactController extends Controller
     public function kpis(Conversation $conversation, string $toolCallId): JsonResponse
     {
         $arguments = $this->toolArguments($conversation, $toolCallId, ShowKpis::class);
-        $driver = $this->driver($conversation);
 
-        return $this->artifact(fn () => array_map(function (array $kpi) use ($driver): array {
-            $card = [
-                'label' => (string) ($kpi['label'] ?? ''),
-                'format' => in_array($kpi['format'] ?? null, ShowKpis::FORMATS, true) ? $kpi['format'] : 'number',
-                'currency' => ShowKpis::currencyOf($kpi),
-                'unit' => $kpi['unit'] ?? null,
-                'value' => null,
-                'error' => null,
-            ];
-
-            try {
-                $rows = new SelectQuery($driver, (string) ($kpi['query'] ?? ''), $kpi['bindings'] ?? [])->rows(2);
-            } catch (QueryException $e) {
-                return [...$card, 'error' => $e->getPrevious()?->getMessage() ?? $e->getMessage()];
-            } catch (RuntimeException $e) {
-                return [...$card, 'error' => $e->getMessage()];
-            }
-
-            if (count($rows) !== 1 || count($rows[0]) !== 1) {
-                return [...$card, 'error' => 'La requête doit renvoyer une seule valeur (une ligne, une colonne).'];
-            }
-
-            return [...$card, 'value' => array_values($rows[0])[0]];
-        }, array_values((array) ($arguments['kpis'] ?? []))));
+        return $this->artifact(fn (): array => $this->artifacts->kpis($this->driver($conversation), $arguments));
     }
 
     /**
@@ -133,15 +93,7 @@ class ToolArtifactController extends Controller
     {
         $arguments = $this->toolArguments($conversation, $toolCallId, ShowChart::class);
 
-        return $this->artifact(function () use ($conversation, $arguments): array {
-            $query = new SelectQuery($this->driver($conversation), (string) ($arguments['query'] ?? ''), $arguments['bindings'] ?? []);
-            $rows = $query->rows(ShowChart::MAX_POINTS + 1);
-
-            return [
-                'rows' => array_slice($rows, 0, ShowChart::MAX_POINTS),
-                'truncated' => count($rows) > ShowChart::MAX_POINTS,
-            ];
-        });
+        return $this->artifact(fn (): array => $this->artifacts->chart($this->driver($conversation), $arguments));
     }
 
     /**
@@ -151,7 +103,7 @@ class ToolArtifactController extends Controller
     {
         $arguments = $this->toolArguments($conversation, $toolCallId, ProfileTable::class);
 
-        return $this->artifact(fn (): array => new TableProfiler($this->driver($conversation), (string) ($arguments['tableName'] ?? ''))->profile());
+        return $this->artifact(fn (): array => $this->artifacts->profile($this->driver($conversation), $arguments));
     }
 
     /**
@@ -166,10 +118,7 @@ class ToolArtifactController extends Controller
             'key' => ['nullable', 'array', 'required_with:table'],
         ]);
 
-        $table = $validated['table'] ?? (string) ($arguments['tableName'] ?? '');
-        $key = $validated['key'] ?? (array) ($arguments['key'] ?? []);
-
-        return $this->artifact(fn (): array => new RecordInspector($this->driver($conversation), $table)->find($key));
+        return $this->artifact(fn (): array => $this->artifacts->record($this->driver($conversation), $arguments, $validated['table'] ?? null, $validated['key'] ?? null));
     }
 
     /**
@@ -203,13 +152,13 @@ class ToolArtifactController extends Controller
 
         return $this->artifact(fn (): array => [
             'query' => $sql,
-            'affectedRows' => $this->driver($conversation)->dryRunAffectedRows($sql, $toolCall['arguments']['bindings'] ?? []),
+            'affectedRows' => $this->driver($conversation)->dryRunAffectedRows($sql, QueryBindings::from($toolCall['arguments']['bindings'] ?? null)),
         ]);
     }
 
     /**
      * The archive written by an ExportDatabase call, read from the path the tool saved in its result.
-     * Only a file of the exports directory of the project, `.opendb/exports`, can be downloaded.
+     * Only a file of the exports directory of the user in the project, `.opendb/users/{id}/exports`, can be downloaded.
      */
     public function download(Conversation $conversation, string $toolCallId): BinaryFileResponse
     {
@@ -220,7 +169,7 @@ class ToolArtifactController extends Controller
 
         // Only the name of the archive is kept: it is looked for in the exports directory, where the archives of the
         // older conversations were moved too, and a path cannot lead elsewhere.
-        $exportDirectory = Project::findOrFail($conversation->project_id)->path.DIRECTORY_SEPARATOR.ExportDatabase::EXPORT_DIRECTORY;
+        $exportDirectory = Project::findOrFail($conversation->project_id)->workspaceOf(request()->user())->path(ProjectWorkspace::EXPORTS);
         $file = realpath($exportDirectory.DIRECTORY_SEPARATOR.basename($result['path']));
 
         abort_if($file === false || ! is_file($file) || ! str_starts_with($file, realpath($exportDirectory).DIRECTORY_SEPARATOR), 404);
@@ -242,11 +191,11 @@ class ToolArtifactController extends Controller
     }
 
     /**
-     * The driver of the agent, since every artifact displays what the agent asked for.
+     * The driver of the agent, since every artifact displays what the agent asked for, and never more than the user may see.
      */
     protected function driver(Conversation $conversation): DriverContract
     {
-        return Project::findOrFail($conversation->project_id)->driver_config->getAgentDriver();
+        return Project::findOrFail($conversation->project_id)->driver_config->agentDriverFor(request()->user());
     }
 
     /**

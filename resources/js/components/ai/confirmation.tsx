@@ -1,7 +1,7 @@
 import type { ToolUIPart } from 'ai';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { ShieldAlertIcon } from 'lucide-react';
 import WriteImpactBadge from '@/components/ai/artifacts/write-impact-badge';
-import { CodeBlock } from '@/components/code-block';
 import {
     Confirmation as AIElementConfirmation,
     ConfirmationAction,
@@ -10,7 +10,9 @@ import {
     ConfirmationTitle,
 } from '@/components/ai-elements/confirmation';
 import CardFrame from '@/components/card-frame';
+import { CodeBlock } from '@/components/code-block';
 import { Badge } from '@/components/reui/badge';
+import { translateMessage } from '@/lib/i18n';
 import { uppercaseSqlKeywords } from '@/lib/sql';
 
 type ApprovalInput = {
@@ -28,6 +30,7 @@ const Confirmation = ({
     approvalReason: string | undefined;
     onApprovalResponded?: ({ id, approved }: { id: string; approved: boolean }) => void;
 }) => {
+    const { t } = useLaravelReactI18n();
 
     if (!part) {
         return null;
@@ -50,7 +53,7 @@ const Confirmation = ({
             >
                 <div className="flex items-center gap-2 text-sm font-medium">
                     <ShieldAlertIcon className="size-4 text-amber-500" />
-                    Approbation requise
+                    {t('ai.approvals.required')}
                     <Badge variant="secondary" className="font-mono">
                         {toolName}
                     </Badge>
@@ -102,7 +105,7 @@ const Confirmation = ({
                 {approvalReason && (
                     <ConfirmationTitle className="block text-sm text-muted-foreground">
                         <ConfirmationRequest>
-                            {approvalReason}
+                            {translateMessage(t, approvalReason)}
                         </ConfirmationRequest>
                     </ConfirmationTitle>
                 )}
@@ -117,7 +120,7 @@ const Confirmation = ({
                         }
                         variant="outline"
                     >
-                        Rejeter
+                        {t('ai.approvals.reject')}
                     </ConfirmationAction>
                     <ConfirmationAction
                         onClick={() =>
@@ -128,7 +131,7 @@ const Confirmation = ({
                         }
                         variant="default"
                     >
-                        Approuver
+                        {t('ai.approvals.approve')}
                     </ConfirmationAction>
                 </ConfirmationActions>
             </AIElementConfirmation>

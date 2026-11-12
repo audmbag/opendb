@@ -1,22 +1,24 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { BrainIcon, SearchIcon, XIcon } from 'lucide-react';
-import React, {
+import {
     useCallback,
     useDeferredValue,
     useMemo,
     useRef,
     useState,
 } from 'react';
-import { createCallable } from 'react-call';
 import { EmptyState } from '@/components/empty-state';
 import Button from '@/components/form/button';
 import Input from '@/components/form/input';
-import Modal from '@/components/modals/modal';
 import ModelItem from '@/components/settings/model-item';
-import ModelModalHeader from '@/components/settings/model-modal-header';
 import type { Provider } from '@/types/models/provider';
 
-const ProviderModelsContainer = ({ provider }: { provider: Provider }) => {
+/**
+ * The models of a connected provider, searched and switched on or off one by one.
+ */
+export default function ProviderModels({ provider }: { provider: Provider }) {
+    const { t } = useLaravelReactI18n();
     const parentRef = useRef<HTMLDivElement>(null);
     const [inputValue, setInputValue] = useState('');
     const deferredInputValue = useDeferredValue(inputValue);
@@ -37,6 +39,8 @@ const ProviderModelsContainer = ({ provider }: { provider: Provider }) => {
         );
     }, [deferredInputValue, models]);
 
+    // The compiler leaves this component unmemoized, as useVirtualizer() needs: the list is redrawn on every scroll anyway.
+    // eslint-disable-next-line react-hooks/incompatible-library
     const virtualizer = useVirtualizer({
         count: filteredTricks.length,
         getScrollElement: () => parentRef.current,
@@ -72,7 +76,7 @@ const ProviderModelsContainer = ({ provider }: { provider: Provider }) => {
             <div className="flex items-center gap-4 p-2">
                 <SearchIcon className="size-5 shrink-0 text-muted-foreground" />
                 <Input
-                    placeholder="Rechercher un modèle..."
+                    placeholder={t('settings.models.search')}
                     value={inputValue}
                     onChange={(e) => onInputValueChange(e.target.value)}
                 />
@@ -97,7 +101,7 @@ const ProviderModelsContainer = ({ provider }: { provider: Provider }) => {
                 >
                     {virtualizer.getVirtualItems().length === 0 && (
                         <EmptyState
-                            title="Aucun modèle trouvé"
+                            title={t('settings.models.no_models')}
                             icon={BrainIcon}
                         />
                     )}
@@ -138,33 +142,4 @@ const ProviderModelsContainer = ({ provider }: { provider: Provider }) => {
             </div>
         </div>
     );
-};
-
-export const ProviderModelsModal = createCallable<{ provider: Provider }>(
-    ({ provider, call }) => {
-        return (
-            <Modal
-                open={!call.ended}
-                onOpenChange={() => call.end()}
-                className="h-170 sm:max-w-170"
-                description={`Gérer les modèles du provider : ${provider.label}`}
-                title={provider.label}
-            >
-                <div className="flex h-full flex-col gap-4 overflow-hidden p-2">
-                    <ModelModalHeader
-                        provider={provider}
-                        title={`Gérer les modèles de ${provider.label}`}
-                        onBack={() => call.end()}
-                    />
-                    <ProviderModelsContainer provider={provider} />
-                    <div className="flex justify-end">
-                        <Button onClick={() => call.end()} variant="secondary">
-                            Fermer
-                        </Button>
-                    </div>
-                </div>
-            </Modal>
-        );
-    },
-    1000,
-);
+}

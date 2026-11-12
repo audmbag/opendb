@@ -11,8 +11,8 @@ enum AgentAccessModeEnum: string
     public function label(): string
     {
         return match ($this) {
-            self::ReadOnly => 'Lecture seule',
-            self::ReadWrite => 'Lecture-écriture',
+            self::ReadOnly => 'Read-only',
+            self::ReadWrite => 'Read-write',
         };
     }
 

@@ -1,0 +1,37 @@
+<?php
+
+return [
+    'detach' => 'Ne pas joindre :file',
+    'attach' => 'Joindre :file',
+    'attachments_failed' => 'Impossible de charger les pièces jointes.',
+    'attachments' => 'Pièces jointes',
+    'attached_count' => '{0} :count / :total jointe|{1} :count / :total jointe|[2,*] :count / :total jointes',
+    'max_size' => 'sur :size max.',
+    'you' => 'Vous',
+    'expired' => 'Ce mail n\'attend plus de validation : il n\'a pas été envoyé.',
+    'new' => 'Nouveau mail',
+    'recipients' => 'Destinataires',
+    'loading_recipients' => 'Chargement des destinataires…',
+    'add_recipient' => 'Ajouter un destinataire autorisé…',
+    'no_recipient' => 'Aucun destinataire autorisé. Ajoutez-en dans Paramètres > Messagerie.',
+    'subject' => 'Objet',
+    'body' => 'Message',
+    'send' => 'Envoyer',
+    'messages' => [
+        'smtp_saved' => 'La configuration SMTP a été enregistrée.',
+        'smtp_connected' => 'La connexion au serveur SMTP a réussi.',
+    ],
+    'errors' => [
+        'send_failed' => 'L\'envoi a échoué : :error',
+        'missing_settings' => 'Aucune configuration SMTP : l\'utilisateur doit d\'abord la renseigner dans Paramètres > Messagerie.',
+        'attachments_too_large' => 'Les pièces jointes dépassent :size Mo au total.',
+        'attachment_refused' => 'Pièce jointe refusée : `:path` n\'est pas un fichier du dossier `:directory` du projet.',
+        'no_recipient' => 'Indiquez au moins un destinataire.',
+        'too_many_recipients' => 'Un mail ne peut pas avoir plus de :max destinataires.',
+        'invalid_addresses' => 'Adresse(s) invalide(s) : :addresses.',
+        'recipients_refused' => 'Envoi refusé : :recipients ne fait pas partie des destinataires autorisés (Paramètres > Messagerie).',
+        'invalid_address' => 'L\'adresse « :email » est invalide.',
+        'already_allowed' => 'L\'adresse « :email » fait déjà partie des destinataires autorisés.',
+        'not_allowed' => 'L\'adresse « :email » ne fait pas partie des destinataires autorisés.',
+    ],
+];

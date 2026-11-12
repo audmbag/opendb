@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { FlaskConicalIcon } from 'lucide-react';
 import Alert from '@/components/alert';
 import Button from '@/components/form/button';
@@ -10,6 +11,8 @@ type Props = {
 };
 
 const TestConnectionButton = ({ state, processing, onTrigger }: Props) => {
+    const { t } = useLaravelReactI18n();
+
     return (
         <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -18,7 +21,7 @@ const TestConnectionButton = ({ state, processing, onTrigger }: Props) => {
                 onClick={onTrigger}
                 processing={processing}
             >
-                Tester la connexion
+                {t('settings.mail.test_connection')}
             </Button>
             {state.triggered && (
                 <Alert
@@ -31,14 +34,14 @@ const TestConnectionButton = ({ state, processing, onTrigger }: Props) => {
                     }
                     title={
                         state.willCreateDatabase
-                            ? 'Une nouvelle base de données sera créée'
+                            ? t('projects.form.database_will_be_created')
                             : state.success
-                              ? 'Connexion réussie'
-                              : 'Connexion échouée'
+                              ? t('settings.mail.connection_succeeded')
+                              : t('settings.mail.connection_failed')
                     }
                     message={
                         state.willCreateDatabase
-                            ? "La base de données que vous avez sélectionnée n'existe pas. Une nouvelle base de données sera créée pour vous."
+                            ? t('projects.form.database_will_be_created_description')
                             : state.message
                     }
                 />

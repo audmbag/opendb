@@ -1,3 +1,4 @@
+import { trans } from '@/lib/i18n';
 import { TableRequestError } from './api';
 
 const xsrfToken = (): string | null => {
@@ -29,7 +30,7 @@ export async function downloadFile(
         body: JSON.stringify(data),
     }).catch(() => {
         throw new TableRequestError(
-            'Impossible de joindre le serveur. Vérifiez la connexion puis réessayez.',
+            trans('tables.errors.unreachable'),
         );
     });
 
@@ -41,7 +42,7 @@ export async function downloadFile(
 
         throw new TableRequestError(
             body.message ??
-                `Le serveur a répondu par une erreur ${response.status}.`,
+                trans('tables.errors.status', { status: response.status }),
             body.errors ?? {},
             response.status,
         );

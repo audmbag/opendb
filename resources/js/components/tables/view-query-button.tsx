@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { CodeIcon, SquareTerminalIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import {
@@ -35,6 +36,7 @@ export default function ViewQueryButton({
     active,
     onOpenInConsole,
 }: Props) {
+    const { t } = useLaravelReactI18n();
     const [open, setOpen] = useState(false);
     const sqlToOpen = useRef<string | null>(null);
 
@@ -45,8 +47,8 @@ export default function ViewQueryButton({
                     variant="ghost"
                     size="icon-sm"
                     disabled={!sql}
-                    aria-label="Voir la requête SQL"
-                    tooltip="Voir la requête SQL de ces lignes"
+                    aria-label={t('tables.view_query.label')}
+                    tooltip={t('tables.view_query.tooltip')}
                 >
                     <CodeIcon />
                 </Button>
@@ -71,7 +73,7 @@ export default function ViewQueryButton({
                     >
                         <CodeBlockHeader>
                             <CodeBlockTitle>
-                                Requête des lignes affichées
+                                {t('tables.view_query.title')}
                             </CodeBlockTitle>
                             <CodeBlockActions>
                                 <Button
@@ -84,7 +86,7 @@ export default function ViewQueryButton({
                                     }}
                                 >
                                     <SquareTerminalIcon />
-                                    Ouvrir dans la console
+                                    {t('tables.view_query.open_console')}
                                 </Button>
                                 <CodeBlockCopyButton />
                             </CodeBlockActions>

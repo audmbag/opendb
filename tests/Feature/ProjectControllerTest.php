@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\OperatingSystemEnum;
+use App\Enums\PrivilegeEnum;
 use App\Models\Project;
 use App\Models\User;
 use App\Services\ProjectMemory;
@@ -68,8 +69,8 @@ it('refuses to change the information of a project of another user through its i
     expect($project->refresh()->name)->toBe('Boutique');
 });
 
-it('creates a project for the user', function () {
-    $user = User::factory()->create();
+it('creates a project for the user who holds CREATE PROJECT', function () {
+    $user = User::factory()->withPrivileges(PrivilegeEnum::CreateProject)->create();
 
     $this->actingAs($user)->postJson('/projects/store-infos', [
         'name' => 'Boutique',
@@ -78,6 +79,16 @@ it('creates a project for the user', function () {
     ])->assertOk();
 
     expect($user->projects()->sole()->name)->toBe('Boutique');
+});
+
+it('refuses to create a project without CREATE PROJECT', function () {
+    $this->actingAs(User::factory()->create())->postJson('/projects/store-infos', [
+        'name' => 'Boutique',
+        'description' => 'Une description',
+        'path' => sys_get_temp_dir(),
+    ])->assertForbidden();
+
+    expect(Project::query()->exists())->toBeFalse();
 });
 
 it('refuses to change or read the connection of a project of another user', function (string $method, string $uri) {
@@ -134,3 +145,20 @@ it('reports a file explorer that fails to open the folder of the project', funct
     'linux' => [OperatingSystemEnum::LINUX, true],
     'windows, whose explorer always exits with an error' => [OperatingSystemEnum::WINDOWS, false],
 ]);
+
+it('lists the projects of the user for the command palette, the last created first', function () {
+    $user = User::factory()->create();
+    $older = Project::factory()->for($user)->create(['name' => 'Boutique', 'created_at' => now()->subDay()]);
+    $newer = Project::factory()->for($user)->create(['name' => 'Blog']);
+    $newer->driver_config()->create(['driver_id' => 'mysql', 'host' => 'localhost', 'port' => 3306, 'database' => 'blog', 'password' => 'secret']);
+    Project::factory()->for($user)->draft()->create(['name' => 'Brouillon']);
+    Project::factory()->create(['name' => 'Projet d’un autre']);
+
+    $this->actingAs($user)->getJson('/projects')
+        ->assertOk()
+        ->assertJsonPath('data.*.id', [$newer->id, $older->id])
+        ->assertJsonPath('data.0.name', 'Blog')
+        ->assertJsonPath('data.0.driver_config.driver_id', 'mysql')
+        ->assertJsonMissingPath('data.0.driver_config.password')
+        ->assertJsonMissingPath('data.0.driver_config.connection_string');
+});

@@ -45,13 +45,13 @@ it('summarizes the plan for the agent and flags a full scan filtered on a column
         'success' => true,
         'driver' => 'sqlite',
         'totalCost' => null,
-        'steps' => ['1. Parcours complet de orders, filtre status = :status'],
+        'steps' => ['1. Full scan of orders, filter status = :status'],
         'alerts' => [[
             'code' => 'FULL_SCAN',
             'severity' => 'danger',
             'table' => 'orders',
             'columns' => ['status'],
-            'message' => 'Parcours complet de orders pour filtrer sur status',
+            'message' => 'Full scan of orders to filter on status',
         ]],
         'existingIndexes' => ['orders' => ['primary (id)']],
         'comparison' => null,
@@ -76,7 +76,7 @@ it('does not flag a search through the primary key', function () {
     $summary = explainWith($tool, 'SELECT * FROM orders WHERE id = :id', ['id' => 1]);
 
     expect($summary['alerts'])->toBe([])
-        ->and($summary['steps'])->toBe(['1. Recherche unique sur l\'index PRIMARY KEY de orders']);
+        ->and($summary['steps'])->toBe(['1. Unique lookup on the index PRIMARY KEY of orders']);
 });
 
 it('compares the plan with the previous plan of the same query once an index is created', function () {
@@ -93,7 +93,7 @@ it('compares the plan with the previous plan of the same query once an index is 
         'costChange' => null,
         'rowsReadBefore' => 0,
         'rowsReadAfter' => 0,
-        'resolvedAlerts' => ['FULL_SCAN sur orders'],
+        'resolvedAlerts' => ['FULL_SCAN on orders'],
         'remainingAlerts' => [],
         'newAlerts' => [],
     ])->and($second['existingIndexes'])->toBe(['orders' => ['orders_status_index (status)', 'primary (id)']]);

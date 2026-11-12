@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { CheckIcon, CopyIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { describeLocation } from '@/components/ai/artifacts/record/format';
@@ -24,6 +25,7 @@ const COPIED_DURATION = 1600;
  * A row with every column at full length, the rows it references and the rows referencing it, which open in place.
  */
 export default function RecordPanel({ projectId, location }: Props) {
+    const { t } = useLaravelReactI18n();
     const [stack, setStack] = useState<RecordLocation[]>([location]);
     const [syncedLocation, setSyncedLocation] = useState(location);
     const [record, setRecord] = useState<{
@@ -105,7 +107,7 @@ export default function RecordPanel({ projectId, location }: Props) {
             {error ? (
                 <Alert
                     variant="destructive"
-                    title="La ligne n'a pas pu être lue"
+                    title={t('tables.record.read_failed')}
                     message={error}
                     className="m-4 w-auto"
                 />
@@ -120,10 +122,10 @@ export default function RecordPanel({ projectId, location }: Props) {
                             onClick={copyAsJson}
                         >
                             {copied ? <CheckIcon /> : <CopyIcon />}
-                            {copied ? 'Copié' : 'Copier en JSON'}
+                            {copied ? t('common.copied') : t('ai.record.copy_json')}
                         </Button>
                     </div>
-                    <section aria-label="Colonnes" className="@container">
+                    <section aria-label={t('ai.record.columns')} className="@container">
                         <RecordFields
                             key={currentKey}
                             record={loaded}
@@ -132,7 +134,7 @@ export default function RecordPanel({ projectId, location }: Props) {
                             onOpen={open}
                         />
                     </section>
-                    <section aria-label="Relations" className="border-t">
+                    <section aria-label={t('ai.record.relations')} className="border-t">
                         <RecordRelations record={loaded} onOpen={open} />
                     </section>
                 </div>

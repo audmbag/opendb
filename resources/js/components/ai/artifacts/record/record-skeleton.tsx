@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const rowWidths: [number, number][] = [
@@ -13,11 +14,13 @@ const rowWidths: [number, number][] = [
  * The body of the card while the record is being read, shaped like its columns and relations.
  */
 export default function RecordSkeleton() {
+    const { t } = useLaravelReactI18n();
+
     return (
         <div aria-busy="true" className="flex flex-wrap gap-px bg-border">
             <div className="min-w-0 flex-[999_1_30rem] bg-card">
                 <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-                    <span className="text-sm text-muted-foreground">Lecture de l'enregistrement…</span>
+                    <span className="text-sm text-muted-foreground">{t('ai.record.loading')}</span>
                     <Skeleton className="h-8 w-56 rounded-md" />
                 </div>
                 {rowWidths.map(([name, value], index) => (

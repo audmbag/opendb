@@ -3,6 +3,7 @@
 namespace App\Ai\Tools\Database;
 
 use App\Database\Contracts\DriverContract;
+use App\Database\QueryBindings;
 use App\Database\SelectQuery;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Contracts\Tool;
@@ -17,19 +18,18 @@ class ShowQueryResults extends BaseTool implements Tool
 
     public function description(): Stringable|string
     {
-        return 'Affiche le résultat d\'une requête SELECT dans un tableau interactif de l\'interface (tri, pagination, '
-            .'export CSV), sous forme d\'artefact. Ce tool ne te renvoie AUCUNE ligne : seulement les colonnes et le '
-            .'nombre total de lignes. Utilise-le quand l\'utilisateur veut VOIR, parcourir ou exporter des données '
-            .'(ex. "montre-moi les commandes de la semaine", "liste les clients inactifs"), surtout quand le résultat '
-            .'peut dépasser quelques dizaines de lignes. N\'ajoute pas de LIMIT : la pagination est faite par l\'interface. '
-            .'Si tu dois analyser les valeurs toi-même pour répondre, utilise ReadQuery à la place. '
-            .'Le paramètre `title` est un titre court affiché au-dessus du tableau.';
+        return 'Displays the result of a SELECT query in an interactive table of the interface (sorting, pagination, '
+            .'CSV export), as an artifact. This tool returns NO row to you: only the columns and the total number '
+            .'of rows. Use it when the user wants to SEE, browse or export data (e.g. "show me the orders of the '
+            .'week", "list the inactive customers"), especially when the result can exceed a few dozen rows. Do '
+            .'not add a LIMIT: the interface paginates. If you must analyze the values yourself to answer, use '
+            .'ReadQuery instead. The `title` parameter is a short title displayed above the table.';
     }
 
     public function handle(Request $request): Stringable|string
     {
         return $this->artifactOutput(function () use ($request): array {
-            $query = new SelectQuery($this->driver, (string) $request['query'], $request['bindings'] ?? []);
+            $query = new SelectQuery($this->driver, (string) $request['query'], QueryBindings::from($request['bindings'] ?? null));
 
             return [
                 'title' => $request['title'] ?? null,
@@ -45,7 +45,7 @@ class ShowQueryResults extends BaseTool implements Tool
             ...$this->selectQuerySchema($schema),
             'title' => $schema->string()
                 ->nullable()
-                ->description('Titre court affiché au-dessus du tableau (ex. "Commandes de la semaine").'),
+                ->description('Short title displayed above the table (e.g. "Orders of the week").'),
         ];
     }
 }

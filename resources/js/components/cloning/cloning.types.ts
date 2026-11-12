@@ -1,6 +1,6 @@
-import type { Project } from '@/types/models/project';
 import type { ProjectInfo } from '@/hooks/use-project';
 import type { DriverConfig } from '@/types/databases';
+import type { Project } from '@/types/models/project';
 
 export type Sensitivity = 'low' | 'medium' | 'high' | 'critical';
 
@@ -125,17 +125,9 @@ export interface CloningTable {
     remappingNotice: string | null;
 }
 
-export interface CloningLabels {
-    strategies: Record<string, string>;
-    fakerMethods: Record<string, string>;
-    fakerParameters: Record<string, string>;
-    fakerParameterOptions: Record<string, string>;
-}
-
 export interface CloningClientPayload {
     fakerCatalogs: Record<string, FakerCatalog>;
     tables: CloningTable[];
-    labels?: CloningLabels;
     cloningId: string
 }
 

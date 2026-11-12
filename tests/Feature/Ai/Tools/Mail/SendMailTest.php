@@ -4,6 +4,7 @@ use App\Ai\Tools\Mail\SendMail;
 use App\Mail\AgentMail;
 use App\Models\MailRecipient;
 use App\Models\MailSetting;
+use App\Models\Project;
 use App\Models\User;
 use App\Services\Mailer\MailerManager;
 use Illuminate\Mail\Mailables\Address;
@@ -16,10 +17,11 @@ beforeEach(function () {
     Mail::fake();
 
     $this->projectPath = sys_get_temp_dir().DIRECTORY_SEPARATOR.uniqid('send-mail-');
-    File::ensureDirectoryExists($this->projectPath.'/.opendb/exports');
-    File::put($this->projectPath.'/.opendb/exports/customers.zip', 'archive');
 
     $this->user = User::factory()->create();
+    $this->exports = '.opendb/users/'.$this->user->id.'/exports';
+    File::ensureDirectoryExists($this->projectPath.'/'.$this->exports);
+    File::put($this->projectPath.'/'.$this->exports.'/customers.zip', 'archive');
     MailSetting::factory()->for($this->user)->create(['from_address' => 'me@example.com']);
     MailRecipient::factory()->for($this->user)->create(['email' => 'paul@example.com']);
 });
@@ -30,7 +32,7 @@ afterEach(function () {
 
 function sendMailTool(User $user, string $projectPath): SendMail
 {
-    return new SendMail($user, app(MailerManager::class), $projectPath);
+    return new SendMail($user, app(MailerManager::class), Project::factory()->for($user)->make(['path' => $projectPath])->workspaceOf($user));
 }
 
 /**
@@ -46,21 +48,21 @@ it('sends the mail the user submitted in the form, not the one the agent propose
         'to' => ['me@example.com'],
         'subject' => 'Export des clients',
         'body' => 'Voici l\'export.',
-        'attachments' => ['.opendb/exports/customers.zip'],
+        'attachments' => [$this->exports.'/customers.zip'],
     ]);
 
     $result = (string) sendMailTool($this->user, $this->projectPath)->handle(new Request(proposedMail(), 'call_1'));
 
     expect($result)->toBe(implode("\n", [
-        'Mail envoyé. Voici ce qui a réellement été envoyé :',
-        '- Destinataires : me@example.com',
-        '- Objet : « Export des clients »',
-        '- Pièces jointes : customers.zip',
-        'L\'utilisateur a modifié ta proposition dans le formulaire avant l\'envoi :',
-        '- destinataires : tu avais proposé paul@example.com, le mail est parti à me@example.com',
-        '- objet : tu avais proposé « Proposé », l\'objet envoyé est « Export des clients »',
-        '- message : l\'utilisateur a réécrit le corps du mail',
-        'Rapporte uniquement le mail réellement envoyé ci-dessus : ne mentionne plus les valeurs de ta proposition.',
+        'Mail sent. Here is what was really sent:',
+        '- Recipients: me@example.com',
+        '- Subject: "Export des clients"',
+        '- Attachments: customers.zip',
+        'The user changed your proposal in the form before sending it:',
+        '- recipients: you had proposed paul@example.com, the mail was sent to me@example.com',
+        '- subject: you had proposed "Proposé", the sent subject is "Export des clients"',
+        '- message: the user rewrote the body of the mail',
+        'Only report the mail really sent above: do not mention the values of your proposal anymore.',
     ]))->and(Cache::has(SendMail::submissionCacheKey('call_1')))->toBeFalse();
     Mail::assertSent(AgentMail::class, fn (AgentMail $mail) => $mail->hasTo('me@example.com')
         && ! $mail->hasTo('paul@example.com')
@@ -68,19 +70,20 @@ it('sends the mail the user submitted in the form, not the one the agent propose
         && $mail->hasSubject('Export des clients')
         && $mail->body === 'Voici l\'export.'
         && $mail->usesMailer("user-smtp-{$this->user->id}")
-        && $mail->attachmentPaths === [realpath($this->projectPath.'/.opendb/exports/customers.zip')]);
+        && $mail->attachmentPaths === [realpath($this->projectPath.'/'.$this->exports.'/customers.zip')]);
 });
 
 it('tells the agent when the user sent its proposal unchanged, or left out an attachment', function (array $attachments, string $lastLine) {
-    $proposal = [...proposedMail(), 'body' => 'Bonjour,\n\nVoici l\'export.', 'attachments' => ['.opendb/exports/customers.zip']];
+    $proposal = [...proposedMail(), 'body' => 'Bonjour,\n\nVoici l\'export.', 'attachments' => [$this->exports.'/customers.zip']];
+    $attachments = array_map(fn (string $file): string => $this->exports.'/'.$file, $attachments);
     Cache::put(SendMail::submissionCacheKey('call_1'), [...$proposal, 'body' => "Bonjour,\n\nVoici l'export.", 'attachments' => $attachments]);
 
     $result = (string) sendMailTool($this->user, $this->projectPath)->handle(new Request($proposal, 'call_1'));
 
-    expect($result)->toEndWith($lastLine);
+    expect($result)->toEndWith(str_replace(':exports', $this->exports, $lastLine));
 })->with([
-    'unchanged' => [['.opendb/exports/customers.zip'], "- Pièces jointes : customers.zip\nL'utilisateur a envoyé ta proposition sans la modifier."],
-    'attachment left out' => [[], "- pièces jointes non envoyées : .opendb/exports/customers.zip\nRapporte uniquement le mail réellement envoyé ci-dessus : ne mentionne plus les valeurs de ta proposition."],
+    'unchanged' => [['customers.zip'], "- Attachments: customers.zip\nThe user sent your proposal without changing it."],
+    'attachment left out' => [[], "- attachments not sent: :exports/customers.zip\nOnly report the mail really sent above: do not mention the values of your proposal anymore."],
 ]);
 
 it('sends nothing when the user did not submit the form of the call', function () {
@@ -88,7 +91,7 @@ it('sends nothing when the user did not submit the form of the call', function (
 
     $result = (string) sendMailTool($this->user, $this->projectPath)->handle(new Request(proposedMail(), 'call_1'));
 
-    expect($result)->toBe("L'utilisateur n'a pas soumis le formulaire : le mail n'a pas été envoyé.");
+    expect($result)->toBe('The user did not submit the form: the mail was not sent.');
     Mail::assertNothingSent();
 });
 
@@ -105,7 +108,7 @@ it('still refuses a recipient that is no longer allowed when the mail is sent', 
 it('always asks the user to fill the mail form', function () {
     $approval = sendMailTool($this->user, $this->projectPath)->shouldRequestApproval(new Request(proposedMail(), 'call_1'));
 
-    expect($approval?->reason)->toBe('Saisie utilisateur requise via formulaire.');
+    expect(json_decode($approval->reason, true))->toBe(['key' => 'ai.approvals.form_input', 'params' => []]);
 });
 
 it('escapes the body of the mail in its html', function () {

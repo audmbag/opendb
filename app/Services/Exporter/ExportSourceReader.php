@@ -32,13 +32,13 @@ class ExportSourceReader
         $type = DatabaseConnectionType::tryFrom($connection->getDriverName());
 
         if ($type === null || $type === DatabaseConnectionType::Dump) {
-            throw new RuntimeException("L'export n'est pas disponible pour les bases {$connection->getDriverName()}.");
+            throw new RuntimeException(__('exports.errors.unsupported', ['driver' => $connection->getDriverName()]));
         }
 
         $dialect = $this->dialects->make($type);
 
         if (! $dialect instanceof AbstractDumpDialect) {
-            throw new RuntimeException("Aucun dialecte SQL d'export pour les bases {$type->label()}.");
+            throw new RuntimeException(__('exports.errors.no_dialect', ['driver' => $type->label()]));
         }
 
         $source = new ConnectionData(

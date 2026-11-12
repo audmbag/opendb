@@ -9,6 +9,7 @@ use App\Services\QueryPlan\Data\Plan;
 use App\Services\QueryPlan\Data\PlanNode;
 use App\Services\QueryPlan\PlanOperation;
 use App\Services\QueryPlan\SqlClauses;
+use App\Support\TranslatableMessage;
 
 /**
  * Le plan de MySQL 8.3 et plus quand explain_json_format_version vaut 2 : un arbre d'opérations (operation, access_type, inputs)
@@ -63,7 +64,7 @@ class MySQLJsonV2PlanParser extends BasePlanParser
                 estimatedRows: $rows,
                 cost: $cost,
                 selfCost: $this->selfCost($cost, $children),
-                condition: isset($raw['limit']) ? ['label' => 'Nombre de lignes', 'value' => (string) $raw['limit']] : null,
+                condition: isset($raw['limit']) ? ['label' => new TranslatableMessage('query_plan.conditions.row_count'), 'value' => (string) $raw['limit']] : null,
                 facts: ['limit' => $this->int($raw['limit'] ?? null)],
                 children: $children,
             ),
@@ -72,7 +73,7 @@ class MySQLJsonV2PlanParser extends BasePlanParser
             'stream' => count($children) === 1 ? $children[0] : new PlanNode(PlanOperation::Other, $operationText, estimatedRows: $rows, cost: $cost, children: $children),
             default => match (true) {
                 str_starts_with($operationText, 'Remove duplicates') => new PlanNode(PlanOperation::Distinct, estimatedRows: $rows, cost: $cost, selfCost: $this->selfCost($cost, $children), facts: ['temporary' => str_contains($operationText, 'temporary')], children: $children),
-                default => new PlanNode(PlanOperation::Other, $operationText !== '' ? $operationText : (string) ($raw['access_type'] ?? 'opération'), estimatedRows: $rows, cost: $cost, selfCost: $this->selfCost($cost, $children), children: $children),
+                default => new PlanNode(PlanOperation::Other, $operationText !== '' ? $operationText : (isset($raw['access_type']) ? (string) $raw['access_type'] : null), estimatedRows: $rows, cost: $cost, selfCost: $this->selfCost($cost, $children), children: $children),
             },
         };
     }
@@ -111,7 +112,7 @@ class MySQLJsonV2PlanParser extends BasePlanParser
             estimatedRows: $rows,
             cost: $cost,
             selfCost: $this->selfCost($cost, $children),
-            condition: $lookup === null ? null : ['label' => "Condition d'index", 'value' => SqlClauses::readable((string) $lookup)],
+            condition: $lookup === null ? null : ['label' => new TranslatableMessage('query_plan.conditions.index_condition'), 'value' => SqlClauses::readable((string) $lookup)],
             facts: ['accessType' => (string) ($raw['index_access_type'] ?? $raw['access_type']), 'alias' => $alias, 'covering' => $covering, 'exactFilter' => true],
             children: $children,
         );
@@ -133,14 +134,14 @@ class MySQLJsonV2PlanParser extends BasePlanParser
             $read->cost = $this->float($raw['estimated_total_cost'] ?? null) ?? $read->cost;
             $read->selfCost = $this->selfCost($read->cost, $read->children);
             $read->facts['filter'] = $condition;
-            $read->condition = ['label' => 'Filtre appliqué', 'value' => $condition];
+            $read->condition = ['label' => new TranslatableMessage('query_plan.conditions.filter'), 'value' => $condition];
 
             return $read;
         }
 
         $cost = $this->float($raw['estimated_total_cost'] ?? null);
 
-        return new PlanNode(PlanOperation::Other, 'Filtre', subtitle: $condition, estimatedRows: $this->int($raw['estimated_rows'] ?? null), cost: $cost, selfCost: $this->selfCost($cost, $children), condition: ['label' => 'Filtre appliqué', 'value' => $condition], children: $children);
+        return new PlanNode(PlanOperation::Other, new TranslatableMessage('query_plan.operations.filter'), subtitle: $condition, estimatedRows: $this->int($raw['estimated_rows'] ?? null), cost: $cost, selfCost: $this->selfCost($cost, $children), condition: ['label' => new TranslatableMessage('query_plan.conditions.filter'), 'value' => $condition], children: $children);
     }
 
     /**
@@ -169,7 +170,7 @@ class MySQLJsonV2PlanParser extends BasePlanParser
             estimatedRows: $this->int($raw['estimated_rows'] ?? null),
             cost: $cost,
             selfCost: $this->selfCost($cost, $children),
-            condition: $condition === null ? null : ['label' => 'Condition de jointure', 'value' => $condition],
+            condition: $condition === null ? null : ['label' => new TranslatableMessage('query_plan.conditions.join_condition'), 'value' => $condition],
             facts: ['joinType' => $raw['join_type'] ?? null],
             children: $children,
         );
@@ -190,7 +191,7 @@ class MySQLJsonV2PlanParser extends BasePlanParser
             estimatedRows: $this->int($raw['estimated_rows'] ?? null),
             cost: $cost,
             selfCost: $this->selfCost($cost, $children),
-            condition: $this->keyCondition('Clé de tri', $key),
+            condition: $this->keyCondition('query_plan.conditions.sort_key', $key),
             facts: ['filesort' => true, 'key' => $key],
             children: $children,
         );
@@ -210,10 +211,10 @@ class MySQLJsonV2PlanParser extends BasePlanParser
             operation: PlanOperation::Group,
             subtitle: $key === null ? null : 'GROUP BY '.$key,
             estimatedRows: $rows,
-            outputLabel: $rows === null && $key !== null ? '1 ligne par '.$key : null,
+            outputLabel: $rows === null && $key !== null ? new TranslatableMessage('query_plan.output.one_row_per', ['key' => $key]) : null,
             cost: $cost,
             selfCost: $this->selfCost($cost, $children),
-            condition: $this->keyCondition('Clé de regroupement', $key),
+            condition: $this->keyCondition('query_plan.conditions.group_key', $key),
             facts: ['temporary' => ($raw['access_type'] ?? null) === 'temp_table_aggregate' || str_contains((string) ($raw['operation'] ?? ''), 'temporary'), 'key' => $key],
             children: $children,
         );

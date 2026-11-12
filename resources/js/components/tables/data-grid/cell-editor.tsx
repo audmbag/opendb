@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import type { CellValue } from '@/types/agent';
@@ -44,6 +45,7 @@ export default function CellEditor({
     onCommit,
     onCancel,
 }: Props) {
+    const { t } = useLaravelReactI18n();
     const multiline = MULTILINE_KINDS.includes(column.kind);
     const [input, setInput] = useState(
         () =>
@@ -112,7 +114,7 @@ export default function CellEditor({
         value: input,
         onKeyDown: handleKeyDown,
         onBlur: () => commit(parseInput(column, input), null),
-        'aria-label': `Valeur de ${column.name}`,
+        'aria-label': t('tables.cell.value_of', { column: column.name }),
     };
 
     const setNull = (event: React.MouseEvent) => {
@@ -147,7 +149,7 @@ export default function CellEditor({
                     )}
                 />
                 <div className="flex items-center justify-between gap-2 border-t px-2 py-1 text-xs text-muted-foreground">
-                    <span>Ctrl+Entrée valide, Échap annule</span>
+                    <span>{t('tables.cell.hint')}</span>
                     {nullButton}
                 </div>
             </div>

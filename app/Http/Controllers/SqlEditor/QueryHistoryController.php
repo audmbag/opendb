@@ -20,7 +20,7 @@ class QueryHistoryController extends Controller
         $search = $request->validate(['search' => ['nullable', 'string', 'max:200']])['search'] ?? null;
 
         return response()->json([
-            'data' => $this->editor->history($project, $search)->map(fn ($entry): array => [
+            'data' => $this->editor->history($this->workspace($project), $search)->map(fn ($entry): array => [
                 'id' => $entry->id,
                 'file' => $entry->file,
                 'sql' => $entry->sql,
@@ -36,7 +36,7 @@ class QueryHistoryController extends Controller
 
     public function destroy(Project $project): JsonResponse
     {
-        $this->editor->clearHistory($project);
+        $this->editor->clearHistory($this->workspace($project));
 
         return response()->json(['data' => []]);
     }

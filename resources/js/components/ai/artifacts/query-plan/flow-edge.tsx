@@ -5,8 +5,10 @@ import {
     MarkerType,
 } from '@xyflow/react';
 import type { EdgeMarker, EdgeProps } from '@xyflow/react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { formatRows } from '@/components/ai/artifacts/query-plan/format';
 import type { PlanFlowEdge } from '@/components/ai/artifacts/query-plan/layout';
+import { translateMessage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
 /**
@@ -44,6 +46,7 @@ export default function FlowEdge({
     markerEnd,
     data,
 }: EdgeProps<PlanFlowEdge>) {
+    const { t } = useLaravelReactI18n();
     const [path, labelX, labelY] = getSmoothStepPath({
         sourceX,
         sourceY,
@@ -57,7 +60,9 @@ export default function FlowEdge({
     const hot = data?.hot ?? false;
     const width = strokeWidth(data?.rows ?? null);
     const label =
-        data?.rows != null ? `${formatRows(data.rows)} lignes` : data?.label;
+        data?.rows != null
+            ? t('query_plan.metrics.rows', { rows: formatRows(data.rows) })
+            : translateMessage(t, data?.label);
 
     return (
         <>

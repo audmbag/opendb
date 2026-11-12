@@ -1,14 +1,14 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { AstroidIcon, BrainIcon, PlugIcon, UnplugIcon } from 'lucide-react';
-import React, { useCallback } from 'react';
 import Button from '@/components/form/button';
 import { Badge } from '@/components/reui/badge';
-import { ProviderModelsModal } from '@/components/settings/provider-models-modal';
 import type { Provider } from '@/types/models/provider';
 
 type Props = {
     provider?: Provider;
     onConnect?: () => void;
     onDisconnect?: () => void;
+    onManageModels?: () => void;
     disconnectedProcessing?: boolean;
 };
 
@@ -16,15 +16,10 @@ const ProviderItem = ({
     provider,
     onConnect,
     onDisconnect,
+    onManageModels,
     disconnectedProcessing,
 }: Props) => {
-    const openModelManagerDialog = useCallback(async () => {
-        if (!provider) {
-            return;
-        }
-
-        await ProviderModelsModal.call({ provider: provider });
-    }, [provider]);
+    const { t } = useLaravelReactI18n();
 
     return (
         <div className="justify-between px-3 py-3">
@@ -39,8 +34,8 @@ const ProviderItem = ({
                     ) : (
                         <AstroidIcon className="size-5" />
                     )}
-                    <span>{provider?.label || 'Fournisseur personnalisé'}</span>
-                    {!provider && <Badge>Personnalisé</Badge>}
+                    <span>{provider?.label || t('settings.models.custom_provider')}</span>
+                    {!provider && <Badge>{t('settings.models.custom')}</Badge>}
                 </div>
                 {provider && provider.is_connected ? (
                     <div className="flex items-center gap-2">
@@ -50,20 +45,20 @@ const ProviderItem = ({
                             icon={UnplugIcon}
                             onClick={onDisconnect}
                             confirmation={{
-                                title: `Déconnecter le provider : ${provider.label}`,
-                                description: `Vous n'aurais plus accès aux modèles du provider ${provider.label} dans OpenDB. Êtes-vous sûr de vouloir le déconnecter ?`,
+                                title: t('settings.models.disconnect_provider', { provider: provider.label }),
+                                description: t('settings.models.disconnect_provider_description', { provider: provider.label }),
                                 icon: UnplugIcon,
                             }}
                             processing={disconnectedProcessing}
                         >
-                            Déconnecter
+                            {t('settings.models.disconnect')}
                         </Button>
                         <Button
                             variant="secondary"
                             size="sm"
                             icon={BrainIcon}
-                            tooltip={'Gérer les modèles'}
-                            onClick={openModelManagerDialog}
+                            tooltip={t('settings.models.manage_models')}
+                            onClick={onManageModels}
                         />
                     </div>
                 ) : (
@@ -73,7 +68,7 @@ const ProviderItem = ({
                         icon={PlugIcon}
                         onClick={onConnect}
                     >
-                        Connecter
+                        {t('settings.models.connect')}
                     </Button>
                 )}
             </div>

@@ -3,19 +3,21 @@
 namespace App\Console\Commands;
 
 use App\Console\Commands\Concerns\AuthenticatesUser;
+use App\Console\Commands\Concerns\TranslatesCommand;
 use App\Repository\ProviderRepository;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
+use Illuminate\Support\Number;
 
 #[Signature('ai:models
-    {provider? : Limit output to a single provider (e.g. openai)}
-    {--name= : The username to log in with; the password is always asked}
-    {--json : Output raw JSON instead of a table}')]
-#[Description('List the AI models the user activated on their connected providers')]
+    {provider? : console.commands.ai_models.provider}
+    {--name= : console.options.name}
+    {--json : console.commands.ai_models.json}')]
+#[Description('console.commands.ai_models.description')]
 class ListAiModels extends Command
 {
-    use AuthenticatesUser;
+    use AuthenticatesUser, TranslatesCommand;
 
     public function handle(ProviderRepository $providerRepository): int
     {
@@ -30,7 +32,7 @@ class ListAiModels extends Command
             );
 
         if ($models->isEmpty()) {
-            $this->warn('Aucun modèle actif : connectez un fournisseur et activez un modèle dans les paramètres.');
+            $this->warn(__('console.no_model'));
 
             return self::SUCCESS;
         }
@@ -42,12 +44,12 @@ class ListAiModels extends Command
         }
 
         $this->table(
-            ['Provider', 'Model ID', 'Name', 'Context'],
+            [__('console.models.provider'), __('console.models.id'), __('console.models.name'), __('console.models.context')],
             $models->map(fn (array $model): array => [
                 $model['provider'],
                 $model['id'],
                 $model['label'],
-                $model['context_window'] !== null ? number_format($model['context_window']) : '—',
+                $model['context_window'] !== null ? Number::format($model['context_window'], locale: app()->getLocale()) : '—',
             ])->all(),
         );
 

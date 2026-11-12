@@ -6,6 +6,9 @@ namespace App\Services\Exporter;
 
 use App\Database\Contracts\DriverContract;
 use App\Database\SelectQuery;
+use App\Enums\PrivilegeEnum;
+use App\Services\Cloning\Engine\Data\Schema\DatabaseSchemaData;
+use App\Services\Cloning\Engine\Data\Schema\TableSchemaData;
 use App\Services\Exporter\Writers\CsvExportWriter;
 use App\Services\SystemInfoService;
 use DateTimeImmutable;
@@ -35,7 +38,12 @@ class DatabaseExporter
     public function export(DriverContract $driver, array $onlyTables, ExportFormat $format, ExportCompression $compression, string $destinationDirectory): string
     {
         $source = $this->sourceReader->read($driver);
-        $tables = $this->tableSelector->select($source->schema, $onlyTables, $driver->hiddenTables());
+
+        foreach (array_keys($onlyTables) as $table) {
+            $driver->assertPrivilege(PrivilegeEnum::Export, (string) $table);
+        }
+
+        $tables = $this->tableSelector->select($source->schema, $onlyTables, [...$driver->hiddenTables(), ...$this->notExportable($driver, $source->schema)]);
         $exportedAt = new DateTimeImmutable;
         $baseName = $source->databaseName.'_'.$exportedAt->format('Ymd_His');
         $workingDirectory = $this->systemInfoService->temporaryDirectory('export_'.Str::random(12))->path('');
@@ -70,7 +78,7 @@ class DatabaseExporter
             $rows = $this->csvWriter->writeQuery($query, $file);
 
             if ($rows === 0) {
-                throw new RuntimeException('Rien à exporter : la requête ne renvoie aucune ligne.');
+                throw new RuntimeException(__('exports.errors.empty_query'));
             }
 
             File::ensureDirectoryExists($destinationDirectory);
@@ -82,5 +90,24 @@ class DatabaseExporter
         } finally {
             File::deleteDirectory($workingDirectory);
         }
+    }
+
+    /**
+     * The tables the user may read but not export, left out of an export of every table.
+     *
+     * @return list<string>
+     */
+    private function notExportable(DriverContract $driver, DatabaseSchemaData $schema): array
+    {
+        $privileges = $driver->privileges();
+
+        if ($privileges === null || $privileges->allowsOnProject(PrivilegeEnum::Export)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            array_map(fn (TableSchemaData $table): string => $table->name, $schema->tables),
+            fn (string $table): bool => ! $privileges->allows(PrivilegeEnum::Export, $table),
+        ));
     }
 }

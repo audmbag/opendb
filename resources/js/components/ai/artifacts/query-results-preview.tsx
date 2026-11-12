@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon, SheetIcon } from 'lucide-react';
 import { useState } from 'react';
 import ArtifactFrame from '@/components/ai/artifacts/artifact-frame';
@@ -30,6 +31,7 @@ const nextSort = (sort: Sort, column: string): Sort => {
 };
 
 export default function QueryResultsPreview({ part, enabled }: Props) {
+    const { t, tChoice } = useLaravelReactI18n();
     const conversationId = useConversationId();
     const [page, setPage] = useState(1);
     const [sort, setSort] = useState<Sort>(null);
@@ -55,8 +57,8 @@ export default function QueryResultsPreview({ part, enabled }: Props) {
         <ArtifactFrame
             ref={ref}
             icon={SheetIcon}
-            title={part.output.title ?? 'Résultats de la requête'}
-            badge={<Badge>{`${formatNumber(total)} ligne${total > 1 ? 's' : ''}`}</Badge>}
+            title={part.output.title ?? t('ai.artifacts.query_results')}
+            badge={<Badge>{tChoice('tables.counts.rows', total, { count: formatNumber(total) })}</Badge>}
             data={data}
             error={error}
             processing={processing}
@@ -110,17 +112,17 @@ export default function QueryResultsPreview({ part, enabled }: Props) {
                         </table>
 
                         {data.rows.length === 0 && (
-                            <p className="p-6 text-center text-sm text-muted-foreground">Aucun résultat.</p>
+                            <p className="p-6 text-center text-sm text-muted-foreground">{t('common.no_results')}</p>
                         )}
                     </div>
 
                     {lastPage > 1 && (
                         <div className="flex items-center justify-end gap-2 border-t border-border px-3 py-2 text-sm text-muted-foreground">
-                            Page {page} / {lastPage}
-                            <Button variant="ghost" size="icon-sm" disabled={page <= 1} onClick={() => setPage(page - 1)} aria-label="Page précédente">
+                            {t('common.page_of', { page, last: lastPage })}
+                            <Button variant="ghost" size="icon-sm" disabled={page <= 1} onClick={() => setPage(page - 1)} aria-label={t('common.previous_page')}>
                                 <ChevronLeftIcon />
                             </Button>
-                            <Button variant="ghost" size="icon-sm" disabled={page >= lastPage} onClick={() => setPage(page + 1)} aria-label="Page suivante">
+                            <Button variant="ghost" size="icon-sm" disabled={page >= lastPage} onClick={() => setPage(page + 1)} aria-label={t('common.next_page')}>
                                 <ChevronRightIcon />
                             </Button>
                         </div>

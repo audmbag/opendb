@@ -98,7 +98,7 @@ class DriverConfigRequest extends FormRequest
                 }
 
                 if ($create_database ? ! is_writable(dirname($value)) : ! is_writable($value)) {
-                    return $fail("The {$attribute} must be a valid file path and writable.");
+                    return $fail(__('requests.writable_file', ['attribute' => $attribute]));
                 }
             }],
             'username' => [$unless_sqlite, 'string'],
@@ -109,7 +109,7 @@ class DriverConfigRequest extends FormRequest
             'ssh.user' => [$with_ssh, 'string'],
             'ssh.id_file' => [$with_ssh, 'string', function (string $attribute, mixed $value, Closure $fail) {
                 if (! is_file($value)) {
-                    return $fail("The {$attribute} must be a valid file path.");
+                    return $fail(__('requests.file', ['attribute' => $attribute]));
                 }
             }],
         ], $prefix);

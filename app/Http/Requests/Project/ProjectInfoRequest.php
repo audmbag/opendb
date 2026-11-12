@@ -10,13 +10,15 @@ use Illuminate\Validation\Rule;
 class ProjectInfoRequest extends FormRequest
 {
     /**
-     * A new project may be created by anyone, an existing one only changed by its owner.
+     * A new project may be created with the CREATE PROJECT privilege, an existing one only changed by who manages it.
      */
     public function authorize(): bool
     {
-        $project = $this->filled('id') ? Project::find($this->input('id')) : null;
+        $project = $this->route('project') ?? ($this->filled('id') ? Project::find($this->input('id')) : null);
 
-        return $project === null || $this->user()->can('update', $project);
+        return $project instanceof Project
+            ? $this->user()->can('update', $project)
+            : $this->user()->can('create', Project::class);
     }
 
     public function rules(): array
@@ -27,7 +29,7 @@ class ProjectInfoRequest extends FormRequest
             'description' => 'required|string',
             'path' => ['required', 'string', function (string $attribute, mixed $value, Closure $fail) {
                 if (! is_dir($value) && ! is_writable($value)) {
-                    return $fail('Le chemin doit être un répertoire existant et accessible en écriture.');
+                    return $fail(__('requests.writable_directory'));
                 }
             }],
         ];

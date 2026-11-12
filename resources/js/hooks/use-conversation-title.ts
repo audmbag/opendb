@@ -1,4 +1,5 @@
 import { http } from '@inertiajs/react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { useEffect, useState } from 'react';
 import { useConversationStore } from '@/store/use-conversation-store';
 import type { Conversation } from '@/types/models/conversation';
@@ -11,8 +12,6 @@ const POLL_INTERVAL = 1000;
  */
 const MAX_ATTEMPTS = 120;
 
-const FALLBACK_TITLE = 'Nouvelle conversation';
-
 /**
  * The title of the conversation, null while the queue is still generating it. Until then, the conversation is read
  * again every second, and the title is written into the list of the sidebar as soon as it is ready.
@@ -22,6 +21,7 @@ export function useConversationTitle(conversation: Conversation): string | null 
         (state) => state.conversations.find((item) => item.id === conversation.id)?.title,
     );
     const rename = useConversationStore((state) => state.rename);
+    const { t } = useLaravelReactI18n();
     const [fetchedTitle, setFetchedTitle] = useState<{ id: string; title: string } | null>(null);
     const [givenUpId, setGivenUpId] = useState<string | null>(null);
 
@@ -79,5 +79,5 @@ export function useConversationTitle(conversation: Conversation): string | null 
         };
     }, [conversation.id, title, rename]);
 
-    return title ?? (givenUpId === conversation.id ? FALLBACK_TITLE : null);
+    return title ?? (givenUpId === conversation.id ? t('conversations.new_conversation') : null);
 }

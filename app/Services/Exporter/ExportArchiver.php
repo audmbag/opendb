@@ -42,13 +42,13 @@ class ExportArchiver
     protected function zip(array $files, string $path): string
     {
         if (! class_exists(ZipArchive::class)) {
-            throw new RuntimeException("L'extension PHP zip n'est pas disponible.");
+            throw new RuntimeException(__('exports.errors.zip_missing'));
         }
 
         $zip = new ZipArchive;
 
         if ($zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-            throw new RuntimeException("Impossible de créer l'archive {$path}.");
+            throw new RuntimeException(__('exports.errors.archive_create', ['path' => $path]));
         }
 
         foreach ($files as $file) {
@@ -56,7 +56,7 @@ class ExportArchiver
         }
 
         if (! $zip->close()) {
-            throw new RuntimeException("Impossible de finaliser l'archive {$path}.");
+            throw new RuntimeException(__('exports.errors.archive_close', ['path' => $path]));
         }
 
         return $path;
@@ -74,7 +74,7 @@ class ExportArchiver
                 $tar->addFile($file, basename($file));
             }
         } catch (Throwable $e) {
-            throw new RuntimeException("Impossible de créer l'archive {$path} : {$e->getMessage()}", 0, $e);
+            throw new RuntimeException(__('exports.errors.archive_create_because', ['path' => $path, 'error' => $e->getMessage()]), 0, $e);
         }
 
         return $path;
@@ -97,7 +97,7 @@ class ExportArchiver
     protected function copy(string $file, string $path): string
     {
         if (! copy($file, $path)) {
-            throw new RuntimeException("Impossible d'écrire le fichier {$path}.");
+            throw new RuntimeException(__('exports.errors.write', ['path' => $path]));
         }
 
         return $path;
@@ -109,7 +109,7 @@ class ExportArchiver
         $output = gzopen($path, 'wb9');
 
         if ($input === false || $output === false) {
-            throw new RuntimeException("Impossible de créer l'archive {$path}.");
+            throw new RuntimeException(__('exports.errors.archive_create', ['path' => $path]));
         }
 
         try {

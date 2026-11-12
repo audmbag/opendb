@@ -1,4 +1,5 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     BotOffIcon,
     ChevronRightIcon,
@@ -37,7 +38,9 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Kbd } from '@/components/ui/kbd';
+import { usePrivileges } from '@/hooks/use-privileges';
 import { cn } from '@/lib/utils';
+import type { Privilege } from '@/types/models/privilege';
 import TableBrowserController from '@/wayfinder/actions/App/Http/Controllers/Tables/TableBrowserController';
 import type { TableRequestError } from './api';
 import { requestTableData } from './api';
@@ -135,9 +138,9 @@ const TABLE_HEIGHT = 32;
 const DETAIL_HEIGHT = 26;
 
 const SECTION_LABELS: Record<Section, string> = {
-    columns: 'Colonnes',
-    keys: 'Clés',
-    indexes: 'Index',
+    columns: 'tables.list.sections.columns',
+    keys: 'tables.list.sections.keys',
+    indexes: 'tables.list.sections.indexes',
 };
 
 /**
@@ -191,10 +194,10 @@ function outlineNodes(
                 key: `${sectionKey}:empty`,
                 text:
                     section === 'keys'
-                        ? 'Aucune clé'
+                        ? 'tables.list.no_key'
                         : section === 'indexes'
-                          ? 'Aucun index'
-                          : 'Aucune colonne',
+                          ? 'tables.list.no_index'
+                          : 'tables.list.no_column',
             });
 
             continue;
@@ -278,6 +281,7 @@ export default function TableList({
 }: Props) {
     'use no memo';
 
+    const { t } = useLaravelReactI18n();
     const [search, setSearch] = useState('');
     const deferredSearch = useDeferredValue(search.trim().toLowerCase());
     const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
@@ -471,7 +475,7 @@ export default function TableList({
                             type="button"
                             onClick={() => toggleTable(table.name)}
                             aria-expanded={node.expanded}
-                            aria-label={`${node.expanded ? 'Replier' : 'Déplier'} ${table.name}`}
+                            aria-label={node.expanded ? t('tables.list.collapse', { table: table.name }) : t('tables.list.expand', { table: table.name })}
                             className="flex h-full w-6 shrink-0 items-center justify-center rounded-l-md text-muted-foreground hover:text-foreground"
                         >
                             <ChevronRightIcon
@@ -507,18 +511,18 @@ export default function TableList({
                             {opened && !selected && (
                                 <span
                                     className="size-1.5 shrink-0 rounded-full bg-muted-foreground/60"
-                                    aria-label="Ouverte dans un onglet"
+                                    aria-label={t('tables.list.open_in_tab')}
                                 />
                             )}
                             {!table.agentAccessEnabled && (
                                 <BotOffIcon
                                     className="size-3.5 shrink-0 text-muted-foreground"
-                                    aria-label="Inaccessible à l'assistant"
+                                    aria-label={t('tables.list.agent_disabled')}
                                 />
                             )}
                             {!table.hasPrimaryKey && (
                                 <span
-                                    title="Sans clé primaire : lecture seule"
+                                    title={t('tables.list.no_primary_key')}
                                     className="relative shrink-0 text-muted-foreground/70"
                                 >
                                     <KeyRoundIcon className="size-3.5" />
@@ -562,7 +566,7 @@ export default function TableList({
                             )}
                         />
                         <span className="flex-1">
-                            {SECTION_LABELS[node.section]}
+                            {t(SECTION_LABELS[node.section])}
                         </span>
                         <span className="tabular-nums">{node.count}</span>
                     </button>
@@ -583,17 +587,17 @@ export default function TableList({
                             onColumnSelect &&
                                 'rounded-md transition-colors hover:bg-muted',
                         )}
-                        title={`${node.name} ${node.type}${node.nullable ? ', peut être NULL' : ''}${node.defaultValue !== null ? `, défaut ${node.defaultValue}` : ''}`}
+                        title={`${node.name} ${node.type}${node.nullable ? `, ${t('tables.grid.nullable')}` : ''}${node.defaultValue !== null ? `, ${t('tables.list.default', { value: node.defaultValue })}` : ''}`}
                     >
                         {node.primary ? (
                             <KeyRoundIcon
                                 className="size-3 shrink-0 text-warning"
-                                aria-label="Clé primaire"
+                                aria-label={t('tables.designer.columns.primary_key')}
                             />
                         ) : node.foreign ? (
                             <LinkIcon
                                 className="size-3 shrink-0 text-muted-foreground"
-                                aria-label="Clé étrangère"
+                                aria-label={t('tables.list.foreign_key')}
                             />
                         ) : (
                             <span className="size-3 shrink-0" />
@@ -615,7 +619,7 @@ export default function TableList({
                         title={
                             node.target
                                 ? `${node.label} : ${node.columns.join(', ')} → ${node.target.table} (${node.target.columns.join(', ')})`
-                                : `Clé primaire : ${node.columns.join(', ')}`
+                                : t('tables.list.primary_key_columns', { columns: node.columns.join(', ') })
                         }
                     >
                         {node.target ? (
@@ -649,7 +653,7 @@ export default function TableList({
                         </span>
                         {node.unique && (
                             <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
-                                unique
+                                {t('tables.records.unique')}
                             </span>
                         )}
                     </div>
@@ -662,7 +666,7 @@ export default function TableList({
                             columnsOnly ? 'pl-8' : 'pl-11',
                         )}
                     >
-                        {node.text}
+                        {t(node.text)}
                     </p>
                 );
         }
@@ -670,12 +674,12 @@ export default function TableList({
 
     return (
         <nav
-            aria-label="Tables de la base"
+            aria-label={t('tables.list.title')}
             className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden"
         >
             <div className="flex min-w-0 items-center gap-0.5 px-2 pt-2 pb-1.5">
                 <h2 className="flex min-w-0 flex-1 items-baseline gap-2 truncate pl-1 text-sm font-medium">
-                    Tables
+                    {t('projects.menu.tables')}
                     <span className="text-xs font-normal text-muted-foreground tabular-nums">
                         {tables.length}
                     </span>
@@ -685,8 +689,8 @@ export default function TableList({
                         variant="ghost"
                         size="icon-sm"
                         onClick={onCreateTable}
-                        aria-label="Créer une table"
-                        tooltip="Créer une table"
+                        aria-label={t('tables.create')}
+                        tooltip={t('tables.create')}
                     >
                         <PlusIcon />
                     </Button>
@@ -696,8 +700,8 @@ export default function TableList({
                         variant="ghost"
                         size="icon-sm"
                         onClick={onOpenConsole}
-                        aria-label="Ouvrir une console SQL"
-                        tooltip="Ouvrir une console SQL"
+                        aria-label={t('tables.list.open_console')}
+                        tooltip={t('tables.list.open_console')}
                     >
                         <SquareTerminalIcon />
                     </Button>
@@ -708,8 +712,8 @@ export default function TableList({
                             <Button
                                 variant="ghost"
                                 size="icon-sm"
-                                aria-label="Importer ou exporter"
-                                tooltip="Importer ou exporter"
+                                aria-label={t('tables.list.import_export')}
+                                tooltip={t('tables.list.import_export')}
                             >
                                 <EllipsisVerticalIcon />
                             </Button>
@@ -718,13 +722,13 @@ export default function TableList({
                             {onImport && (
                                 <DropdownMenuItem onSelect={onImport}>
                                     <UploadIcon />
-                                    Importer
+                                    {t('tables.import.title')}
                                 </DropdownMenuItem>
                             )}
                             {onExport && (
                                 <DropdownMenuItem onSelect={onExport}>
                                     <DownloadIcon />
-                                    Exporter la base
+                                    {t('tables.list.export_database')}
                                 </DropdownMenuItem>
                             )}
                         </DropdownMenuContent>
@@ -733,7 +737,7 @@ export default function TableList({
             </div>
 
             <label className="relative mx-2 mb-2 flex items-center">
-                <span className="sr-only">Rechercher une table</span>
+                <span className="sr-only">{t('shortcuts.search_table')}</span>
                 <SearchIcon className="pointer-events-none absolute left-2.5 size-4 text-muted-foreground" />
                 <input
                     ref={searchRef}
@@ -741,7 +745,7 @@ export default function TableList({
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
                     onKeyDown={openFirstMatch}
-                    placeholder="Rechercher"
+                    placeholder={t('common.search')}
                     className="h-8 w-full rounded-md border border-input bg-transparent pr-8 pl-8 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
                 />
                 {search === '' && (
@@ -771,8 +775,8 @@ export default function TableList({
                         {visible.length === 0 ? (
                             <p className="px-2 py-6 text-center text-sm text-muted-foreground">
                                 {tables.length === 0
-                                    ? 'Cette base ne contient aucune table.'
-                                    : 'Aucune table ne correspond.'}
+                                    ? t('tables.list.empty')
+                                    : t('tables.list.no_match')}
                             </p>
                         ) : (
                             <ul
@@ -813,54 +817,73 @@ function TableContextMenu({
     table: string;
     onAction: (action: TableAction) => void;
 }) {
+    const { t } = useLaravelReactI18n();
+    // The actions the privileges of the user on the table refuse are left out, as the server would refuse them.
+    const { canOnProject } = usePrivileges();
+    const can = (privilege: Privilege) => canOnProject(privilege, table);
+
     return (
         <ContextMenuContent className="w-56">
             <ContextMenuItem onSelect={() => onAction('open')}>
                 <Table2Icon />
-                Ouvrir
+                {t('tables.list.open')}
             </ContextMenuItem>
-            <ContextMenuItem onSelect={() => onAction('design')}>
-                <PencilRulerIcon />
-                Modifier la structure
-            </ContextMenuItem>
-            <ContextMenuItem onSelect={() => onAction('rename')}>
-                <TextCursorInputIcon />
-                Renommer
-            </ContextMenuItem>
-            <ContextMenuItem onSelect={() => onAction('duplicate')}>
-                <CopyPlusIcon />
-                Dupliquer
-            </ContextMenuItem>
+            {can('alter') && (
+                <ContextMenuItem onSelect={() => onAction('design')}>
+                    <PencilRulerIcon />
+                    {t('tables.workspace.edit_structure')}
+                </ContextMenuItem>
+            )}
+            {can('alter') && (
+                <ContextMenuItem onSelect={() => onAction('rename')}>
+                    <TextCursorInputIcon />
+                    {t('tables.workspace.rename')}
+                </ContextMenuItem>
+            )}
+            {canOnProject('create') && (
+                <ContextMenuItem onSelect={() => onAction('duplicate')}>
+                    <CopyPlusIcon />
+                    {t('tables.workspace.duplicate')}
+                </ContextMenuItem>
+            )}
             <ContextMenuItem
                 onSelect={() => navigator.clipboard.writeText(table)}
             >
                 <CopyIcon />
-                Copier le nom
+                {t('tables.list.copy_name')}
             </ContextMenuItem>
             <ContextMenuSeparator />
-            <ContextMenuItem onSelect={() => onAction('import')}>
-                <FileUpIcon />
-                Importer un CSV
-            </ContextMenuItem>
-            <ContextMenuItem onSelect={() => onAction('export')}>
-                <DownloadIcon />
-                Exporter
-            </ContextMenuItem>
-            <ContextMenuSeparator />
-            <ContextMenuItem
-                variant="destructive"
-                onSelect={() => onAction('truncate')}
-            >
-                <EraserIcon />
-                Vider
-            </ContextMenuItem>
-            <ContextMenuItem
-                variant="destructive"
-                onSelect={() => onAction('drop')}
-            >
-                <Trash2Icon />
-                Supprimer
-            </ContextMenuItem>
+            {can('import') && can('insert') && (
+                <ContextMenuItem onSelect={() => onAction('import')}>
+                    <FileUpIcon />
+                    {t('tables.workspace.import_csv')}
+                </ContextMenuItem>
+            )}
+            {can('export') && (
+                <ContextMenuItem onSelect={() => onAction('export')}>
+                    <DownloadIcon />
+                    {t('tables.workspace.export')}
+                </ContextMenuItem>
+            )}
+            {can('drop') && (
+                <>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem
+                        variant="destructive"
+                        onSelect={() => onAction('truncate')}
+                    >
+                        <EraserIcon />
+                        {t('tables.list.truncate')}
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                        variant="destructive"
+                        onSelect={() => onAction('drop')}
+                    >
+                        <Trash2Icon />
+                        {t('common.delete')}
+                    </ContextMenuItem>
+                </>
+            )}
         </ContextMenuContent>
     );
 }

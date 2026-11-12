@@ -3,6 +3,7 @@
 use App\Database\ExplainOutput;
 use App\Services\QueryPlan\Data\PlanNode;
 use App\Services\QueryPlan\Parsers\MySQLPlanParser;
+use App\Support\TranslatableMessage;
 
 it('reads a grouped full scan, with the cost of the read and the group key of the query', function () {
     ['output' => $output, 'query' => $query] = queryPlanFixture('mysql-group-full-scan');
@@ -14,12 +15,12 @@ it('reads a grouped full scan, with the cost of the read and the group key of th
         ->and($plan->driverLabel)->toBe('MySQL 8.0')
         ->and($result->cost)->toBe(6059.25)
         ->and($group->subtitle)->toBe('GROUP BY product_id')
-        ->and($group->outputLabel)->toBe('1 ligne par product_id')
+        ->and($group->outputLabel)->toEqual(new TranslatableMessage('query_plan.output.one_row_per', ['key' => 'product_id']))
         ->and($group->facts['temporary'])->toBeTrue()
         ->and($scan->parentId)->toBe($group->id);
     expect([$scan->table, $scan->badge, $scan->rowsExamined, $scan->estimatedRows, $scan->selfCost, $scan->costShare])
-        ->toBe(['product_views', 'aucun index', 60030, 20008, 6059.25, 1.0])
-        ->and($scan->condition)->toBe(['label' => 'Filtre appliqué', 'value' => 'viewed_at >= (now() - interval 7 day)']);
+        ->toEqual(['product_views', new TranslatableMessage('query_plan.badges.no_index'), 60030, 20008, 6059.25, 1.0])
+        ->and($scan->condition)->toEqual(['label' => new TranslatableMessage('query_plan.conditions.filter'), 'value' => 'viewed_at >= (now() - interval 7 day)']);
 });
 
 it('reads a covering range scan on an index', function () {
@@ -28,7 +29,7 @@ it('reads a covering range scan on an index', function () {
     $scan = array_last(new MySQLPlanParser()->parse($output, $query)->nodes);
 
     expect([$scan->operation->value, $scan->index, $scan->badge, $scan->rowsExamined])
-        ->toBe(['range_scan', 'idx_product_views_viewed_at_product_id', 'index couvrant', 8412]);
+        ->toEqual(['range_scan', 'idx_product_views_viewed_at_product_id', new TranslatableMessage('query_plan.badges.covering_index'), 8412]);
 });
 
 it('joins the tables of a nested loop in execution order, the inner table read through the join key', function () {
@@ -40,8 +41,8 @@ it('joins the tables of a nested loop in execution order, the inner table read t
     expect(array_map(fn (PlanNode $node): string => $node->operation->value, $plan->nodes))->toBe(['result', 'sort', 'nested_loop', 'full_scan', 'unique_lookup'])
         ->and($sort->subtitle)->toBe('o.total')
         ->and($sort->facts['filesort'])->toBeTrue()
-        ->and($join->condition)->toBe(['label' => 'Condition de jointure', 'value' => 'c.id = o.customer_id'])
-        ->and($orders->badge)->toBe('aucun index utilisable')
+        ->and($join->condition)->toEqual(['label' => new TranslatableMessage('query_plan.conditions.join_condition'), 'value' => 'c.id = o.customer_id'])
+        ->and($orders->badge)->toEqual(new TranslatableMessage('query_plan.badges.no_usable_index'))
         ->and($orders->condition['value'])->toBe("(o.status = 'paid') and (o.customer_id is not null)");
     expect([$customers->table, $customers->rowsExamined, $customers->selfCost])->toBe(['customers', 188, 109.9]);
 });

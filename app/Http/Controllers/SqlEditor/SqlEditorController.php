@@ -19,9 +19,11 @@ class SqlEditorController extends TableController
         $driver = $this->driver($project);
 
         return Inertia::render('projects/sql-editor/index', [
-            'project' => $project->load(['driver_config.driver']),
+            'project' => $project->withConnectionFor(request()->user()),
             'tables' => $this->tables->tables($driver, $project->driver_config->disabled_tables ?? []),
-            'files' => $editor->files($project),
+            'files' => $editor->files($this->workspace($project)),
+            'readOnly' => (bool) $project->driver_config->read_only,
+            'snippets' => $editor->snippets($this->workspace($project)),
             'completion' => Inertia::defer(fn (): array => $this->tables->columnNamesByTable($driver)),
         ]);
     }

@@ -1,4 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { ExternalLinkIcon, MoreHorizontalIcon } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import * as React from 'react';
@@ -20,7 +21,7 @@ import {
     useSidebar,
 } from '@/components/ui/sidebar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { cn, limit } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 export type SidebarMenuItemType = {
     label: string;
@@ -71,6 +72,7 @@ export const SidebarMenuItem = ({
     onClick,
     ...pros
 }: SidebarMenuItemType & React.ComponentProps<typeof Fragment>) => {
+    const { t } = useLaravelReactI18n();
     const { open } = useSidebar();
 
     const { url } = usePage();
@@ -97,7 +99,17 @@ export const SidebarMenuItem = ({
             {loading ? (
                 <Skeleton className="h-3.5 w-full max-w-36" />
             ) : (
-                <span>{limit(label, 20)}</span>
+                <span
+                    className={cn(
+                        'min-w-0 flex-1 overflow-hidden mask-r-from-[calc(100%-1.5rem)] text-clip!',
+                        {
+                            'group-hover/menu-button:mask-r-from-[calc(100%-3.5rem)] group-has-data-[state=open]/menu-button:mask-r-from-[calc(100%-3.5rem)]':
+                                options.length > 0,
+                        },
+                    )}
+                >
+                    {label}
+                </span>
             )}
             {external && <ExternalLinkIcon className="ml-auto" />}
             {shortcut && (
@@ -126,7 +138,7 @@ export const SidebarMenuItem = ({
                             className={cn(
                                 'text-nowrap data-active:bg-zinc-200 data-active:text-sidebar-foreground data-active:hover:bg-zinc-200 dark:data-active:bg-zinc-800',
                                 {
-                                    'justify-between': options.length > 0,
+                                    relative: options.length > 0,
                                     'p-0': editing,
                                 },
                             )}
@@ -135,7 +147,9 @@ export const SidebarMenuItem = ({
                                 <Editable
                                     defaultValue={label}
                                     onSubmit={handleEditing}
-                                    placeholder="Titre de la conversation"
+                                    placeholder={t(
+                                        'conversations.title_placeholder',
+                                    )}
                                     editing={editing}
                                 >
                                     <EditableArea>
@@ -163,7 +177,7 @@ export const SidebarMenuItem = ({
                                                 icon={MoreHorizontalIcon}
                                                 variant="ghost"
                                                 size="icon-sm"
-                                                className="size-6 h-4 shrink-0"
+                                                className="absolute top-0.5 right-0.5 size-7 opacity-0 group-focus-within/menu-button:opacity-100 group-hover/menu-button:opacity-100 hover:bg-black/5 data-[state=open]:opacity-100 dark:hover:bg-white/10 [@media(hover:none)]:opacity-100"
                                                 onClick={preventLinkNavigation}
                                             />
                                         </DropdownMenu>

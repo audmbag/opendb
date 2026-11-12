@@ -58,17 +58,17 @@ it('summarizes a grouped full scan for the agent without the full plan', functio
         'driver' => 'mysql',
         'totalCost' => 6059.25,
         'steps' => [
-            "1. Parcours complet de product_views : ~60\u{202F}030 lignes lues, ~20\u{202F}008 gardées par le filtre viewed_at >= (now() - interval 7 day) (100 % du coût)",
-            '2. Regroupement par product_id dans une table temporaire',
-            '3. Résultat : 1 ligne par product_id',
+            '1. Full scan of product_views: ~60,030 rows read, ~20,008 kept by the filter viewed_at >= (now() - interval 7 day) (100% of the cost)',
+            '2. Grouping by product_id in a temporary table',
+            '3. Result: 1 row per product_id',
         ],
         'alerts' => [
-            ['code' => 'FULL_SCAN', 'severity' => 'danger', 'table' => 'product_views', 'columns' => ['viewed_at'], 'message' => 'Parcours complet de product_views pour filtrer sur viewed_at'],
-            ['code' => 'TEMP_TABLE', 'severity' => 'warn', 'table' => 'product_views', 'columns' => ['product_id'], 'message' => 'Table temporaire pour GROUP BY product_id'],
+            ['code' => 'FULL_SCAN', 'severity' => 'danger', 'table' => 'product_views', 'columns' => ['viewed_at'], 'message' => 'Full scan of product_views to filter on viewed_at'],
+            ['code' => 'TEMP_TABLE', 'severity' => 'warn', 'table' => 'product_views', 'columns' => ['product_id'], 'message' => 'Temporary table for GROUP BY product_id'],
         ],
         'comparison' => null,
     ])->and($summary)->not->toHaveKeys(['nodes', 'raw'])
-        ->and($summary['instructions'])->toContain('sans les créer toi-même')->toContain('colonnes du GROUP BY sont en tête');
+        ->and($summary['instructions'])->toContain('without creating them yourself')->toContain('GROUP BY columns lead the index');
 });
 
 it('compares the second plan of the same query in the conversation and keeps a remaining alert flagged', function () {
@@ -86,16 +86,16 @@ it('compares the second plan of the same query in the conversation and keeps a r
         'previousPlanId' => $first->id,
         'costBefore' => 6059.25,
         'costAfter' => 1694.6,
-        'costChange' => '-72 %',
+        'costChange' => '-72%',
         'rowsReadBefore' => 60030,
         'rowsReadAfter' => 8412,
-        'resolvedAlerts' => ['FULL_SCAN sur product_views'],
-        'remainingAlerts' => ['TEMP_TABLE sur product_views'],
+        'resolvedAlerts' => ['FULL_SCAN on product_views'],
+        'remainingAlerts' => ['TEMP_TABLE on product_views'],
         'newAlerts' => [],
     ])->and(array_column($summary['alerts'], 'status', 'code'))->toBe(['TEMP_TABLE' => 'remaining'])
-        ->and($summary['instructions'])->toContain('Ne prétends pas qu\'une alerte restante a disparu');
+        ->and($summary['instructions'])->toContain('Do not claim that a remaining alert is gone');
     expect($second->payload['previous']['planId'])->toBe($first->id)
-        ->and($second->payload['nodes'][2]['before'])->toMatchArray(['label' => 'Parcours complet', 'rowsExamined' => 60030, 'cost' => 6059.25]);
+        ->and($second->payload['nodes'][2]['before'])->toMatchArray(['label' => ['key' => 'query_plan.operations.full_scan', 'params' => []], 'rowsExamined' => 60030, 'cost' => 6059.25]);
 });
 
 it('summarizes a join of PostgreSQL leaves to root, without the hash step', function () {
@@ -106,11 +106,11 @@ it('summarizes a join of PostgreSQL leaves to root, without the hash step', func
     $summary = app(QueryPlanManager::class)->summarize($plan);
 
     expect($summary['steps'])->toBe([
-        "1. Parcours complet de orders : ~60\u{202F}000 lignes lues, ~21\u{202F}400 gardées par le filtre (status)::text = 'paid'::text (55 % du coût)",
-        "2. Parcours complet de customers (~5\u{202F}200 lignes) pour construire une table de hachage (4 % du coût, normal)",
-        '3. Jointure par hachage sur o.customer_id = c.id (14 % du coût)',
-        "4. Tri de ~21\u{202F}400 lignes par o.created_at DESC (28 % du coût)",
-        '5. Limite aux 20 premières lignes',
+        "1. Full scan of orders: ~60,000 rows read, ~21,400 kept by the filter (status)::text = 'paid'::text (55% of the cost)",
+        '2. Full scan of customers (~5,200 rows) to build a hash table (4% of the cost, normal)',
+        '3. Hash join on o.customer_id = c.id (14% of the cost)',
+        '4. Sort of ~21,400 rows by o.created_at DESC (28% of the cost)',
+        '5. Limit to the first 20 rows',
     ])->and(array_map(fn (array $alert): array => [$alert['code'], $alert['table'], $alert['columns']], $summary['alerts']))->toBe([
         ['FULL_SCAN', 'orders', ['status']],
         ['SORT', 'orders', ['created_at']],

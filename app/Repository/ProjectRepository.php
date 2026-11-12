@@ -98,15 +98,38 @@ readonly class ProjectRepository
     public function getRecentProjects(): Collection
     {
         return Project::clearDrafts()
+            ->accessibleBy($this->user)
             ->with('driver_config.driver')
             ->latest()
             ->limit(4)
-            ->get();
+            ->get()
+            ->each(function (Project $project): void {
+                $project->driver_config?->withoutSecrets();
+                // Only who manages a project may delete it from the list.
+                $project->setAttribute('can_manage', $this->user->can('update', $project));
+            });
+    }
+
+    /**
+     * Every project the user may open, the last created first, with only what is needed to find and open one: the
+     * connection gives its driver alone, without the connection string, which would build a driver for each project.
+     *
+     * @return Collection<int, Project>
+     */
+    public function getProjects(): Collection
+    {
+        return Project::query()
+            ->accessibleBy($this->user)
+            ->clearDrafts()
+            ->with('driver_config:id,project_id,driver_id')
+            ->latest()
+            ->get(['id', 'name', 'description', 'path', 'created_at'])
+            ->each(fn (Project $project): ?DriverConfig => $project->driver_config?->setAppends([]));
     }
 
     public function getProjectCount(): int
     {
-        return Project::clearDrafts()->count();
+        return Project::clearDrafts()->accessibleBy($this->user)->count();
     }
 
     public function switchDriverConfig(Project $project, mixed $cloningDriverConfig, mixed $agentDisabled): DriverConfig

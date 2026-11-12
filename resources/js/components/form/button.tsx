@@ -3,13 +3,13 @@ import type { LucideIcon } from "lucide-react";
 import React, { useCallback } from "react";
 import type { AlertDialogProps } from '@/components/alert-dialog';
 import AlertDialog from '@/components/alert-dialog';
+import { Spinner } from "@/components/spinner";
 import type { TooltipProps } from '@/components/tooltip';
 import Tooltip from '@/components/tooltip';
 import { Kbd, KbdGroup } from '@/components/ui/kbd';
 import { cn } from '@/lib/utils';
 import type { buttonVariants} from "../ui/button";
 import { Button as UIButton } from "../ui/button";
-import { Spinner } from "../ui/spinner";
 
 
 export type ButtonProps = React.ComponentProps<typeof UIButton> &

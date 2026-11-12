@@ -25,7 +25,7 @@ class MailSettingController extends Controller
 
         return response()->json([
             'data' => $settings,
-            'message' => 'La configuration SMTP a été enregistrée.',
+            'message' => __('mail.messages.smtp_saved'),
         ]);
     }
 
@@ -43,6 +43,6 @@ class MailSettingController extends Controller
             return response()->json(['success' => false, 'message' => $e->getMessage()]);
         }
 
-        return response()->json(['success' => true, 'message' => 'La connexion au serveur SMTP a réussi.']);
+        return response()->json(['success' => true, 'message' => __('mail.messages.smtp_connected')]);
     }
 }

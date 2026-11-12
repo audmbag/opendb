@@ -3,7 +3,10 @@
 namespace App\Database\Contracts;
 
 use App\Database\Exceptions\HiddenTableException;
+use App\Database\Exceptions\PrivilegeException;
 use App\Database\ExplainOutput;
+use App\Enums\PrivilegeEnum;
+use App\Services\Privileges\Data\TablePrivileges;
 use Exception;
 use Illuminate\Database\Connection;
 
@@ -24,6 +27,32 @@ interface DriverContract
      * @param  list<string>  $tables
      */
     public function hideTables(array $tables): static;
+
+    /**
+     * Act for a user: the tables they hold no privilege on are hidden, and every query is checked against their privileges.
+     */
+    public function withPrivileges(TablePrivileges $privileges, string $user): static;
+
+    /**
+     * The privileges of the user the driver acts for, or null when it acts for OpenDB itself.
+     */
+    public function privileges(): ?TablePrivileges;
+
+    /**
+     * @throws PrivilegeException when the privileges of the user do not allow the query.
+     * @throws HiddenTableException when the query could reach a hidden table.
+     */
+    public function assertQueryAllowed(string $sql): void;
+
+    /**
+     * @throws PrivilegeException when the user does not hold the privilege on the table, or on the whole project without a table.
+     */
+    public function assertPrivilege(PrivilegeEnum $privilege, ?string $table = null): void;
+
+    /**
+     * @throws PrivilegeException when the user does not hold the privilege on every table the query spells, nor on the project.
+     */
+    public function assertPrivilegeOnQuery(PrivilegeEnum $privilege, string $sql): void;
 
     /**
      * @return void
@@ -102,4 +131,25 @@ interface DriverContract
      * L'instruction CREATE TABLE de la table, suivie de ses index quand le moteur les décrit à part.
      */
     public function showCreateTable(string $table): string;
+
+    /**
+     * L'identifiant de la connexion ouverte auprès du serveur, qui permet d'interrompre sa requête depuis une autre.
+     * Null quand le moteur n'en a pas, comme SQLite.
+     */
+    public function connectionId(): ?string;
+
+    /**
+     * Interrompt la requête en cours sur la connexion donnée, depuis une autre connexion.
+     *
+     * @return bool false quand le moteur ne sait pas interrompre une requête
+     */
+    public function cancel(string $connectionId): bool;
+
+    /**
+     * Indique si une transaction annulée défait vraiment tout ce que font ces instructions. MySQL valide le DDL
+     * sans attendre et n'annule pas les écritures sur une table MyISAM.
+     *
+     * @param  list<string>  $statements
+     */
+    public function canRollBack(array $statements): bool;
 }

@@ -1,4 +1,5 @@
 import { useHttp, usePage } from '@inertiajs/react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     EraserIcon,
     LoaderIcon,
@@ -34,6 +35,7 @@ type MemoryResponse = {
  * What the agent remembers about the project between its conversations, injected in its instructions.
  */
 export default function MemoryProjectSettings() {
+    const { t } = useLaravelReactI18n();
     const { project } = usePage<{ project: Project }>().props;
 
     const [entries, setEntries] = useState<MemoryEntry[]>([]);
@@ -94,8 +96,8 @@ export default function MemoryProjectSettings() {
 
     return (
         <CardFrame
-            title="Mémoire de l'agent"
-            description="Les faits que l'agent retient sur ce projet d'une conversation à l'autre. Il les relit au début de chaque conversation."
+            title={t('projects.settings.memory.title')}
+            description={t('projects.settings.memory.description')}
             icon={NotebookPenIcon}
             badge={
                 <Badge variant="secondary">{`${entries.length} / ${max}`}</Badge>
@@ -109,14 +111,13 @@ export default function MemoryProjectSettings() {
                         disabled={entries.length === 0}
                         onClick={() => change(() => [])}
                         confirmation={{
-                            title: 'Vider la mémoire',
-                            description:
-                                "Toutes les entrées seront retirées à l'enregistrement. L'agent oubliera ce qu'il savait du projet.",
-                            confirmText: 'Vider',
+                            title: t('projects.settings.memory.clear_title'),
+                            description: t('projects.settings.memory.clear_description'),
+                            confirmText: t('projects.settings.memory.clear'),
                             icon: EraserIcon,
                         }}
                     >
-                        Tout effacer
+                        {t('projects.settings.memory.clear_all')}
                     </Button>
                     <Button
                         icon={SaveIcon}
@@ -125,7 +126,7 @@ export default function MemoryProjectSettings() {
                         disabled={!isDirty}
                         onClick={save}
                     >
-                        Enregistrer
+                        {t('common.save')}
                     </Button>
                 </>
             }
@@ -133,9 +134,9 @@ export default function MemoryProjectSettings() {
             <div className="flex flex-col gap-4">
                 {entries.length === 0 ? (
                     <EmptyState
-                        title="Mémoire vide"
+                        title={t('projects.settings.memory.empty')}
                         icon={NotebookPenIcon}
-                        description="L'agent n'a encore rien retenu. Il ajoute des entrées quand il apprend quelque chose d'utile, ou vous pouvez en écrire ici."
+                        description={t('projects.settings.memory.empty_description')}
                     />
                 ) : (
                     <div className="flex max-h-80 flex-col gap-2 overflow-y-auto">
@@ -145,7 +146,7 @@ export default function MemoryProjectSettings() {
                                     className="flex-1"
                                     name={`entries.${index}.note`}
                                     value={entry.note}
-                                    aria-label={`Entrée ${index + 1} de la mémoire`}
+                                    aria-label={t('projects.settings.memory.entry', { number: index + 1 })}
                                     onChange={(event) =>
                                         change((current) =>
                                             current.map((item, itemIndex) =>
@@ -166,13 +167,13 @@ export default function MemoryProjectSettings() {
                                     }
                                 />
                                 <Muted className="w-22 shrink-0 pt-2 text-xs">
-                                    {entry.date ?? 'Nouvelle'}
+                                    {entry.date ?? t('projects.settings.memory.new')}
                                 </Muted>
                                 <Button
                                     variant="ghost"
                                     size="icon"
                                     icon={Trash2Icon}
-                                    tooltip="Retirer cette entrée"
+                                    tooltip={t('projects.settings.memory.remove_entry')}
                                     onClick={() =>
                                         change((current) =>
                                             current.filter(
@@ -195,7 +196,7 @@ export default function MemoryProjectSettings() {
                     <Input
                         className="flex-1"
                         name="newNote"
-                        placeholder="Ex : les montants de la table orders sont en centimes."
+                        placeholder={t('projects.settings.memory.placeholder')}
                         value={newNote}
                         onChange={(event) => setNewNote(event.target.value)}
                     />
@@ -207,7 +208,7 @@ export default function MemoryProjectSettings() {
                             newNote.trim() === '' || entries.length >= max
                         }
                     >
-                        Ajouter
+                        {t('common.add')}
                     </Button>
                 </form>
             </div>

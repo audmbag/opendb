@@ -6,6 +6,7 @@ namespace App\Services\QueryPlan;
 
 use App\Services\QueryPlan\Data\Plan;
 use App\Services\QueryPlan\Data\PlanNode;
+use App\Support\TranslatableMessage;
 
 /**
  * Les alertes d'un plan normalisé, avec leurs codes fixes, la table et les colonnes concernées : c'est ce qui permet
@@ -34,7 +35,7 @@ final class PlanAlertDetector
 
     /**
      * @param  array<string, array{columns: list<string>, indexes: list<array<string, mixed>>}>  $tables
-     * @return list<array{code: string, severity: string, message: string, table: ?string, columns: list<string>}>
+     * @return list<array{code: string, severity: string, message: TranslatableMessage, table: ?string, columns: list<string>}>
      */
     private function alerts(Plan $plan, PlanNode $node, SqlClauses $clauses, array $tables): array
     {
@@ -45,7 +46,7 @@ final class PlanAlertDetector
             $parent = $plan->parent($node);
 
             if (($node->facts['joinBuffer'] ?? false) || ($parent?->operation === PlanOperation::NestedLoop && $parent->children[0] !== $node)) {
-                $alerts[] = $this->alert('JOIN_WITHOUT_INDEX', 'danger', 'Jointure sans index', $node->table, $this->columns((string) ($node->facts['joinCondition'] ?? ''), $node, $clauses, $tables));
+                $alerts[] = $this->alert('JOIN_WITHOUT_INDEX', 'danger', $node->table, $this->columns((string) ($node->facts['joinCondition'] ?? ''), $node, $clauses, $tables));
             }
 
             $filter = $node->facts['filter'] ?? null;
@@ -54,7 +55,7 @@ final class PlanAlertDetector
                 $columns = $this->columns($filter, $node, $clauses, $tables);
 
                 if ($columns !== [] || ($node->facts['exactFilter'] ?? false)) {
-                    $alerts[] = $this->alert('FULL_SCAN', 'danger', 'Parcours complet de la table', $node->table, $columns);
+                    $alerts[] = $this->alert('FULL_SCAN', 'danger', $node->table, $columns);
                 } else {
                     $node->facts['filter'] = null;
                     $node->condition = null;
@@ -63,31 +64,33 @@ final class PlanAlertDetector
         }
 
         if ($node->operation->isIndexRead() && $node->rowsExamined !== null && $node->rowsExamined > self::LARGE_ESTIMATE_ROWS) {
-            $alerts[] = $this->alert('LARGE_ESTIMATE', 'warn', 'Beaucoup de lignes lues par l\'index', $node->table, []);
+            $alerts[] = $this->alert('LARGE_ESTIMATE', 'warn', $node->table, []);
         }
 
         if (in_array($node->operation, [PlanOperation::Group, PlanOperation::Distinct], true) && ($node->facts['temporary'] ?? false)) {
-            $alerts[] = $this->alert('TEMP_TABLE', 'warn', 'Table temporaire', $node->table, $this->columns((string) $key, $node, $clauses, $tables));
+            $alerts[] = $this->alert('TEMP_TABLE', 'warn', $node->table, $this->columns((string) $key, $node, $clauses, $tables));
         }
 
         if (in_array($node->operation, [PlanOperation::Sort, PlanOperation::Group], true) && ($node->facts['filesort'] ?? false)) {
-            $alerts[] = $this->alert(in_array($plan->driver, ['mysql', 'mariadb'], true) ? 'FILESORT' : 'SORT', 'warn', 'Tri sans index', $node->table, $this->columns((string) $key, $node, $clauses, $tables));
+            $alerts[] = $this->alert(in_array($plan->driver, ['mysql', 'mariadb'], true) ? 'FILESORT' : 'SORT', 'warn', $node->table, $this->columns((string) $key, $node, $clauses, $tables));
         }
 
         if ($node->operation === PlanOperation::Subquery && ($node->facts['dependent'] ?? false)) {
-            $alerts[] = $this->alert('DEPENDENT_SUBQUERY', 'warn', 'Sous-requête recalculée pour chaque ligne', $node->table ?? $this->firstReadTable($plan, $node), []);
+            $alerts[] = $this->alert('DEPENDENT_SUBQUERY', 'warn', $node->table ?? $this->firstReadTable($plan, $node), []);
         }
 
         return $alerts;
     }
 
     /**
+     * The message of an alert is named by its code in lang/{locale}/query_plan.php.
+     *
      * @param  list<string>  $columns
-     * @return array{code: string, severity: string, message: string, table: ?string, columns: list<string>}
+     * @return array{code: string, severity: string, message: TranslatableMessage, table: ?string, columns: list<string>}
      */
-    private function alert(string $code, string $severity, string $message, ?string $table, array $columns): array
+    private function alert(string $code, string $severity, ?string $table, array $columns): array
     {
-        return ['code' => $code, 'severity' => $severity, 'message' => $message, 'table' => $table, 'columns' => $columns];
+        return ['code' => $code, 'severity' => $severity, 'message' => new TranslatableMessage("query_plan.alerts.{$code}"), 'table' => $table, 'columns' => $columns];
     }
 
     /**

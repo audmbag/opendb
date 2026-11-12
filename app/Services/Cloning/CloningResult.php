@@ -309,7 +309,7 @@ final class CloningResult
     private function parse(): array
     {
         if (! is_file($this->logPath) || ! is_readable($this->logPath)) {
-            throw new RuntimeException(sprintf('Journal Clonio introuvable ou illisible : %s', $this->logPath));
+            throw new RuntimeException(__('cloning.errors.unreadable_log_file', ['path' => $this->logPath]));
         }
 
         $handle = fopen($this->logPath, 'rb');
@@ -341,7 +341,7 @@ final class CloningResult
             $decoded['level'] = strtolower((string) ($decoded['level'] ?? 'info'));
 
             if (isset($decoded['reason'])) {
-                $decoded['reason'] = Str::limit(trim((string) $decoded['reason']), 400, '...[Réponse tronquée]', true);
+                $decoded['reason'] = Str::limit(trim((string) $decoded['reason']), 400, '...'.__('cloning.errors.truncated'), true);
             }
 
             $entries[] = $decoded;

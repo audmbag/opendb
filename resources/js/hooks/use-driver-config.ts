@@ -1,12 +1,13 @@
 import { useHttp } from '@inertiajs/react';
 import { useCallback, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import type { CloningDriverConfig } from '@/components/cloning/cloning.types';
+import { trans } from '@/lib/i18n';
 import { useDriverStore } from '@/store/driver-store';
 import type { Driver, DriverConfig } from '@/types/databases';
 import  { DefaultDrivers } from '@/types/databases';
 import type { APIData } from '@/types/global';
 import DriverConfigController from '@/wayfinder/actions/App/Http/Controllers/API/DriverConfigController';
-import { CloningDriverConfig } from '@/components/cloning/cloning.types';
 
 
 export type ConnectionTestResult = { success: boolean; message: string, willCreateDatabase?: boolean };
@@ -53,7 +54,7 @@ const useDriverConfig = () => {
                 fillDrivers(data);
             },
             onError: () => {
-                toast.error('Impossible de charger les Drivers', {
+                toast.error(trans('projects.drivers_load_failed'), {
                     id: 'load-database-ms-error',
                 });
             },
@@ -128,8 +129,9 @@ const useCopyConfig = (driverConfig: DriverConfig, duration: number = 1000) => {
                     .writeText(driverConfig.connection_string.toString())
                     .then(() => {
                         toast.success(
-                            'Configuration copiée : ' +
-                                driverConfig.connection_string,
+                            trans('projects.configuration_copied', {
+                                configuration: String(driverConfig.connection_string),
+                            }),
                         );
                     });
 

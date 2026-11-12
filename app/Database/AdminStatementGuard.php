@@ -14,16 +14,16 @@ class AdminStatementGuard
     private const string STATEMENT_START = '(?:^|;)\s*';
 
     /**
-     * @var array<string, string> The kind of operation, with the pattern recognizing it.
+     * @var array<string, string> The kind of operation, named in lang/{locale}/database.php, with the pattern recognizing it.
      */
     private const array FORBIDDEN_PATTERNS = [
-        'la gestion des comptes et des droits' => '/\b(?:CREATE|ALTER|DROP|RENAME)\s+(?:OR\s+REPLACE\s+)?(?:USER|ROLE|GROUP)\b'
+        'accounts' => '/\b(?:CREATE|ALTER|DROP|RENAME)\s+(?:OR\s+REPLACE\s+)?(?:USER|ROLE|GROUP)\b'
             .'|\b(?:GRANT|REVOKE)\b'
             .'|\bSET\s+PASSWORD\s+FOR\b'
             .'|'.self::STATEMENT_START.'SET\s+(?:PASSWORD|ROLE|DEFAULT\s+ROLE|SESSION\s+AUTHORIZATION)\b'
             .'|'.self::STATEMENT_START.'(?:REASSIGN|DROP)\s+OWNED\b/i',
 
-        'la gestion des bases et du serveur' => '/\b(?:CREATE|ALTER|DROP)\s+(?:OR\s+REPLACE\s+)?'
+        'server' => '/\b(?:CREATE|ALTER|DROP)\s+(?:OR\s+REPLACE\s+)?'
             .'(?:DATABASE|SCHEMA|TABLESPACE|EXTENSION|SERVER|SYSTEM|INSTANCE|(?:TRUSTED\s+|PROCEDURAL\s+)*LANGUAGE'
             .'|PUBLICATION|SUBSCRIPTION|FOREIGN\s+DATA\s+WRAPPER|LOGFILE\s+GROUP|RESOURCE\s+GROUP)\b'
             .'|\bSHUTDOWN\b'
@@ -34,12 +34,12 @@ class AdminStatementGuard
             .'|'.self::STATEMENT_START.'SET\s+(?:GLOBAL|PERSIST|PERSIST_ONLY|@@GLOBAL|@@PERSIST)\b'
             .'|'.self::STATEMENT_START.'PRAGMA\s+WRITABLE_SCHEMA\b/i',
 
-        "l'accès aux fichiers du serveur" => '/\bINTO\s+(?:OUTFILE|DUMPFILE)\b'
+        'files' => '/\bINTO\s+(?:OUTFILE|DUMPFILE)\b'
             .'|\bLOAD_FILE\s*\('
             .'|'.self::STATEMENT_START.'(?:LOAD|COPY)\b'
             .'|'.self::STATEMENT_START.'VACUUM\s+INTO\b/i',
 
-        "l'exécution de SQL dynamique" => '/\bEXECUTE\s+IMMEDIATE\b'
+        'dynamic_sql' => '/\bEXECUTE\s+IMMEDIATE\b'
             .'|'.self::STATEMENT_START.'(?:PREPARE|EXECUTE|DEALLOCATE)\b'
             .'|'.self::STATEMENT_START.'DO\s+(?:LANGUAGE\s+\w+\s+)?\$/i',
     ];
@@ -53,8 +53,7 @@ class AdminStatementGuard
 
         if ($operation !== null) {
             throw new RuntimeException(
-                "Requête rejetée : {$operation} est réservée à un administrateur de la base de données et n'est jamais "
-                .'autorisée, quel que soit le mode. Si la requête vise une colonne portant ce nom, précise le mot-clé COLUMN.'
+                __('database.guards.administrative', ['operation' => __("database.operations.{$operation}")])
             );
         }
     }

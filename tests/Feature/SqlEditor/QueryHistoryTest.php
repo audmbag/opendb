@@ -1,9 +1,11 @@
 <?php
 
+use App\Enums\PrivilegeEnum;
 use App\Models\Project;
 use App\Models\QueryHistoryEntry;
 use App\Models\User;
 use App\Repository\QueryHistoryRepository;
+use App\Services\Privileges\PrivilegeManager;
 
 beforeEach(function () {
     $this->databasePath = sys_get_temp_dir().DIRECTORY_SEPARATOR.uniqid('sql-history-').'.sqlite';
@@ -91,7 +93,7 @@ it('forgets the oldest runs of the project beyond the kept ones', function () {
     $other = QueryHistoryEntry::factory()->create();
     $entries = QueryHistoryEntry::factory()->for($this->project)->count(QueryHistoryRepository::KEPT_ENTRIES)->create();
 
-    app(QueryHistoryRepository::class)->record($this->project->id, [
+    app(QueryHistoryRepository::class)->record($this->project->id, $this->user->id, [
         'file' => null, 'sql' => 'SELECT 1;', 'succeeded' => true, 'statements' => 1, 'rows' => 1, 'duration' => 1, 'error' => null,
     ]);
 
@@ -99,6 +101,19 @@ it('forgets the oldest runs of the project beyond the kept ones', function () {
         ->and(QueryHistoryEntry::find($entries->first()->id))->toBeNull()
         ->and(QueryHistoryEntry::find($entries->last()->id))->not->toBeNull()
         ->and(QueryHistoryEntry::find($other->id))->not->toBeNull();
+});
+
+it('keeps the runs of each user of the project to themselves', function () {
+    $reader = User::factory()->create();
+    app(PrivilegeManager::class)->grant(null, $reader, [PrivilegeEnum::Select], $this->project);
+    QueryHistoryEntry::factory()->for($this->project)->create(['sql' => 'SELECT * FROM orders;']);
+
+    $this->actingAs($reader)->getJson("{$this->editorUrl}/history")->assertOk()->assertJsonCount(0, 'data');
+    $this->actingAs($reader)->postJson("{$this->editorUrl}/run", ['sql' => 'SELECT 1;'])->assertOk();
+    $this->actingAs($reader)->deleteJson("{$this->editorUrl}/history")->assertOk();
+
+    expect(QueryHistoryEntry::where('user_id', $this->user->id)->count())->toBe(1)
+        ->and(QueryHistoryEntry::where('user_id', $reader->id)->count())->toBe(0);
 });
 
 it('clears the history of the project only', function () {

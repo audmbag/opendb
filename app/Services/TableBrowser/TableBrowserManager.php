@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Services\TableBrowser;
 
 use App\Database\Contracts\DriverContract;
+use App\Database\Exceptions\PrivilegeException;
 use App\Database\Exceptions\TableNotFoundException;
 use App\Database\RecordInspector;
+use App\Enums\PrivilegeEnum;
 use App\Services\TableBrowser\Data\TableView;
 use Illuminate\Validation\ValidationException;
 use Laravel\Ai\Enums\Lab;
@@ -49,6 +51,8 @@ final readonly class TableBrowserManager
      */
     public function structure(DriverContract $driver, string $table): array
     {
+        $driver->assertPrivilege(PrivilegeEnum::Select, $table);
+
         $definition = $this->catalog->definition($driver, $table);
 
         return [
@@ -69,6 +73,8 @@ final readonly class TableBrowserManager
      */
     public function outline(DriverContract $driver, string $table): array
     {
+        $driver->assertPrivilege(PrivilegeEnum::Select, $table);
+
         return $this->catalog->definition($driver, $table);
     }
 
@@ -89,6 +95,8 @@ final readonly class TableBrowserManager
      */
     public function rows(DriverContract $driver, string $table, TableView $view): array
     {
+        $driver->assertPrivilege(PrivilegeEnum::Select, $table);
+
         return $this->rows->page($driver, $table, $view);
     }
 
@@ -99,6 +107,8 @@ final readonly class TableBrowserManager
      */
     public function count(DriverContract $driver, string $table, TableView $view): array
     {
+        $driver->assertPrivilege(PrivilegeEnum::Select, $table);
+
         return $this->counter->count($driver, $table, $view);
     }
 
@@ -107,6 +117,7 @@ final readonly class TableBrowserManager
      */
     public function definition(DriverContract $driver, string $table): string
     {
+        $driver->assertPrivilege(PrivilegeEnum::Select, $table);
         $this->catalog->definition($driver, $table);
 
         return $driver->showCreateTable($table);
@@ -119,6 +130,9 @@ final readonly class TableBrowserManager
      */
     public function export(DriverContract $driver, string $table, TableView $view, string $format, $output): void
     {
+        $driver->assertPrivilege(PrivilegeEnum::Select, $table);
+        $driver->assertPrivilege(PrivilegeEnum::Export, $table);
+
         $this->exporter->write($driver, $table, $view, $format, $output);
     }
 
@@ -146,6 +160,8 @@ final readonly class TableBrowserManager
      */
     public function record(DriverContract $driver, string $table, array $key): array
     {
+        $driver->assertPrivilege(PrivilegeEnum::Select, $table);
+
         return new RecordInspector($driver, $table)->find($key);
     }
 
@@ -159,6 +175,8 @@ final readonly class TableBrowserManager
      */
     public function previewChanges(DriverContract $driver, string $table, array $changes): array
     {
+        $this->assertChangesAllowed($driver, $table, $changes);
+
         return array_map(
             fn ($change): string => $this->statements->readable($driver, $table, $change),
             $this->validator->validate($driver, $table, $changes),
@@ -173,6 +191,8 @@ final readonly class TableBrowserManager
      */
     public function applyChanges(DriverContract $driver, string $table, array $changes): array
     {
+        $this->assertChangesAllowed($driver, $table, $changes);
+
         return $this->applier->apply($driver, $table, $this->validator->validate($driver, $table, $changes));
     }
 
@@ -183,6 +203,8 @@ final readonly class TableBrowserManager
      */
     public function suggestFilter(DriverContract $driver, string $table, string $prompt, Lab|string $provider, string $model): array
     {
+        $driver->assertPrivilege(PrivilegeEnum::Select, $table);
+
         return $this->assistant->suggestFilter($driver, $table, $prompt, $provider, $model);
     }
 
@@ -193,6 +215,8 @@ final readonly class TableBrowserManager
      */
     public function profile(DriverContract $driver, string $table): array
     {
+        $driver->assertPrivilege(PrivilegeEnum::Select, $table);
+
         return $this->assistant->profile($driver, $table);
     }
 
@@ -203,6 +227,8 @@ final readonly class TableBrowserManager
      */
     public function explain(DriverContract $driver, string $table, Lab|string $provider, string $model): array
     {
+        $driver->assertPrivilege(PrivilegeEnum::Select, $table);
+
         return $this->assistant->explain($driver, $table, $provider, $model);
     }
 
@@ -213,6 +239,8 @@ final readonly class TableBrowserManager
      */
     public function suggestIndexes(DriverContract $driver, string $projectId, string $table, TableView $view, Lab|string $provider, string $model): array
     {
+        $driver->assertPrivilege(PrivilegeEnum::Select, $table);
+
         return $this->assistant->suggestIndexes($driver, $projectId, $table, $view, $provider, $model);
     }
 
@@ -221,6 +249,30 @@ final readonly class TableBrowserManager
      */
     public function chat(DriverContract $driver, string $table, TableView $view, Chat $chat, Lab|string $provider, string $model): StreamableAgentResponse
     {
+        $driver->assertPrivilege(PrivilegeEnum::Select, $table);
+
         return $this->assistant->chat($driver, $table, $view, $chat, $provider, $model);
+    }
+
+    /**
+     * Each change of the grid needs the privilege of its kind on the table: INSERT, UPDATE or DELETE, and SELECT to find its row.
+     *
+     * @param  list<array<string, mixed>>  $changes
+     *
+     * @throws PrivilegeException
+     */
+    private function assertChangesAllowed(DriverContract $driver, string $table, array $changes): void
+    {
+        foreach (array_unique(array_map(fn (array $change): string => (string) ($change['type'] ?? ''), $changes)) as $type) {
+            $driver->assertPrivilege(match ($type) {
+                'insert' => PrivilegeEnum::Insert,
+                'delete' => PrivilegeEnum::Delete,
+                default => PrivilegeEnum::Update,
+            }, $table);
+
+            if ($type !== 'insert') {
+                $driver->assertPrivilege(PrivilegeEnum::Select, $table);
+            }
+        }
     }
 }

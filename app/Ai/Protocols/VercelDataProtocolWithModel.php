@@ -2,11 +2,8 @@
 
 namespace App\Ai\Protocols;
 
+use App\Ai\Support\StreamErrorMessage;
 use Generator;
-use Laravel\Ai\Exceptions\InsufficientCreditsException;
-use Laravel\Ai\Exceptions\ProviderConnectionException;
-use Laravel\Ai\Exceptions\ProviderOverloadedException;
-use Laravel\Ai\Exceptions\RateLimitedException;
 use Laravel\Ai\Exceptions\StreamErrorException;
 use Laravel\Ai\Responses\StreamableAgentResponse;
 use Laravel\Ai\Streaming\Events\Error;
@@ -64,7 +61,7 @@ class VercelDataProtocolWithModel extends VercelDataProtocol
      */
     protected function streamErrorMessageParts(?Throwable $exception): Generator
     {
-        if (($message = $this->streamErrorMessage($exception)) === null) {
+        if (($message = StreamErrorMessage::for($exception)) === null) {
             return;
         }
 
@@ -90,21 +87,5 @@ class VercelDataProtocolWithModel extends VercelDataProtocol
         }
 
         return parent::mapEvent($event);
-    }
-
-    /**
-     * Get the message that explains to the user why the provider ended the stream, keeping any other failure masked.
-     */
-    protected function streamErrorMessage(?Throwable $exception): ?string
-    {
-        return match (true) {
-            $exception instanceof StreamErrorException && $exception->error === null => __('chat.stream_errors.interrupted'),
-            $exception instanceof StreamErrorException => __('chat.stream_errors.provider', ['message' => $exception->error->message]),
-            $exception instanceof RateLimitedException => __('chat.stream_errors.rate_limited'),
-            $exception instanceof ProviderOverloadedException => __('chat.stream_errors.overloaded'),
-            $exception instanceof InsufficientCreditsException => __('chat.stream_errors.insufficient_credits'),
-            $exception instanceof ProviderConnectionException => __('chat.stream_errors.connection'),
-            default => null,
-        };
     }
 }

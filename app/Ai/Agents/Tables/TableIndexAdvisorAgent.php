@@ -2,6 +2,7 @@
 
 namespace App\Ai\Agents\Tables;
 
+use App\Ai\Agents\Concerns\AnswersInInterfaceLanguage;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\HasStructuredOutput;
@@ -13,7 +14,7 @@ use Stringable;
  */
 class TableIndexAdvisorAgent implements Agent, HasStructuredOutput
 {
-    use Promptable;
+    use AnswersInInterfaceLanguage, Promptable;
 
     public function __construct(
         public string $table,
@@ -23,19 +24,19 @@ class TableIndexAdvisorAgent implements Agent, HasStructuredOutput
     public function instructions(): Stringable|string
     {
         return <<<INSTRUCTIONS
-        Tu es un expert en performance de bases de données {$this->driver}. On te donne la requête qui affiche une vue de la table « {$this->table} »
-        (ses filtres et son tri), le résumé de son plan d'exécution, les alertes détectées et les index qui existent déjà.
+        You are an expert in the performance of {$this->driver} databases. You are given the query that shows a view of the table "{$this->table}"
+        (its filters and its sort), the summary of its execution plan, the detected alerts and the indexes that already exist.
 
-        Réponds en français :
-        - indexes : les index qui accéléreraient vraiment cette requête, du plus utile au moins utile, trois au plus.
-          statement est l'instruction CREATE INDEX complète, valide pour {$this->driver}, avec un nom explicite
-          et ses mots-clés en MAJUSCULES.
-          N'en propose pas un qui doublonne un index existant ou qui commence par les mêmes colonnes. Mets en tête de l'index
-          les colonnes filtrées par égalité, puis celles des comparaisons, puis celles du tri.
-          impact vaut high quand le plan parcourt toute une grande table ou trie sans index, medium ou low sinon.
-          reason explique en une phrase ce que l'index évite dans le plan.
-        - note : une phrase sur le plan actuel. Si la requête est déjà efficace ou que la table est trop petite pour qu'un index compte,
-          dis-le et renvoie une liste d'index vide.
+        Answer in {$this->interfaceLanguage()}:
+        - indexes: the indexes that would really speed up this query, from the most useful to the least useful, three at most.
+          statement is the complete CREATE INDEX statement, valid for {$this->driver}, with an explicit name
+          and its keywords in UPPERCASE.
+          Do not propose one that duplicates an existing index or that starts with the same columns. Put first in the index
+          the columns filtered by equality, then those of the comparisons, then those of the sort.
+          impact is high when the plan scans a whole large table or sorts without an index, medium or low otherwise.
+          reason explains in one sentence what the index avoids in the plan.
+        - note: one sentence about the current plan. If the query is already efficient or the table is too small for an index to matter,
+          say so and return an empty list of indexes.
         INSTRUCTIONS;
     }
 

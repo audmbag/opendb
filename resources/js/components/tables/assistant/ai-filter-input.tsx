@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { TextSearchIcon } from 'lucide-react';
 import TableAssistantController from '@/wayfinder/actions/App/Http/Controllers/Tables/TableAssistantController';
 import type { FilterSuggestion } from '../types';
@@ -12,7 +13,7 @@ type Props = {
 };
 
 /**
- * A filter described in plain French, turned by the assistant into filters the user can still edit before reading on.
+ * A filter described in plain language, turned by the assistant into filters the user can still edit before reading on.
  */
 export default function AiFilterInput({
     projectId,
@@ -20,6 +21,7 @@ export default function AiFilterInput({
     disabledReason,
     onSuggestion,
 }: Props) {
+    const { t } = useLaravelReactI18n();
     const { ask, error, processing } = useTableAssistant<FilterSuggestion>();
 
     const suggest = async (prompt: string): Promise<boolean> => {
@@ -42,8 +44,8 @@ export default function AiFilterInput({
     return (
         <AiPromptInput
             icon={TextSearchIcon}
-            placeholder="Filtrer en français, par exemple : commandes payées le mois dernier"
-            label="Proposer le filtre"
+            placeholder={t('tables.assistant.filter_placeholder')}
+            label={t('tables.assistant.suggest_filter')}
             onSubmit={suggest}
             processing={processing}
             error={error}

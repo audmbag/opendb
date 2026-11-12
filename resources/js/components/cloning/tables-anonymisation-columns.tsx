@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import React, { memo } from 'react';
 import Alert from '@/components/alert';
 import type { CloningTable } from '@/components/cloning/cloning.types';
@@ -5,12 +6,14 @@ import TablesAnonymisationColumn from '@/components/cloning/tables-anonymisation
 
 
 const TablesAnonymisationColumns = memo(({ table }: { table: CloningTable }) => {
+    const { t } = useLaravelReactI18n();
+
     return (
         <div>
             {table.skipReason && (
                 <Alert
                     variant="warning"
-                    title={`La table « ${table.name} » sera ignorée lors du clonage`}
+                    title={t('cloning.ui.table_skipped', { table: table.name })}
                     message={table.skipReason}
                     className="m-3 w-auto"
                 />
@@ -18,7 +21,7 @@ const TablesAnonymisationColumns = memo(({ table }: { table: CloningTable }) => 
             {table.remappingNotice && (
                 <Alert
                     variant="default"
-                    title={`Les identifiants de « ${table.name} » ne seront pas remappés`}
+                    title={t('cloning.ui.table_not_remapped', { table: table.name })}
                     message={table.remappingNotice}
                     className="m-3 w-auto"
                 />

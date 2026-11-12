@@ -16,12 +16,12 @@ class ListTables extends BaseTool implements Tool
 
     public function description(): Stringable|string
     {
-        return 'Liste toutes les tables de la base de données avec un aperçu léger de chacune '
-            .'(nombre de colonnes, présence d\'une clé primaire, nombre de clés étrangères), '
-            .'sans détailler leurs colonnes ni leurs relations. '
-            .'À utiliser en priorité, avant tout autre tool de schéma, pour repérer les tables '
-            .'pertinentes par rapport à la demande de l\'utilisateur. '
-            .'Une fois la ou les tables cibles identifiées, utilise FocusTable pour en obtenir le détail.';
+        return 'Lists every table of the database with a light overview of each '
+            .'(number of columns, presence of a primary key, number of foreign keys), '
+            .'without detailing their columns or relations. '
+            .'Use it first, before any other schema tool, to spot the tables '
+            .'relevant to the request of the user. '
+            .'Once the target table or tables are identified, use FocusTable to get their detail.';
     }
 
     public function handle(Request $request): Stringable|string

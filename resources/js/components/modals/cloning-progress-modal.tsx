@@ -1,4 +1,5 @@
 import { router, useHttp, usePage } from '@inertiajs/react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     ArrowRightIcon,
     CopyIcon,
@@ -16,6 +17,7 @@ import Button from '@/components/form/button';
 import CloningLogsModal from '@/components/modals/cloning-logs-modal';
 import Modal from '@/components/modals/modal';
 import { Muted, Small } from '@/components/typograpfy/typography';
+import { trans } from '@/lib/i18n';
 import { useTempProjectStore } from '@/store/use-project-store';
 import type { DriverConfig } from '@/types/databases';
 import type { Project } from '@/types/models/project';
@@ -29,33 +31,30 @@ type Props = {
 };
 
 const MAX_DISPLAYED_ERRORS = 5;
-const UNEXPECTED_ERROR =
-    'Une erreur inattendue est survenue, veuillez réessayer.';
 
 const STATUS_TEXTS: Record<
     TransferStatus,
     { title: string; description: string; message: string }
 > = {
     transferring: {
-        title: 'Clonage en cours',
-        description: 'La base de données est en cours de clonage',
-        message:
-            'Cette opération peut prendre plusieurs minutes, ne fermez pas cette fenêtre.',
+        title: 'cloning.ui.status.transferring.title',
+        description: 'cloning.ui.status.transferring.description',
+        message: 'cloning.ui.status.transferring.message',
     },
     success: {
-        title: 'Clonage terminé',
-        description: 'La base de données a été clonée',
-        message: 'Toutes les données ont été transférées.',
+        title: 'cloning.ui.status.success.title',
+        description: 'cloning.ui.status.success.description',
+        message: 'cloning.ui.status.success.message',
     },
     warning: {
-        title: 'Clonage terminé avec des avertissements',
-        description: 'La base de données a été clonée partiellement',
-        message: "Certaines données n'ont pas pu être transférées.",
+        title: 'cloning.ui.status.warning.title',
+        description: 'cloning.ui.status.warning.description',
+        message: 'cloning.ui.status.warning.message',
     },
     error: {
-        title: 'Clonage échoué',
-        description: "La base de données n'a pas pu être clonée",
-        message: 'Le clonage a été interrompu.',
+        title: 'cloning.ui.status.error.title',
+        description: 'cloning.ui.status.error.description',
+        message: 'cloning.ui.status.error.message',
     },
 };
 
@@ -64,6 +63,7 @@ export default function CloningProgressModal({
     payload,
     onCancel,
 }: Props) {
+    const { t } = useLaravelReactI18n();
     const tempProjectId = useTempProjectStore((state) => state.tmpProject?.id);
     const project = usePage<{ project?: Project }>().props.project;
     const projectId = tempProjectId || project?.id;
@@ -94,11 +94,11 @@ export default function CloningProgressModal({
                 setStatus('error');
             },
             onHttpException: () => {
-                setFailures([UNEXPECTED_ERROR]);
+                setFailures([trans('common.unexpected_error')]);
                 setStatus('error');
             },
             onNetworkError: () => {
-                setFailures([UNEXPECTED_ERROR]);
+                setFailures([trans('common.unexpected_error')]);
                 setStatus('error');
             },
         }).catch(() => null);
@@ -112,12 +112,12 @@ export default function CloningProgressModal({
                 showCloseButton={status !== 'transferring'}
                 className="h-auto sm:max-w-md"
                 title={
-                    failures ? 'Clonage interrompu' : STATUS_TEXTS[status].title
+                    failures ? t('cloning.ui.interrupted') : t(STATUS_TEXTS[status].title)
                 }
                 description={
                     failures
-                        ? "Le clonage n'a pas pu être lancé"
-                        : STATUS_TEXTS[status].description
+                        ? t('cloning.ui.not_started')
+                        : t(STATUS_TEXTS[status].description)
                 }
                 icon={CopyIcon}
             >
@@ -125,8 +125,8 @@ export default function CloningProgressModal({
                     <div className="flex flex-col gap-4 p-4">
                         <Alert
                             variant="destructive"
-                            title="Les données du clonage ont été refusées"
-                            message={failures[0] ?? UNEXPECTED_ERROR}
+                            title={t('cloning.ui.rejected')}
+                            message={failures[0] ?? t('common.unexpected_error')}
                         />
                         {failures.length > 1 && (
                             <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
@@ -136,7 +136,7 @@ export default function CloningProgressModal({
                                         <li key={index}>{failure}</li>
                                     ))}
                                 {failures.length > MAX_DISPLAYED_ERRORS && (
-                                    <li>{`… et ${failures.length - MAX_DISPLAYED_ERRORS} autre(s) erreur(s)`}</li>
+                                    <li>{t('cloning.ui.more_errors', { count: failures.length - MAX_DISPLAYED_ERRORS })}</li>
                                 )}
                             </ul>
                         )}
@@ -145,7 +145,7 @@ export default function CloningProgressModal({
                             icon={SettingsIcon}
                             onClick={onCancel}
                         >
-                            Modifier la configuration
+                            {t('cloning.ui.edit_configuration')}
                         </Button>
                     </div>
                 ) : (
@@ -163,10 +163,10 @@ export default function CloningProgressModal({
                         />
                         <Small>
                             {status === 'transferring'
-                                ? `Clonage vers « ${payload.cloningDriverConfig.database} »…`
-                                : `Destination : « ${payload.cloningDriverConfig.database} »`}
+                                ? t('cloning.ui.cloning_to', { database: payload.cloningDriverConfig.database })
+                                : t('cloning.ui.destination', { database: payload.cloningDriverConfig.database })}
                         </Small>
-                        <Muted>{STATUS_TEXTS[status].message}</Muted>
+                        <Muted>{t(STATUS_TEXTS[status].message)}</Muted>
                     </div>
                 )}
 
@@ -187,7 +187,7 @@ export default function CloningProgressModal({
                                 icon={ScrollTextIcon}
                                 onClick={() => setLogsOpen(true)}
                             >
-                                Voir les logs
+                                {t('cloning.ui.see_logs')}
                             </Button>
                         )}
                         {status === 'error' ? (
@@ -196,7 +196,7 @@ export default function CloningProgressModal({
                                 icon={SettingsIcon}
                                 onClick={onCancel}
                             >
-                                Modifier la configuration
+                                {t('cloning.ui.edit_configuration')}
                             </Button>
                         ) : (
                             <Button
@@ -210,7 +210,7 @@ export default function CloningProgressModal({
                                     )
                                 }
                             >
-                                Ouvrir le projet
+                                {t('projects.open')}
                             </Button>
                         )}
                     </motion.div>

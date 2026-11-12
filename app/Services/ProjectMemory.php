@@ -35,8 +35,7 @@ class ProjectMemory
     {
         $this->write(function (array $entries) use ($note): array {
             if (count($entries) >= self::MAX_ENTRIES) {
-                throw new RuntimeException('La mémoire est pleine ('.self::MAX_ENTRIES.' entrées) : '
-                    .'fusionne ou supprime des entrées obsolètes avant d\'en ajouter une nouvelle.');
+                throw new RuntimeException(__('memory.errors.full', ['max' => self::MAX_ENTRIES]));
             }
 
             return [...$entries, $this->formatEntry($note)];
@@ -95,7 +94,7 @@ class ProjectMemory
     public function sync(array $notes): void
     {
         if (count($notes) > self::MAX_ENTRIES) {
-            throw new RuntimeException('La mémoire ne peut pas contenir plus de '.self::MAX_ENTRIES.' entrées.');
+            throw new RuntimeException(__('memory.errors.too_many', ['max' => self::MAX_ENTRIES]));
         }
 
         $this->write(fn (): array => array_map(
@@ -164,9 +163,8 @@ class ProjectMemory
 
         return match (count($indexes)) {
             1 => $indexes[0],
-            0 => throw new RuntimeException("Aucune entrée de la mémoire ne contient « {$match} »."),
-            default => throw new RuntimeException('Plusieurs entrées de la mémoire contiennent « '.$match.' » : '
-                .'précise un extrait plus long pour cibler une seule entrée.'),
+            0 => throw new RuntimeException(__('memory.errors.no_match', ['match' => $match])),
+            default => throw new RuntimeException(__('memory.errors.several_matches', ['match' => $match])),
         };
     }
 

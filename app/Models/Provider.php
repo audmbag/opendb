@@ -2,11 +2,15 @@
 
 namespace App\Models;
 
+use App\Casts\ProviderId;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Laravel\Ai\Enums\Lab;
 
+/**
+ * @property Lab|string $id the lab of a default provider, or the name of a custom one
+ */
 class Provider extends Model
 {
     public $incrementing = false;
@@ -32,7 +36,7 @@ class Provider extends Model
     protected function casts(): array
     {
         return [
-            'id' => Lab::class,
+            'id' => ProviderId::class,
             'api_key' => 'encrypted',
             'custom_openai_compatible' => 'boolean',
             'models' => 'json',
@@ -51,6 +55,30 @@ class Provider extends Model
         $query->whereNull(['api_key']);
     }
 
+    /**
+     * The name the provider is configured under in config('ai.providers').
+     */
+    public function name(): string
+    {
+        return $this->id instanceof Lab ? $this->id->value : $this->id;
+    }
+
+    /**
+     * The laravel/ai driver talking to the provider: a custom provider speaks the OpenAI API.
+     */
+    public function driver(): Lab
+    {
+        return $this->id instanceof Lab ? $this->id : Lab::OpenAICompatible;
+    }
+
+    /**
+     * A local provider, like Ollama, answers without any API key.
+     */
+    public function requiresApiKey(): bool
+    {
+        return $this->driver() !== Lab::Ollama;
+    }
+
     public function hasActiveModel(string $modelId): bool
     {
         return array_any(
@@ -61,7 +89,9 @@ class Provider extends Model
 
     public function getIconAttribute(): string
     {
-        return "/assets/providers/{$this->id->value}.svg";
+        return $this->id instanceof Lab
+            ? "/assets/providers/{$this->name()}.svg"
+            : '/assets/providers/custom.svg';
     }
 
     public function getIsConnectedAttribute(): bool

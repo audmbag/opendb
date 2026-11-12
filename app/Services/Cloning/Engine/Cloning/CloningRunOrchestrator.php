@@ -200,7 +200,7 @@ class CloningRunOrchestrator
             totalRows: $totalRows,
             skippedRows: $totalSkipped,
             durationSeconds: $duration,
-            failureReason: $success ? null : 'One or more tables failed to transfer',
+            failureReason: $success ? null : __('cloning.errors.tables_failed'),
         );
     }
 

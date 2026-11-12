@@ -1,4 +1,5 @@
 import { router, useHttp, usePage } from '@inertiajs/react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { KeyRoundIcon, SaveIcon, UserIcon } from 'lucide-react';
 import type React from 'react';
 import { toast } from 'sonner';
@@ -19,6 +20,7 @@ type AccountForm = {
  * The name the user logs in with, and their password.
  */
 export default function AccountSettings() {
+    const { t } = useLaravelReactI18n();
     const { auth, appName } = usePage().props;
 
     const form = useHttp<AccountForm, { message: string }>({
@@ -57,17 +59,17 @@ export default function AccountSettings() {
             {isDefaultAccount && (
                 <Alert
                     variant="warning"
-                    title="Compte par défaut"
-                    message={`Vous utilisez le compte par défaut de ${appName}. Choisissez un nom et un mot de passe personnels pour protéger l'accès à vos bases de données.`}
+                    title={t('settings.account.default_account')}
+                    message={t('settings.account.default_account_message', { app: appName })}
                 />
             )}
             <CardFrame
-                title="Identité"
-                description="Le nom avec lequel vous vous connectez."
+                title={t('settings.account.identity')}
+                description={t('settings.account.identity_description')}
                 icon={UserIcon}
             >
                 <Input
-                    label="Nom d'utilisateur"
+                    label={t('settings.account.username')}
                     name="name"
                     autoComplete="username"
                     value={form.data.name}
@@ -78,13 +80,13 @@ export default function AccountSettings() {
                 />
             </CardFrame>
             <CardFrame
-                title="Mot de passe"
-                description="Laissez ces champs vides pour garder le mot de passe actuel."
+                title={t('settings.account.password')}
+                description={t('settings.account.password_description')}
                 icon={KeyRoundIcon}
             >
                 <div className="flex flex-col gap-4">
                     <Input
-                        label="Mot de passe actuel"
+                        label={t('settings.account.current_password')}
                         name="current_password"
                         type="password"
                         autoComplete="current-password"
@@ -96,7 +98,7 @@ export default function AccountSettings() {
                     />
                     <div className="grid gap-4 sm:grid-cols-2">
                         <Input
-                            label="Nouveau mot de passe"
+                            label={t('settings.account.new_password')}
                             name="password"
                             type="password"
                             autoComplete="new-password"
@@ -107,7 +109,7 @@ export default function AccountSettings() {
                             error={form.errors.password}
                         />
                         <Input
-                            label="Confirmation"
+                            label={t('settings.account.password_confirmation')}
                             name="password_confirmation"
                             type="password"
                             autoComplete="new-password"
@@ -129,7 +131,7 @@ export default function AccountSettings() {
                     processing={form.processing}
                     disabled={!form.isDirty}
                 >
-                    Enregistrer
+                    {t('common.save')}
                 </Button>
             </div>
         </form>

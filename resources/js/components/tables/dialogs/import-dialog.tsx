@@ -1,16 +1,12 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { FileIcon, UploadIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { formatBytes } from '@/components/ai/artifacts/format';
 import Alert from '@/components/alert';
 import Button from '@/components/form/button';
+import Modal from '@/components/modals/modal';
+import ModalFooter from '@/components/modals/modal-footer';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import {
     NativeSelect,
@@ -50,26 +46,22 @@ type Props = {
 const MODES: { value: ImportMode; label: string; description: string }[] = [
     {
         value: 'transaction',
-        label: 'Tout ou rien',
-        description:
-            "Si une instruction échoue, aucune n'est gardée. MySQL et MariaDB valident toutefois chaque changement de structure aussitôt.",
+        label: 'tables.import.modes.transaction',
+        description: 'tables.import.modes.transaction_description',
     },
     {
         value: 'stop',
-        label: "S'arrêter à la première erreur",
-        description: 'Les instructions précédentes sont gardées.',
+        label: 'tables.import.modes.stop',
+        description: 'tables.import.modes.stop_description',
     },
     {
         value: 'continue',
-        label: 'Continuer malgré les erreurs',
-        description: 'Chaque instruction est tentée, les échecs sont listés.',
+        label: 'tables.import.modes.continue',
+        description: 'tables.import.modes.continue_description',
     },
 ];
 
 const PREVIEW_BYTES = 64 * 1024;
-
-const plural = (count: number, word: string) =>
-    `${count} ${word}${count > 1 ? 's' : ''}`;
 
 function FileField({
     file,
@@ -82,6 +74,7 @@ function FileField({
     hint: string;
     onChange: (file: File | null) => void;
 }) {
+    const { t } = useLaravelReactI18n();
     const [dragging, setDragging] = useState(false);
 
     return (
@@ -108,12 +101,10 @@ function FileField({
             )}
             <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium">
-                    {file ? file.name : 'Choisir ou déposer un fichier'}
+                    {file ? file.name : t('tables.import.choose_file')}
                 </span>
                 <span className="block text-xs text-muted-foreground">
-                    {file
-                        ? `${(file.size / 1024).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} Ko`
-                        : hint}
+                    {file ? formatBytes(file.size) : hint}
                 </span>
             </span>
             <input
@@ -136,61 +127,61 @@ export default function ImportDialog({
     onImported,
     onClose,
 }: Props) {
+    const { t } = useLaravelReactI18n();
     const [tab, setTab] = useState<'sql' | 'csv'>(table ? 'csv' : 'sql');
     const [processing, setProcessing] = useState(false);
 
     return (
-        <Dialog open onOpenChange={(open) => !open && !processing && onClose()}>
-            <DialogContent className="flex max-h-[90vh] flex-col sm:max-w-3xl">
-                <DialogHeader>
-                    <DialogTitle>Importer</DialogTitle>
-                    <DialogDescription>
-                        Exécutez un script SQL dans la base, ou ajoutez les
-                        lignes d'un fichier CSV à une table.
-                    </DialogDescription>
-                </DialogHeader>
-                <Tabs
-                    value={tab}
-                    onValueChange={(value) => setTab(value as 'sql' | 'csv')}
+        <Modal
+            open
+            showHeader
+            className="h-[min(90vh,48rem)] sm:max-w-3xl"
+            onOpenChange={(open) => !open && !processing && onClose()}
+            icon={UploadIcon}
+            title={t('tables.import.title')}
+            description={t('tables.import.description')}
+        >
+            <Tabs
+                value={tab}
+                onValueChange={(value) => setTab(value as 'sql' | 'csv')}
+                className="flex h-full flex-col gap-0"
+            >
+                <TabsList className="mx-4 mt-4">
+                    <TabsTrigger value="sql" disabled={processing}>
+                        {t('tables.import.sql_script')}
+                    </TabsTrigger>
+                    <TabsTrigger value="csv" disabled={processing}>
+                        {t('tables.import.csv_file')}
+                    </TabsTrigger>
+                </TabsList>
+                <TabsContent
+                    value="sql"
                     className="flex min-h-0 flex-1 flex-col"
                 >
-                    <TabsList>
-                        <TabsTrigger value="sql" disabled={processing}>
-                            Script SQL
-                        </TabsTrigger>
-                        <TabsTrigger value="csv" disabled={processing}>
-                            Fichier CSV
-                        </TabsTrigger>
-                    </TabsList>
-                    <TabsContent
-                        value="sql"
-                        className="flex min-h-0 flex-1 flex-col"
-                    >
-                        <SqlImport
-                            projectId={projectId}
-                            processing={processing}
-                            onProcessing={setProcessing}
-                            onImported={() => onImported(null)}
-                            onClose={onClose}
-                        />
-                    </TabsContent>
-                    <TabsContent
-                        value="csv"
-                        className="flex min-h-0 flex-1 flex-col"
-                    >
-                        <CsvImport
-                            projectId={projectId}
-                            tables={tables}
-                            initialTable={table ?? tables[0]?.name ?? ''}
-                            processing={processing}
-                            onProcessing={setProcessing}
-                            onImported={(name) => onImported([name])}
-                            onClose={onClose}
-                        />
-                    </TabsContent>
-                </Tabs>
-            </DialogContent>
-        </Dialog>
+                    <SqlImport
+                        projectId={projectId}
+                        processing={processing}
+                        onProcessing={setProcessing}
+                        onImported={() => onImported(null)}
+                        onClose={onClose}
+                    />
+                </TabsContent>
+                <TabsContent
+                    value="csv"
+                    className="flex min-h-0 flex-1 flex-col"
+                >
+                    <CsvImport
+                        projectId={projectId}
+                        tables={tables}
+                        initialTable={table ?? tables[0]?.name ?? ''}
+                        processing={processing}
+                        onProcessing={setProcessing}
+                        onImported={(name) => onImported([name])}
+                        onClose={onClose}
+                    />
+                </TabsContent>
+            </Tabs>
+        </Modal>
     );
 }
 
@@ -208,6 +199,7 @@ function SqlImport({
     onImported,
     onClose,
 }: ImportStepProps & { onImported: () => void }) {
+    const { t, tChoice } = useLaravelReactI18n();
     const [file, setFile] = useState<File | null>(null);
     const [sql, setSql] = useState('');
     const [mode, setMode] = useState<ImportMode>('transaction');
@@ -248,12 +240,12 @@ function SqlImport({
     };
 
     return (
-        <div className="flex min-h-0 flex-1 flex-col gap-4 pt-2">
-            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+        <div className="flex min-h-0 flex-1 flex-col">
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
                 <FileField
                     file={file}
                     accept=".sql,.gz,.zip,.txt"
-                    hint=".sql, .sql.gz ou .zip"
+                    hint={t('tables.import.sql_hint')}
                     onChange={(next) => {
                         setFile(next);
                         setReport(null);
@@ -263,10 +255,10 @@ function SqlImport({
                     <Textarea
                         value={sql}
                         onChange={(event) => setSql(event.target.value)}
-                        placeholder="Ou collez le script ici"
+                        placeholder={t('tables.import.paste_script')}
                         spellCheck={false}
                         className="min-h-32 font-mono text-xs"
-                        aria-label="Script SQL"
+                        aria-label={t('tables.import.sql_script')}
                     />
                 )}
                 {file && (
@@ -276,13 +268,13 @@ function SqlImport({
                         className="self-start"
                         onClick={() => setFile(null)}
                     >
-                        Saisir le script à la place
+                        {t('tables.import.type_script')}
                     </Button>
                 )}
 
                 <fieldset>
                     <legend className="mb-2 text-sm font-medium">
-                        En cas d'erreur
+                        {t('tables.import.on_error')}
                     </legend>
                     <RadioGroup
                         value={mode}
@@ -298,9 +290,11 @@ function SqlImport({
                                     className="mt-0.5"
                                 />
                                 <span>
-                                    <span className="block">{item.label}</span>
+                                    <span className="block">
+                                        {t(item.label)}
+                                    </span>
                                     <span className="block text-xs text-muted-foreground">
-                                        {item.description}
+                                        {t(item.description)}
                                     </span>
                                 </span>
                             </Label>
@@ -311,7 +305,7 @@ function SqlImport({
                 {error && (
                     <Alert
                         variant="destructive"
-                        title="L'import a échoué"
+                        title={t('tables.import.failed')}
                         message={error}
                     />
                 )}
@@ -321,15 +315,25 @@ function SqlImport({
                         variant={report.failed > 0 ? 'destructive' : 'success'}
                         title={
                             report.kept
-                                ? `${plural(report.executed, 'instruction')} exécutée${report.executed > 1 ? 's' : ''} sur ${report.statements}, en ${report.duration} ms`
-                                : "Rien n'a été gardé : l'import a été annulé"
+                                ? tChoice(
+                                      'tables.import.sql_report',
+                                      report.executed,
+                                      {
+                                          total: report.statements,
+                                          duration: report.duration,
+                                      },
+                                  )
+                                : t('tables.import.nothing_kept')
                         }
                         message={
                             report.skipped > 0
-                                ? `${plural(report.skipped, 'instruction')} de transaction du script ignorée${report.skipped > 1 ? 's' : ''} : l'import a la sienne.`
+                                ? tChoice(
+                                      'tables.import.skipped_transactions',
+                                      report.skipped,
+                                  )
                                 : report.failed > 0
-                                  ? 'La base a refusé les instructions suivantes.'
-                                  : 'Le script a été exécuté entièrement.'
+                                  ? t('tables.import.refused')
+                                  : t('tables.import.completed')
                         }
                     >
                         {report.failures.length > 0 && (
@@ -340,7 +344,10 @@ function SqlImport({
                                         className="flex min-w-0 flex-col gap-0.5"
                                     >
                                         <span>
-                                            Instruction {failure.index} :{' '}
+                                            {t(
+                                                'tables.import.statement_failure',
+                                                { index: failure.index },
+                                            )}{' '}
                                             {failure.message}
                                         </span>
                                         <code className="truncate font-mono text-xs opacity-80">
@@ -356,13 +363,13 @@ function SqlImport({
                 )}
             </div>
 
-            <DialogFooter>
+            <ModalFooter>
                 <Button
                     variant="outline"
                     onClick={onClose}
                     disabled={processing}
                 >
-                    {report ? 'Fermer' : 'Annuler'}
+                    {report ? t('common.close') : t('common.cancel')}
                 </Button>
                 <Button
                     onClick={run}
@@ -370,9 +377,9 @@ function SqlImport({
                     icon={UploadIcon}
                     processing={processing}
                 >
-                    Exécuter le script
+                    {t('tables.import.run_script')}
                 </Button>
-            </DialogFooter>
+            </ModalFooter>
         </div>
     );
 }
@@ -390,6 +397,7 @@ function CsvImport({
     initialTable: string;
     onImported: (table: string) => void;
 }) {
+    const { t, tChoice } = useLaravelReactI18n();
     const [table, setTable] = useState(initialTable);
     const [columns, setColumns] = useState<string[] | null>(null);
     const [file, setFile] = useState<File | null>(null);
@@ -509,11 +517,13 @@ function CsvImport({
     const mapped = mapping.filter(Boolean).length;
 
     return (
-        <div className="flex min-h-0 flex-1 flex-col gap-4 pt-2">
-            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+        <div className="flex min-h-0 flex-1 flex-col">
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
                 <div className="grid gap-4 sm:grid-cols-2">
                     <div className="flex flex-col gap-2">
-                        <Label htmlFor="csv-table">Table</Label>
+                        <Label htmlFor="csv-table">
+                            {t('tables.import.table')}
+                        </Label>
                         <NativeSelect
                             id="csv-table"
                             className="w-full"
@@ -535,7 +545,9 @@ function CsvImport({
                         </NativeSelect>
                     </div>
                     <div className="flex flex-col gap-2">
-                        <Label htmlFor="csv-delimiter">Séparateur</Label>
+                        <Label htmlFor="csv-delimiter">
+                            {t('tables.import.delimiter')}
+                        </Label>
                         <NativeSelect
                             id="csv-delimiter"
                             className="w-full"
@@ -545,16 +557,16 @@ function CsvImport({
                             }
                         >
                             <NativeSelectOption value=",">
-                                Virgule ,
+                                {t('tables.import.delimiters.comma')}
                             </NativeSelectOption>
                             <NativeSelectOption value=";">
-                                Point-virgule ;
+                                {t('tables.import.delimiters.semicolon')}
                             </NativeSelectOption>
                             <NativeSelectOption value="tab">
-                                Tabulation
+                                {t('tables.import.delimiters.tab')}
                             </NativeSelectOption>
                             <NativeSelectOption value="|">
-                                Barre |
+                                {t('tables.import.delimiters.pipe')}
                             </NativeSelectOption>
                         </NativeSelect>
                     </div>
@@ -563,7 +575,7 @@ function CsvImport({
                 <FileField
                     file={file}
                     accept=".csv,.tsv,.txt,.gz,.zip"
-                    hint=".csv, .csv.gz ou .zip"
+                    hint={t('tables.import.csv_hint')}
                     onChange={chooseFile}
                 />
 
@@ -575,7 +587,7 @@ function CsvImport({
                                 setHeader(checked === true)
                             }
                         />
-                        La première ligne nomme les colonnes
+                        {t('tables.import.header')}
                     </Label>
                     <Label className="flex items-center gap-2 font-normal">
                         <Checkbox
@@ -584,7 +596,7 @@ function CsvImport({
                                 setEmptyAsNull(checked === true)
                             }
                         />
-                        Valeur vide = NULL
+                        {t('tables.import.empty_as_null')}
                     </Label>
                     <Label className="flex items-center gap-2 font-normal text-destructive">
                         <Checkbox
@@ -593,7 +605,7 @@ function CsvImport({
                                 setReplace(checked === true)
                             }
                         />
-                        Supprimer d'abord les lignes de la table
+                        {t('tables.import.replace')}
                     </Label>
                 </div>
 
@@ -611,7 +623,13 @@ function CsvImport({
                                             >
                                                 <span className="mb-1 block truncate font-medium">
                                                     {headings[index] ||
-                                                        `Colonne ${index + 1}`}
+                                                        t(
+                                                            'tables.import.column_number',
+                                                            {
+                                                                number:
+                                                                    index + 1,
+                                                            },
+                                                        )}
                                                 </span>
                                                 <NativeSelect
                                                     size="sm"
@@ -633,10 +651,28 @@ function CsvImport({
                                                             ),
                                                         )
                                                     }
-                                                    aria-label={`Colonne de la table pour ${headings[index] || `la colonne ${index + 1}`}`}
+                                                    aria-label={t(
+                                                        'tables.import.column_for',
+                                                        {
+                                                            column:
+                                                                headings[
+                                                                    index
+                                                                ] ||
+                                                                t(
+                                                                    'tables.import.column_number',
+                                                                    {
+                                                                        number:
+                                                                            index +
+                                                                            1,
+                                                                    },
+                                                                ),
+                                                        },
+                                                    )}
                                                 >
                                                     <NativeSelectOption value="">
-                                                        Ignorer
+                                                        {t(
+                                                            'tables.import.ignore',
+                                                        )}
                                                     </NativeSelectOption>
                                                     {columns.map((column) => (
                                                         <NativeSelectOption
@@ -679,15 +715,14 @@ function CsvImport({
 
                 {file && !text && (
                     <p className="text-sm text-muted-foreground">
-                        Un fichier compressé n'a pas d'aperçu : ses colonnes
-                        vont, dans l'ordre, aux colonnes de la table.
+                        {t('tables.import.compressed_no_preview')}
                     </p>
                 )}
 
                 {error && (
                     <Alert
                         variant="destructive"
-                        title="L'import a échoué"
+                        title={t('tables.import.failed')}
                         message={error}
                     />
                 )}
@@ -695,19 +730,32 @@ function CsvImport({
                 {report && (
                     <Alert
                         variant="success"
-                        title={`${plural(report.inserted, 'ligne')} importée${report.inserted > 1 ? 's' : ''}`}
-                        message={`${report.deleted > 0 ? `${plural(report.deleted, 'ligne')} supprimée${report.deleted > 1 ? 's' : ''} avant l'import, ` : ''}en ${report.duration} ms.`}
+                        title={tChoice(
+                            'tables.import.rows_imported',
+                            report.inserted,
+                        )}
+                        message={
+                            report.deleted > 0
+                                ? tChoice(
+                                      'tables.import.rows_deleted',
+                                      report.deleted,
+                                      { duration: report.duration },
+                                  )
+                                : t('tables.import.duration', {
+                                      duration: report.duration,
+                                  })
+                        }
                     />
                 )}
             </div>
 
-            <DialogFooter>
+            <ModalFooter>
                 <Button
                     variant="outline"
                     onClick={onClose}
                     disabled={processing}
                 >
-                    {report ? 'Fermer' : 'Annuler'}
+                    {report ? t('common.close') : t('common.cancel')}
                 </Button>
                 <Button
                     onClick={run}
@@ -717,9 +765,9 @@ function CsvImport({
                     icon={UploadIcon}
                     processing={processing}
                 >
-                    Importer dans {table}
+                    {t('tables.import.import_into', { table })}
                 </Button>
-            </DialogFooter>
+            </ModalFooter>
         </div>
     );
 }

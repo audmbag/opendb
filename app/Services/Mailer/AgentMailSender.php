@@ -56,7 +56,7 @@ class AgentMailSender
                     attachmentPaths: $attachments,
                 ));
         } catch (TransportExceptionInterface $e) {
-            throw new RuntimeException("L'envoi a échoué : {$e->getMessage()}", previous: $e);
+            throw new RuntimeException(__('mail.errors.send_failed', ['error' => $e->getMessage()]), previous: $e);
         }
 
         return [

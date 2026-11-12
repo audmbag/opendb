@@ -1,5 +1,6 @@
 /**
  * Every keyboard shortcut of the application, listed in the settings. Each key is shown as written on the keyboard.
+ * The labels, the descriptions and the named keys are keys of lang/{locale}/shortcuts.php.
  */
 export type ShortcutGroup = {
     label: string;
@@ -8,66 +9,70 @@ export type ShortcutGroup = {
 
 export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     {
-        label: 'Application',
+        label: 'shortcuts.groups.application',
         shortcuts: [
             {
-                description: 'Ouvrir la palette de commandes',
+                description: 'shortcuts.command_palette',
                 keys: [['Ctrl', 'K']],
             },
-            { description: 'Ouvrir les paramètres', keys: [['Ctrl', ',']] },
+            { description: 'shortcuts.settings', keys: [['Ctrl', ',']] },
+            {
+                description: 'shortcuts.new_project',
+                keys: [['Ctrl', 'Shift', 'N']],
+            },
         ],
     },
     {
-        label: 'Conversations',
+        label: 'shortcuts.groups.conversations',
         shortcuts: [
             {
-                description: 'Nouvelle conversation',
+                description: 'shortcuts.new_conversation',
                 keys: [
                     ['Alt', 'N'],
                     ['Ctrl', 'N'],
                 ],
             },
             {
-                description: 'Rechercher une conversation',
+                description: 'shortcuts.search_conversation',
                 keys: [['Alt', 'K']],
             },
         ],
     },
     {
-        label: 'Message',
+        label: 'shortcuts.groups.message',
         shortcuts: [
-            { description: 'Joindre un fichier', keys: [['Ctrl', 'U']] },
-            { description: "Changer de mode d'accès", keys: [['Ctrl', '.']] },
-            { description: "Changer l'effort", keys: [['Ctrl', 'Shift', 'D']] },
-            { description: 'Choisir le modèle', keys: [['Ctrl', "'"]] },
+            { description: 'shortcuts.attach_file', keys: [['Ctrl', 'U']] },
+            { description: 'shortcuts.access_mode', keys: [['Ctrl', '.']] },
+            { description: 'shortcuts.effort', keys: [['Ctrl', 'Shift', 'D']] },
+            { description: 'shortcuts.model', keys: [['Ctrl', "'"]] },
         ],
     },
     {
-        label: 'Tables',
+        label: 'shortcuts.groups.tables',
         shortcuts: [
-            { description: 'Rechercher une table', keys: [['/']] },
+            { description: 'shortcuts.search_table', keys: [['/']] },
             {
-                description: 'Exécuter le script ou la sélection',
-                keys: [['Ctrl', 'Entrée']],
+                description: 'shortcuts.run_script',
+                keys: [['Ctrl', 'shortcuts.keys.enter']],
             },
             {
-                description: 'Formater le script',
+                description: 'shortcuts.format_script',
                 keys: [['Shift', 'Alt', 'F']],
             },
             {
-                description: 'Copier les cellules sélectionnées',
+                description: 'shortcuts.copy_cells',
                 keys: [['Ctrl', 'C']],
             },
             {
-                description: 'Ouvrir la ligne référencée',
-                keys: [['Ctrl', 'clic']],
+                description: 'shortcuts.open_referenced_row',
+                keys: [['Ctrl', 'shortcuts.keys.click']],
             },
         ],
     },
     {
-        label: 'Diagrammes',
+        label: 'shortcuts.groups.diagrams',
         shortcuts: [
-            { description: 'Quitter le plein écran', keys: [['Échap']] },
+            { description: 'shortcuts.exit_fullscreen', keys: [['shortcuts.keys.escape']] },
         ],
     },
 ];

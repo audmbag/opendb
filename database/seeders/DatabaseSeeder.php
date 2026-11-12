@@ -15,7 +15,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        User::factory()->create([
+        User::factory()->root()->create([
             'name' => config('opendb.default_username'),
             'password' => bcrypt(config('opendb.default_password')),
         ]);

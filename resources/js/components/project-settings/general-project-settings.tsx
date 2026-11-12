@@ -1,4 +1,5 @@
 import { router, useHttp, usePage } from '@inertiajs/react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { FolderIcon, SaveIcon } from 'lucide-react';
 import type React from 'react';
 import { toast } from 'sonner';
@@ -17,6 +18,7 @@ type ProjectInfoForm = Pick<Project, 'name' | 'description' | 'path'>;
  * The name, the description and the working directory of the project.
  */
 export default function GeneralProjectSettings() {
+    const { t } = useLaravelReactI18n();
     const { project } = usePage<{ project: Project }>().props;
 
     const form = useHttp<ProjectInfoForm, { data: Project; message: string }>({
@@ -39,13 +41,13 @@ export default function GeneralProjectSettings() {
 
     return (
         <CardFrame
-            title="Informations du projet"
-            description="Le nom et la description affichés dans OpenDB, et le dossier de travail de l'agent."
+            title={t('projects.steps.project_description')}
+            description={t('projects.settings.general.description')}
             icon={FolderIcon}
         >
             <form className="flex flex-col gap-4" onSubmit={save}>
                 <Input
-                    label="Nom du projet"
+                    label={t('projects.form.name')}
                     name="name"
                     value={form.data.name}
                     onChange={(event) =>
@@ -54,7 +56,7 @@ export default function GeneralProjectSettings() {
                     error={form.errors.name}
                 />
                 <Textarea
-                    label="Description du projet"
+                    label={t('projects.form.description')}
                     name="description"
                     className="max-h-52"
                     value={form.data.description}
@@ -72,9 +74,7 @@ export default function GeneralProjectSettings() {
                         error={form.errors.path}
                     />
                     <Muted className="text-xs">
-                        L'agent y lit et y écrit ses fichiers (exports,
-                        documents). Les fichiers de l'ancien dossier ne sont pas
-                        déplacés.
+                        {t('projects.settings.general.path_description')}
                     </Muted>
                 </div>
                 <div className="flex justify-end">
@@ -84,7 +84,7 @@ export default function GeneralProjectSettings() {
                         processing={form.processing}
                         disabled={!form.isDirty}
                     >
-                        Enregistrer
+                        {t('common.save')}
                     </Button>
                 </div>
             </form>

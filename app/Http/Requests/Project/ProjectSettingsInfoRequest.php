@@ -31,7 +31,7 @@ class ProjectSettingsInfoRequest extends FormRequest
             'description' => ['required', 'string'],
             'path' => ['required', 'string', function (string $attribute, mixed $value, Closure $fail): void {
                 if (! is_dir($value) || ! is_writable($value)) {
-                    $fail('Le chemin doit être un répertoire existant et accessible en écriture.');
+                    $fail(__('requests.writable_directory'));
                 }
             }],
         ];

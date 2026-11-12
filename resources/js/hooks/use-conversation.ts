@@ -7,6 +7,9 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import type { PromptInputMessage } from '@/components/ai-elements/prompt-input';
 import AlertDialog from '@/components/alert-dialog';
+import { useProjectSettingsDialog } from '@/hooks/use-project-settings-modal';
+import { responseMessage } from '@/lib/http-errors';
+import { trans } from '@/lib/i18n';
 import { useAgentSettingsStore } from '@/store/use-agent-settings-store';
 import { useConversationStore } from '@/store/use-conversation-store';
 import type { APIData } from '@/types/global';
@@ -106,6 +109,7 @@ const useConversationMessage = (
         error,
         regenerate,
         addToolApprovalResponse,
+        stop,
     } = useChat({
         id: conversation.id,
         transport: transport,
@@ -132,6 +136,35 @@ const useConversationMessage = (
         [sendMessage],
     );
 
+    const cancelRequest = useHttp<null, null>();
+
+    /**
+     * The answers stopped since the page opened: those saved before are marked by a `data-cancelled` part.
+     */
+    const [cancelledMessageIds, setCancelledMessageIds] = useState<ReadonlySet<string>>(new Set());
+
+    /**
+     * Stop reading the answer at once, and ask the server to stop the agent before its next step.
+     */
+    const cancel = useCallback(() => {
+        const latestMessage = messages[messages.length - 1];
+
+        cancelRequest.post(ConversationController.cancel.url(conversation.id));
+        void stop();
+
+        if (latestMessage?.role === 'assistant') {
+            setCancelledMessageIds((ids) => new Set(ids).add(latestMessage.id));
+        }
+    }, [cancelRequest, conversation.id, messages, stop]);
+
+    /**
+     * Answer the last message of the user again: the server forgets the previous answer.
+     */
+    const retry = useCallback(() => {
+        setStreamErrorMessage(null);
+        void regenerate();
+    }, [regenerate]);
+
     return {
         pendingMessage,
         clearPendingMessage,
@@ -140,7 +173,9 @@ const useConversationMessage = (
         submitPromptMessage,
         error,
         streamErrorMessage,
-        regenerate,
+        regenerate: retry,
+        cancel,
+        cancelledMessageIds,
         addToolApprovalResponse,
     };
 };
@@ -174,33 +209,43 @@ const useConversation = () => {
         title: ''
     });
 
+    // The request methods of useHttp keep their identity between renders, unlike the object holding them.
+    const { get: getConversations } = loadConversationsRequest;
+    const { setData: setStartData, post: postStart } = startConversationRequest;
+    const { patch: patchConversation, delete: deleteConversation } = archiveConversationsRequest;
+    const { setData: setUpdateData, post: postUpdate } = updateConversationsRequest;
+
+    const { open: openProjectSettings } = useProjectSettingsDialog();
+
+    const projectId = page.props.project.id;
+
     const loadConversations = useCallback(() => {
-        loadConversationsRequest.get(ConversationController.index.url(page.props.project.id), {
+        getConversations(ConversationController.index.url(projectId), {
             onSuccess: ({ data }) => {
                 fillConversations(data);
             },
         });
-    }, [conversations.length, fillConversations, page.props.project.id]);
+    }, [getConversations, fillConversations, projectId]);
 
     const startConversation = useCallback((message: PromptInputMessage) => {
         setPendingMessage(message);
 
         const { selectedModel } = useAgentSettingsStore.getState();
 
-        startConversationRequest.setData({
+        setStartData({
             message: message.text,
             provider: selectedModel?.providerId ?? null,
             model: selectedModel?.modelId ?? null,
         });
 
-        startConversationRequest.post(
-            ConversationController.store.url(page.props.project.id),
+        postStart(
+            ConversationController.store.url(projectId),
             {
                 onSuccess: ({ conversation }) => {
                     addConversation(conversation);
                     router.visit(
                         ConversationController.conversation.url({
-                            project: page.props.project.id,
+                            project: projectId,
                             conversation: conversation.id,
                         }),
                         {
@@ -210,54 +255,61 @@ const useConversation = () => {
                 },
                 onError: () => {
                     setPendingMessage(null);
-                    toast.error('Impossible de démarrer la conversation', {
-                        description: 'Vérifiez le modèle sélectionné puis réessayez.',
+                    toast.error(trans('conversations.start_failed'), {
+                        description: trans('conversations.start_failed_description'),
+                    });
+                },
+                onHttpException: (response) => {
+                    setPendingMessage(null);
+                    toast.error(trans('conversations.start_failed'), {
+                        description: responseMessage(response) ?? trans('common.unexpected_error'),
                     });
                 },
             },
-        );
-    }, []);
+        ).catch(() => null);
+    }, [addConversation, postStart, projectId, setPendingMessage, setStartData]);
 
     const archive = useCallback((conversation: Conversation) => {
-        archiveConversationsRequest.patch(ConversationController.archive.url(conversation.id), {
+        patchConversation(ConversationController.archive.url(conversation.id), {
             onSuccess: () => {
                 removeConversation(conversation);
-                toast.success(
-                    'Conversation archivée, vous pouvez la retrouver dans l\'onglet "Archives" dans vos paramètres',
-                );
+                toast.success(trans('conversations.archived'), {
+                    description: trans('conversations.archived_description'),
+                    action: {
+                        label: trans('conversations.see_archives'),
+                        onClick: () => openProjectSettings('archives'),
+                    },
+                });
                 router.visit(
-                    ConversationController.home.url(page.props.project.id),
+                    ConversationController.home.url(projectId),
                     {
                         viewTransition: true,
                     },
                 );
             },
         });
-    }, []);
+    }, [openProjectSettings, patchConversation, projectId, removeConversation]);
 
     const remove = useCallback(async (conversation: Conversation) => {
         const confirmation = await AlertDialog.call({
-            title: 'Supprimer la conversation ?',
+            title: trans('conversations.delete_title'),
             icon: Trash2Icon,
             variant: 'destructive',
-            description:
-                'Êtes-vous sûr de vouloir supprimer définitivement cette conversation ?',
+            description: trans('conversations.delete_description'),
         });
 
         if (!confirmation) {
             return
         }
 
-        await archiveConversationsRequest.delete(
+        await deleteConversation(
             ConversationController.destroy.url(conversation.id),
             {
                 onSuccess: () => {
                     removeConversation(conversation);
-                    toast.success(
-                        'Conversation supprimée avec succès',
-                    );
+                    toast.success(trans('conversations.deleted'));
                     router.visit(
-                        ConversationController.home.url(page.props.project.id),
+                        ConversationController.home.url(projectId),
                         {
                             viewTransition: true,
                         },
@@ -265,7 +317,7 @@ const useConversation = () => {
                 },
             },
         );
-    }, [page.props.project.id, removeConversation]);
+    }, [deleteConversation, projectId, removeConversation]);
 
     const update = useCallback(
         (
@@ -273,9 +325,9 @@ const useConversation = () => {
             data: { title: string },
             errorCallback?: (error: {[key:string]: string}) => void,
         ) => {
-            updateConversationsRequest.setData('title', data.title);
+            setUpdateData('title', data.title);
 
-            updateConversationsRequest.post(
+            postUpdate(
                 ConversationController.update.url(conversation.id),
                 {
                     onSuccess: (response) => {
@@ -294,16 +346,16 @@ const useConversation = () => {
 
                         fillConversations(updatedConversationList);
 
-                        toast.success('Le titre a été mis à jour');
+                        toast.success(trans('conversations.title_updated'));
                     },
                     onError: (error) => {
-                        toast.error('Une erreur est survenue : ' + error.title);
+                        toast.error(trans('common.error_with_message', { message: error.title }));
                         errorCallback?.(error);
                     },
                 },
             );
         },
-        [conversations],
+        [conversations, fillConversations, postUpdate, setUpdateData],
     );
 
     return {

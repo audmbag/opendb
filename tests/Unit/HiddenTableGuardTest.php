@@ -2,6 +2,9 @@
 
 use App\Database\Exceptions\HiddenTableException;
 use App\Database\HiddenTableGuard;
+use Tests\TestCase;
+
+pest()->extend(TestCase::class);
 
 it('lets every query run while no table is hidden', function (string $sql) {
     expect(HiddenTableGuard::rejects($sql, []))->toBeFalse();

@@ -1,4 +1,5 @@
 import { router, usePage } from '@inertiajs/react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     CogIcon,
     EllipsisVertical,
@@ -26,6 +27,7 @@ import { useSettingsDialog } from '@/hooks/use-settings-modal';
 import LoginController from '@/wayfinder/actions/App/Http/Controllers/Auth/LoginController';
 
 export function SidebarUser() {
+    const { t } = useLaravelReactI18n();
 
     const { isMobile } = useSidebar();
 
@@ -86,7 +88,7 @@ export function SidebarUser() {
                                 onSelect={() => openSettingsDialog()}
                             >
                                 <CogIcon />
-                                Paramètres
+                                {t('settings.title')}
                                 <KbdGroup className="ml-auto">
                                     <Kbd>Ctrl</Kbd>
                                     <Kbd>,</Kbd>
@@ -96,7 +98,7 @@ export function SidebarUser() {
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onSelect={handleLogout}>
                             <LogOutIcon />
-                            Se déconnecter
+                            {t('login.logout')}
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>

@@ -36,8 +36,8 @@ class ProjectDeletionRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'name.required' => 'Saisissez le nom du projet pour confirmer sa suppression.',
-            'name.in' => 'Le nom saisi ne correspond pas au nom du projet.',
+            'name.required' => __('requests.project_deletion.required'),
+            'name.in' => __('requests.project_deletion.in'),
         ];
     }
 }

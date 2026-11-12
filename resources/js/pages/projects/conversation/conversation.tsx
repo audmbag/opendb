@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     ArchiveIcon,
     ChevronDownIcon,
@@ -25,7 +26,7 @@ import AppLayout from '@/layouts/app';
 import ChatLayout from '@/layouts/chat-layout';
 
 const ChatDiscussion = () => {
-
+    const { t } = useLaravelReactI18n();
     const { dataPreviewOpen, toggleDataPreview } = useChatLayout();
 
     const { conversation, archive, remove, update, updateConversationsRequest: { processing } } = useConversation();
@@ -68,18 +69,18 @@ const ChatDiscussion = () => {
         <>
             <div className="absolute top-0 left-0 z-10 flex w-full justify-between bg-background/5 py-2 pr-6 pl-4 backdrop-blur-xs">
                 <div className="flex items-center gap-2">
-                    <SidebarTrigger className="md:hidden" />
+                    <SidebarTrigger className="md:hidden" aria-label={t('common.toggle_sidebar')} />
                     {generatedTitle === null ? (
                         <Skeleton
                             className="h-5 w-48"
-                            aria-label="Génération du titre"
+                            aria-label={t('conversations.generating_title')}
                         />
                     ) : (
                     <Editable
                         value={title}
                         onValueChange={setTitle}
                         onSubmit={handleEditTitle}
-                        placeholder="Titre de la conversation"
+                        placeholder={t('conversations.title_placeholder')}
                         autosize
                         editing={isEditingTitle}
                     >
@@ -99,18 +100,18 @@ const ChatDiscussion = () => {
                         <DropdownMenu
                             items={[
                                 {
-                                    label: 'Éditer',
+                                    label: t('common.edit'),
                                     icon: PencilIcon,
                                     onClick: () => setIsEditingTitle(true),
                                 },
                                 {
-                                    label: 'Archiver',
+                                    label: t('conversations.archive'),
                                     icon: ArchiveIcon,
                                     separator: true,
                                     onClick: () => archive(conversation),
                                 },
                                 {
-                                    label: 'Supprimer',
+                                    label: t('common.delete'),
                                     icon: TrashIcon,
                                     destructive: true,
                                     onClick: () => remove(conversation),
@@ -132,8 +133,8 @@ const ChatDiscussion = () => {
                     size="icon-sm"
                     tooltip={
                         dataPreviewOpen
-                            ? 'Masquer les artefacts'
-                            : 'Afficher les artefacts'
+                            ? t('conversations.hide_artifacts')
+                            : t('conversations.show_artifacts')
                     }
                     onClick={toggleDataPreview}
                 />

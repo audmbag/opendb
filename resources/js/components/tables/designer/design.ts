@@ -26,9 +26,12 @@ export type TypeOption = {
     engines?: string[];
 };
 
+/**
+ * The types of a column by group, the label of a group being a key of lang/{locale}/tables.php.
+ */
 export const TYPE_GROUPS: { label: string; types: TypeOption[] }[] = [
     {
-        label: 'Texte',
+        label: 'tables.designer.type_groups.text',
         types: [
             { value: 'string', label: 'varchar' },
             { value: 'char', label: 'char' },
@@ -38,7 +41,7 @@ export const TYPE_GROUPS: { label: string; types: TypeOption[] }[] = [
         ],
     },
     {
-        label: 'Nombres',
+        label: 'tables.designer.type_groups.numbers',
         types: [
             { value: 'tinyInteger', label: 'tinyint' },
             { value: 'smallInteger', label: 'smallint' },
@@ -52,7 +55,7 @@ export const TYPE_GROUPS: { label: string; types: TypeOption[] }[] = [
         ],
     },
     {
-        label: 'Dates',
+        label: 'tables.designer.type_groups.dates',
         types: [
             { value: 'date', label: 'date' },
             { value: 'dateTime', label: 'datetime' },
@@ -62,7 +65,7 @@ export const TYPE_GROUPS: { label: string; types: TypeOption[] }[] = [
         ],
     },
     {
-        label: 'Autres',
+        label: 'tables.designer.type_groups.others',
         types: [
             { value: 'json', label: 'json' },
             { value: 'jsonb', label: 'jsonb', engines: ['pgsql'] },

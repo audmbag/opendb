@@ -6,6 +6,7 @@ namespace App\Services\Importer;
 
 use App\Database\Contracts\DriverContract;
 use App\Database\Exceptions\TableNotFoundException;
+use App\Enums\PrivilegeEnum;
 use RuntimeException;
 
 /**
@@ -27,10 +28,12 @@ final readonly class ImporterManager
      */
     public function importSql(DriverContract $driver, string $sql, ImportMode $mode): array
     {
+        $driver->assertPrivilege(PrivilegeEnum::Import);
+
         $statements = $this->splitter->split($sql, $driver->getConnection()->getDriverName());
 
         if ($statements === []) {
-            throw new RuntimeException('Le script ne contient aucune instruction SQL.');
+            throw new RuntimeException(__('imports.errors.empty_script'));
         }
 
         return $this->runner->run($driver, $statements, $mode);
@@ -55,6 +58,10 @@ final readonly class ImporterManager
      */
     public function importCsv(DriverContract $driver, string $table, string $path, string $name, array $mapping, array $options): array
     {
+        foreach ([PrivilegeEnum::Import, PrivilegeEnum::Insert, ...($options['replace'] ? [PrivilegeEnum::Delete] : [])] as $privilege) {
+            $driver->assertPrivilege($privilege, $table);
+        }
+
         return $this->csv->import($driver, $table, $this->files->read($path, $name, 'csv'), $mapping, $options);
     }
 

@@ -82,6 +82,16 @@ return [
 
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
 
+    /*
+    | The languages the interface can be shown in, one translation folder of lang/ each, chosen in the settings,
+    | named in English for the instructions of the agents, which answer in the language of the interface.
+    */
+
+    'supported_locales' => [
+        'fr' => 'French',
+        'en' => 'English',
+    ],
+
     'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
 
     /*

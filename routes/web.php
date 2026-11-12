@@ -10,16 +10,21 @@ use App\Http\Controllers\ConversationController;
 use App\Http\Controllers\Database\DatabaseExportController;
 use App\Http\Controllers\Database\DatabaseImportController;
 use App\Http\Controllers\Database\QueryConsoleController;
+use App\Http\Controllers\Erd\ErdAssistantController;
+use App\Http\Controllers\Erd\ErdController;
 use App\Http\Controllers\FileTreeController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\MailRecipientController;
 use App\Http\Controllers\MailSettingController;
+use App\Http\Controllers\McpTokenController;
+use App\Http\Controllers\Project\ProjectArchivedConversationController;
 use App\Http\Controllers\Project\ProjectSettingsController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ProjectFileController;
 use App\Http\Controllers\ProviderController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SqlEditor\QueryHistoryController;
+use App\Http\Controllers\SqlEditor\SnippetController;
 use App\Http\Controllers\SqlEditor\SqlEditorController;
 use App\Http\Controllers\SqlEditor\SqlEditorQueryController;
 use App\Http\Controllers\SqlEditor\SqlFileController;
@@ -29,7 +34,12 @@ use App\Http\Controllers\Tables\TableChangesController;
 use App\Http\Controllers\Tables\TableDesignController;
 use App\Http\Controllers\Tables\TableImportController;
 use App\Http\Controllers\Tables\TableRecordsController;
+use App\Http\Controllers\UsageController;
+use App\Http\Controllers\Users\GrantController;
+use App\Http\Controllers\Users\RoleController;
+use App\Http\Controllers\Users\UserController;
 use App\Http\Middleware\ExcludeDraftProjectMiddleware;
+use App\Models\Provider;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/login', [LoginController::class, 'loginForm'])->name('login');
@@ -46,12 +56,16 @@ Route::middleware(['auth'])->group(function () {
         Route::get('file-tree', FileTreeController::class);
     });
 
-    Route::resource('/providers', ProviderController::class)->only(['index', 'store', 'update', 'destroy']);
+    Route::get('/providers', [ProviderController::class, 'index']);
 
-    Route::prefix('/providers')->group(function () {
-        Route::patch('/{provider}', [ProviderController::class, 'connect']);
-        Route::delete('/{provider}', [ProviderController::class, 'disconnect']);
-        Route::post('/toggle-model/{provider}', [ProviderController::class, 'toggleModel']);
+    Route::middleware('can:manage,'.Provider::class)->group(function () {
+        Route::resource('/providers', ProviderController::class)->only(['store', 'update', 'destroy']);
+
+        Route::prefix('/providers')->group(function () {
+            Route::patch('/{provider}', [ProviderController::class, 'connect']);
+            Route::delete('/{provider}', [ProviderController::class, 'disconnect']);
+            Route::post('/toggle-model/{provider}', [ProviderController::class, 'toggleModel']);
+        });
     });
 
     Route::controller(MailSettingController::class)->prefix('/mail-settings')->group(function () {
@@ -62,6 +76,8 @@ Route::middleware(['auth'])->group(function () {
 
     Route::resource('/mail-recipients', MailRecipientController::class)->only(['index', 'store', 'destroy']);
 
+    Route::resource('/mcp-tokens', McpTokenController::class)->only(['index', 'store', 'destroy']);
+
     Route::controller(SettingsController::class)->prefix('/settings')->group(function () {
         Route::put('/agent', 'updateAgent');
         Route::put('/export', 'updateExport');
@@ -70,7 +86,21 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/cache', 'clearCaches');
     });
 
+    Route::get('/settings/usage', UsageController::class);
+
+    Route::resource('/users', UserController::class)->only(['index', 'store', 'update', 'destroy']);
+    Route::resource('/roles', RoleController::class)->only(['index', 'store', 'update', 'destroy']);
+
+    Route::controller(GrantController::class)->prefix('/grants')->group(function () {
+        Route::get('/', 'index');
+        Route::post('/', 'store');
+        Route::delete('/', 'destroy');
+        Route::get('/catalog', 'catalog');
+        Route::get('/projects/{project}', 'project')->can('share', 'project');
+    });
+
     Route::prefix('/projects')->group(function () {
+        Route::get('/', [ProjectController::class, 'index']);
         Route::post('/store-infos', [ProjectController::class, 'storeInfos']);
 
         Route::prefix('/{project}')->middleware('can:update,project')->group(function () {
@@ -92,6 +122,14 @@ Route::middleware(['auth'])->group(function () {
                 Route::delete('/', 'destroy');
             });
         });
+
+        // Everyone who reaches the project keeps their own archived conversations.
+        Route::prefix('/{project}/settings/archived-conversations')->middleware('can:view,project')->controller(ProjectArchivedConversationController::class)->scopeBindings()->group(function () {
+            Route::get('/', 'index');
+            Route::delete('/', 'destroyAll');
+            Route::patch('/{conversation}/restore', 'restore')->can('update', 'conversation');
+            Route::delete('/{conversation}', 'destroy')->can('update', 'conversation');
+        });
     });
 
     Route::prefix('/driver-config/{config}')->middleware('can:update,config')->group(function () {
@@ -99,11 +137,11 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/cloning/client-payload', [DriverConfigController::class, 'cloningClientPayload']);
     });
 
-    Route::prefix('/{project}')->middleware(ExcludeDraftProjectMiddleware::class)->group(function () {
+    Route::prefix('/{project}')->middleware([ExcludeDraftProjectMiddleware::class, 'can:view,project'])->group(function () {
         Route::get('/', [ConversationController::class, 'home']);
         Route::get('/conversations/search', [ConversationController::class, 'search']);
         Route::resource('/conversations', ConversationController::class)->only(['index', 'store']);
-        Route::get('/chat/{conversation}', [ConversationController::class, 'conversation'])->name('conversation.chat');
+        Route::get('/chat/{conversation}', [ConversationController::class, 'conversation'])->name('conversation.chat')->can('view', 'conversation');
 
         Route::get('/schema/database', [DatabaseSchemaController::class, 'database']);
         Route::get('/schema/table/{table}', [DatabaseSchemaController::class, 'table']);
@@ -113,9 +151,17 @@ Route::middleware(['auth'])->group(function () {
 
         Route::prefix('/database')->middleware('can:view,project')->group(function () {
             Route::post('/export', DatabaseExportController::class);
-            Route::post('/import', DatabaseImportController::class);
+            Route::post('/import', DatabaseImportController::class)->can('import', 'project');
             Route::post('/query', QueryConsoleController::class);
             Route::post('/query/write', [TableAssistantController::class, 'writeQuery']);
+        });
+
+        Route::prefix('/erd')->middleware('can:view,project')->controller(ErdController::class)->group(function () {
+            Route::get('/', 'index')->name('erd.index');
+            Route::post('/export', 'export');
+            Route::put('/layout', 'saveLayout');
+            Route::post('/assistant/chat', [ErdAssistantController::class, 'chat']);
+            Route::post('/assistant/preview', [ErdAssistantController::class, 'preview']);
         });
 
         Route::prefix('/sql-editor')->middleware('can:view,project')->group(function () {
@@ -123,6 +169,9 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/run', [SqlEditorQueryController::class, 'run']);
             Route::post('/export', [SqlEditorQueryController::class, 'export']);
             Route::post('/explain', [SqlEditorQueryController::class, 'explain']);
+            Route::post('/rows', [SqlEditorQueryController::class, 'rows']);
+            Route::post('/cancel', [SqlEditorQueryController::class, 'cancel']);
+            Route::put('/read-only', [SqlEditorQueryController::class, 'readOnly']);
             Route::post('/review', [TableAssistantController::class, 'reviewQuery']);
 
             Route::controller(QueryHistoryController::class)->prefix('/history')->group(function () {
@@ -130,13 +179,25 @@ Route::middleware(['auth'])->group(function () {
                 Route::delete('/', 'destroy');
             });
 
-            Route::controller(SqlFileController::class)->prefix('/files')->group(function () {
+            Route::controller(SnippetController::class)->prefix('/snippets')->group(function () {
+                Route::get('/', 'index');
+                Route::put('/', 'update');
+            });
+
+            // A file or a folder is named by its path in .opendb/sql, whose slashes stay in the URL.
+            Route::controller(SqlFileController::class)->prefix('/files')->where(['file' => '.+'])->group(function () {
                 Route::get('/', 'index');
                 Route::post('/', 'store');
                 Route::get('/{file}', 'show');
                 Route::put('/{file}', 'update');
                 Route::post('/{file}/rename', 'rename');
                 Route::delete('/{file}', 'destroy');
+            });
+
+            Route::controller(SqlFileController::class)->prefix('/folders')->where(['folder' => '.+'])->group(function () {
+                Route::post('/', 'storeFolder');
+                Route::post('/{folder}/rename', 'renameFolder');
+                Route::delete('/{folder}', 'destroyFolder');
             });
         });
 
@@ -173,8 +234,9 @@ Route::middleware(['auth'])->group(function () {
                 Route::post('/{table}/changes', 'store');
             });
 
+            Route::get('/{table}/profile', [TableAssistantController::class, 'profile']);
+
             Route::controller(TableAssistantController::class)->group(function () {
-                Route::get('/{table}/profile', 'profile');
                 Route::post('/{table}/ai/filter', 'filter')->name('tables.ai.filter');
                 Route::post('/{table}/ai/insights', 'insights');
                 Route::post('/{table}/ai/indexes', 'indexes');
@@ -183,17 +245,18 @@ Route::middleware(['auth'])->group(function () {
         });
     });
 
-    Route::prefix('/conversations')->group(function () {
-        Route::get('/{conversation}', [ConversationController::class, 'show']);
-        Route::post('/{conversation}', [ConversationController::class, 'update']);
-        Route::patch('/{conversation}/archive', [ConversationController::class, 'archive']);
-        Route::delete('/{conversation}', [ConversationController::class, 'destroy']);
-        Route::post('/{conversation}/chat', [ConversationController::class, 'chat']);
-        Route::post('/{conversation}/tool-calls/{toolCallId}/record', [TableRecordController::class, 'store']);
-        Route::post('/{conversation}/tool-calls/{toolCallId}/mail', [MailFormController::class, 'store']);
-        Route::get('/{conversation}/tool-calls/{toolCallId}/mail/attachments', [MailFormController::class, 'attachments']);
+    Route::prefix('/conversations/{conversation}')->middleware('can:view,conversation')->group(function () {
+        Route::get('/', [ConversationController::class, 'show']);
+        Route::post('/', [ConversationController::class, 'update']);
+        Route::patch('/archive', [ConversationController::class, 'archive']);
+        Route::post('/cancel', [ConversationController::class, 'cancel']);
+        Route::delete('/', [ConversationController::class, 'destroy']);
+        Route::post('/chat', [ConversationController::class, 'chat']);
+        Route::post('/tool-calls/{toolCallId}/record', [TableRecordController::class, 'store']);
+        Route::post('/tool-calls/{toolCallId}/mail', [MailFormController::class, 'store']);
+        Route::get('/tool-calls/{toolCallId}/mail/attachments', [MailFormController::class, 'attachments']);
 
-        Route::controller(ToolArtifactController::class)->prefix('/{conversation}/tool-calls/{toolCallId}/artifact')->group(function () {
+        Route::controller(ToolArtifactController::class)->prefix('/tool-calls/{toolCallId}/artifact')->group(function () {
             Route::get('/results', 'results');
             Route::get('/kpis', 'kpis');
             Route::get('/chart', 'chart');

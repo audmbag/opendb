@@ -6,6 +6,7 @@ use App\Database\Contracts\DriverContract;
 use App\Database\Exceptions\HiddenTableException;
 use App\Database\Exceptions\TableNotFoundException;
 use App\Database\TableRecordForm;
+use App\Support\TranslatableMessage;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Cache;
@@ -34,15 +35,13 @@ class CreateRecord extends BaseTool implements Approvable, Tool
 
     public function description(): Stringable|string
     {
-        return 'Prépare la création d\'un enregistrement dans une table. '
-            .'N\'écris JAMAIS toi-même une requête INSERT pour créer un enregistrement : '
-            .'utilise systématiquement cet outil avec le nom de la table cible. '
-            .'Un formulaire interactif, généré à partir de la structure de la table, sera présenté à l\'utilisateur ; '
-            .'n\'invente pas de valeurs pour les champs que l\'utilisateur n\'a pas encore fournis. '
-            .'Une fois l\'enregistrement créé, donne systématiquement à l\'utilisateur ses détails : '
-            .'la table, l\'identifiant généré s\'il y en a un, et chaque colonne renseignée avec sa valeur, '
-            .'tels que renvoyés par cet outil (présente-les sous forme de liste ou de tableau). '
-            .'Si l\'utilisateur a annulé le formulaire ou si la création a échoué, indique-le clairement avec la raison.';
+        return 'Prepares the creation of a record in a table. NEVER write an INSERT query yourself to create a '
+            .'record: always use this tool with the name of the target table. An interactive form, generated from '
+            .'the structure of the table, will be shown to the user; do not make up values for the fields the user '
+            .'has not given yet. Once the record is created, always give the user its details: the table, the '
+            .'generated identifier if there is one, and each filled column with its value, as returned by this '
+            .'tool (as a list or a table). If the user cancelled the form or if the creation failed, say it '
+            .'clearly with the reason.';
     }
 
     public function handle(Request $request): Stringable|string
@@ -52,7 +51,7 @@ class CreateRecord extends BaseTool implements Approvable, Tool
         $submission = Cache::pull(static::submissionCacheKey((string) $request->toolCallId()));
 
         if (! is_array($submission) || $submission['table'] !== $table) {
-            return "Aucune donnée de formulaire n'a été soumise pour cet appel : l'enregistrement n'a pas été créé.";
+            return 'No form data was submitted for this call: the record was not created.';
         }
 
         try {
@@ -63,22 +62,22 @@ class CreateRecord extends BaseTool implements Approvable, Tool
             return $this->formatQueryError($e);
         }
 
-        return "Enregistrement créé dans `{$table}` : ".$this->toJson($record);
+        return "Record created in `{$table}`: ".$this->toJson($record);
     }
 
     public function schema(JsonSchema $schema): array
     {
         return [
             'table' => $schema->string()
-                ->description('Nom exact de la table cible, tel qu\'identifié via ListTables.')
+                ->description('Exact name of the target table, as found through ListTables.')
                 ->required(),
             'known_values' => $schema->object(fn ($schema) => [])
-                ->description('Valeurs déjà mentionnées par l\'utilisateur dans la conversation, à préremplir dans le formulaire, indexées par nom de colonne.'),
+                ->description('Values the user already gave in the conversation, to prefill in the form, keyed by column name.'),
         ];
     }
 
     protected function needsApproval(Request $request): Approval|bool
     {
-        return Approval::required('Saisie utilisateur requise via formulaire.');
+        return Approval::required((new TranslatableMessage('ai.approvals.form_input'))->toJson());
     }
 }

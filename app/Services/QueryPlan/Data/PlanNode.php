@@ -5,10 +5,14 @@ declare(strict_types=1);
 namespace App\Services\QueryPlan\Data;
 
 use App\Services\QueryPlan\PlanOperation;
+use App\Support\TranslatableMessage;
 
 /**
  * Une étape du plan d'exécution normalisé. Les parsers la remplissent avec ce que le moteur dit de l'étape ;
  * les alertes, l'explication, les détails et la comparaison sont ajoutés ensuite sur le plan complet.
+ *
+ * Les textes destinés à l'interface sont des TranslatableMessage, traduits à l'affichage dans la langue choisie ;
+ * ceux que le moteur écrit lui-même (une opération inconnue, une condition) restent tels quels.
  */
 final class PlanNode
 {
@@ -16,42 +20,45 @@ final class PlanNode
 
     public ?string $parentId = null;
 
-    public string $label;
+    public string|TranslatableMessage $label;
 
     public ?float $costShare = null;
 
     /**
-     * @var list<array{code: string, severity: string, message: string, table: ?string, columns: list<string>, status?: string}>
+     * @var list<array{code: string, severity: string, message: string|TranslatableMessage, table: ?string, columns: list<string>, status?: string}>
      */
     public array $alerts = [];
 
-    public string $explanation = '';
+    /**
+     * @var list<TranslatableMessage> Les phrases de l'explication, affichées l'une après l'autre.
+     */
+    public array $explanation = [];
 
     /**
-     * @var list<array{label: string, value: string, mono?: bool, tone?: string}>
+     * @var list<array{label: TranslatableMessage, value: string|TranslatableMessage, mono?: bool, tone?: string}>
      */
     public array $details = [];
 
     /**
-     * @var ?array{label: string, rowsExamined: ?int, estimatedRows: ?int, inputRows: ?int, cost: ?float, selfCost: ?float}
+     * @var ?array{label: string|TranslatableMessage, rowsExamined: ?int, estimatedRows: ?int, inputRows: ?int, cost: ?float, selfCost: ?float}
      */
     public ?array $before = null;
 
     /**
-     * @param  ?array{label: string, value: string}  $condition
+     * @param  ?array{label: TranslatableMessage, value: string}  $condition
      * @param  array{accessType?: ?string, possibleKeys?: ?list<string>, filter?: ?string, exactFilter?: bool, joinCondition?: ?string, joinBuffer?: bool, key?: ?string, temporary?: bool, filesort?: bool, covering?: bool, dependent?: bool, limit?: ?int}  $facts  Ce que le moteur dit de l'étape, pour les alertes et les explications.
      * @param  list<PlanNode>  $children  Les étapes qui alimentent celle-ci, dans l'ordre d'exécution.
      */
     public function __construct(
         public PlanOperation $operation,
-        ?string $label = null,
-        public ?string $subtitle = null,
+        string|TranslatableMessage|null $label = null,
+        public string|TranslatableMessage|null $subtitle = null,
         public ?string $table = null,
         public ?string $index = null,
-        public ?string $badge = null,
+        public ?TranslatableMessage $badge = null,
         public ?int $rowsExamined = null,
         public ?int $estimatedRows = null,
-        public ?string $outputLabel = null,
+        public ?TranslatableMessage $outputLabel = null,
         public ?float $cost = null,
         public ?float $selfCost = null,
         public ?array $condition = null,

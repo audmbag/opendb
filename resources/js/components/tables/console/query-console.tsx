@@ -1,13 +1,15 @@
-import { useVirtualizer } from '@tanstack/react-virtual';
 import type { EditorView } from '@uiw/react-codemirror';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     AlignLeftIcon,
-    ClipboardCopyIcon,
-    DownloadIcon,
+    ChevronDownIcon,
     HistoryIcon,
+    LockIcon,
     PlayIcon,
     SparklesIcon,
+    SquareIcon,
     SquareTerminalIcon,
+    TriangleAlertIcon,
     WandSparklesIcon,
     WorkflowIcon,
 } from 'lucide-react';
@@ -15,6 +17,7 @@ import { lazy, Suspense, useRef, useState } from 'react';
 import { useDefaultLayout } from 'react-resizable-panels';
 import { toast } from 'sonner';
 import Alert from '@/components/alert';
+import AlertDialog from '@/components/alert-dialog';
 import { EmptyState } from '@/components/empty-state';
 import Button from '@/components/form/button';
 import {
@@ -22,6 +25,8 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuLabel,
+    DropdownMenuRadioGroup,
+    DropdownMenuRadioItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Kbd } from '@/components/ui/kbd';
@@ -33,7 +38,13 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useValueAsRef } from '@/hooks/use-value-as-ref';
-import { formatSql, statementAt, uppercaseSqlKeywords } from '@/lib/sql';
+import {
+    formatSql,
+    parameterNames,
+    riskyStatements,
+    statementAt,
+    uppercaseSqlKeywords,
+} from '@/lib/sql';
 import { cn } from '@/lib/utils';
 import type { QueryPlan } from '@/types/agent';
 import QueryConsoleController from '@/wayfinder/actions/App/Http/Controllers/Database/QueryConsoleController';
@@ -42,13 +53,13 @@ import type { TableRequestError } from '../api';
 import { requestTableData } from '../api';
 import AiPromptInput from '../assistant/ai-prompt-input';
 import { useTableAssistant } from '../assistant/use-table-assistant';
-import { cellRawText, cellText } from '../data-grid/format';
-import { downloadFile } from '../download';
 import SqlCodeBlock from '../sql-code-block';
-import type { ConsoleResult, ConsoleRun } from '../types';
-import { COPY_LABELS, copyResult } from './result-copy';
-import type { CopyFormat } from './result-copy';
+import type { ConsoleRun, TransactionMode } from '../types';
+import ParametersDialog from './parameters-dialog';
+import type { ParameterValues } from './parameters-dialog';
+import ResultView from './result-view';
 import SqlEditor from './sql-editor';
+import type { Snippet } from './sql-snippets';
 
 type Props = {
     projectId: string;
@@ -73,38 +84,104 @@ type Props = {
      */
     completion?: Record<string, string[]>;
     /**
-     * Where the statements are sent: the console of the Tables tab by default.
+     * The snippets offered by the completion, as the editor of the project configures them.
      */
-    runUrl?: string;
-    /**
-     * The extra fields sent with the statements, like the file of the editor they come from.
-     */
-    runData?: Record<string, unknown>;
-    /**
-     * Called after a run, successful or not, by the callers that keep their own history.
-     */
-    onRan?: () => void;
-    /**
-     * The recent queries remembered by this browser, in a menu. The editor keeps its history elsewhere.
-     */
-    withLocalHistory?: boolean;
+    snippets?: Snippet[];
     onEditorReady?: (view: EditorView) => void;
     editorClassName?: string;
     /**
-     * Where every row of a SELECT is downloaded, beyond the rows shown, and the name of the file. Without it, a
-     * result can only be copied.
+     * What the SQL editor adds to the console. Without it, the console is the one of the Tables tab: its runs are
+     * remembered by the browser, without parameters, transaction modes, plan or review.
      */
-    exportUrl?: string;
-    exportName?: string;
-    /**
-     * Where the plan of the statement under the cursor is computed. Without it, the console has no plan.
-     */
-    explainUrl?: string;
-    /**
-     * Where the agent fixes, explains or optimizes a statement. Without it, the console only writes with the AI.
-     */
-    reviewUrl?: string;
+    editor?: ConsoleEditor;
 };
+
+/**
+ * The features of a tab of the SQL editor, each with the address it calls.
+ */
+export type ConsoleEditor = {
+    runUrl: string;
+    rowsUrl: string;
+    cancelUrl: string;
+    exportUrl: string;
+    explainUrl: string;
+    reviewUrl: string;
+    /**
+     * The file of the tab: sent with each run for the history, and naming the downloads.
+     */
+    fileName: string;
+    /**
+     * Whether the engine can interrupt a query: not SQLite.
+     */
+    canCancel: boolean;
+    /**
+     * Only reads run, and their results cannot be changed.
+     */
+    readOnly: boolean;
+    /**
+     * Called after a run, successful or not, to read the history again.
+     */
+    onRan: () => void;
+};
+
+const TRANSACTION_MODES: Record<
+    TransactionMode,
+    { label: string; description: string }
+> = {
+    auto: {
+        label: 'tables.console.modes.auto',
+        description: 'tables.console.modes.auto_description',
+    },
+    atomic: {
+        label: 'tables.console.modes.atomic',
+        description: 'tables.console.modes.atomic_description',
+    },
+    dry_run: {
+        label: 'tables.console.modes.dry_run',
+        description: 'tables.console.modes.dry_run_description',
+    },
+};
+
+/**
+ * The mode and the values of the parameters of a file, kept by the browser for its next runs.
+ */
+type RunSettings = { mode: TransactionMode; bindings: ParameterValues };
+
+const runSettingsKey = (projectId: string, fileName: string) =>
+    `opendb:sql-editor-run:${projectId}:${fileName}`;
+
+function readRunSettings(projectId: string, fileName: string): RunSettings {
+    try {
+        const stored = JSON.parse(
+            localStorage.getItem(runSettingsKey(projectId, fileName)) ?? 'null',
+        ) as Partial<RunSettings> | null;
+
+        return {
+            mode:
+                stored?.mode && stored.mode in TRANSACTION_MODES
+                    ? stored.mode
+                    : 'auto',
+            bindings: stored?.bindings ?? {},
+        };
+    } catch {
+        return { mode: 'auto', bindings: {} };
+    }
+}
+
+function writeRunSettings(
+    projectId: string,
+    fileName: string,
+    settings: RunSettings,
+): void {
+    try {
+        localStorage.setItem(
+            runSettingsKey(projectId, fileName),
+            JSON.stringify(settings),
+        );
+    } catch {
+        // Remembered only when the browser allows it.
+    }
+}
 
 type ReviewMode = 'fix' | 'explain' | 'optimize';
 
@@ -119,9 +196,9 @@ type Review = {
 };
 
 const REVIEW_TITLES: Record<ReviewMode, string> = {
-    fix: 'Correction proposée',
-    explain: 'Explication',
-    optimize: 'Optimisation proposée',
+    fix: 'tables.console.reviews.fix',
+    explain: 'tables.console.reviews.explain',
+    optimize: 'tables.console.reviews.optimize',
 };
 
 /**
@@ -130,8 +207,6 @@ const REVIEW_TITLES: Record<ReviewMode, string> = {
 const QueryPlanView = lazy(() => import('./query-plan-view'));
 
 const HISTORY_SIZE = 30;
-const RESULT_ROW_HEIGHT = 28;
-const RESULT_COLUMN_WIDTH = 180;
 const SCHEMA_CHANGE = /^\s*(create|alter|drop|rename|truncate)\b/i;
 
 const historyKey = (projectId: string) => `opendb:query-history:${projectId}`;
@@ -172,17 +247,15 @@ export default function QueryConsole({
     sql: ownedSql,
     onSqlChange,
     completion,
-    runUrl,
-    runData,
-    onRan,
-    withLocalHistory = true,
+    snippets,
     onEditorReady,
     editorClassName,
-    exportUrl,
-    exportName,
-    explainUrl,
-    reviewUrl,
+    editor,
 }: Props) {
+    const { t, tChoice } = useLaravelReactI18n();
+    const withLocalHistory = editor === undefined;
+    const explainUrl = editor?.explainUrl;
+    const reviewUrl = editor?.reviewUrl;
     const [localSql, setLocalSql] = useState(initialSql);
     const sql = ownedSql ?? localSql;
     const setSql = (next: string) => {
@@ -212,6 +285,81 @@ export default function QueryConsole({
         to: number;
     } | null>(null);
     const writer = useTableAssistant<{ sql: string; explanation: string }>();
+    const [runSettings, setRunSettings] = useState<RunSettings>(() =>
+        editor
+            ? readRunSettings(projectId, editor.fileName)
+            : { mode: 'auto', bindings: {} },
+    );
+    // The values sent with the run shown, to read its next rows or download it with the same parameters.
+    const [runBindings, setRunBindings] = useState<ParameterValues>({});
+    const runId = useRef<string | null>(null);
+    const [cancelling, setCancelling] = useState(false);
+    // A new run gives new results: their pages and changes start again.
+    const [runVersion, setRunVersion] = useState(0);
+    const lastStatements = useRef<string | null>(null);
+
+    const changeRunSettings = (next: Partial<RunSettings>) => {
+        const settings = { ...runSettings, ...next };
+
+        setRunSettings(settings);
+
+        if (editor) {
+            writeRunSettings(projectId, editor.fileName, settings);
+        }
+    };
+
+    /**
+     * The values of the `:name` parameters of the statements, asked to the user. Null when they gave up.
+     */
+    const askParameters = async (
+        statements: string,
+    ): Promise<ParameterValues | null> => {
+        const names = parameterNames(statements);
+
+        if (names.length === 0) {
+            return {};
+        }
+
+        const values = await ParametersDialog.call({
+            names,
+            initial: runSettings.bindings,
+        });
+
+        if (values) {
+            changeRunSettings({
+                bindings: { ...runSettings.bindings, ...values },
+            });
+        }
+
+        return values;
+    };
+
+    /**
+     * Interrupt the run in progress: it then ends with the error of the database.
+     */
+    const cancel = async () => {
+        if (!editor || !runId.current || cancelling) {
+            return;
+        }
+
+        setCancelling(true);
+
+        try {
+            await requestTableData('post', editor.cancelUrl, {
+                data: { runId: runId.current },
+            });
+            toast.info(t('tables.console.cancelled'), {
+                description: t('tables.console.cancelled_description'),
+                duration: 2500,
+            });
+        } catch (exception) {
+            toast.error(t('tables.console.cancel_failed'), {
+                description: (exception as TableRequestError).first(),
+            });
+        } finally {
+            setCancelling(false);
+        }
+    };
 
     /**
      * The statements the user describes, written by the assistant after the script and selected:
@@ -250,18 +398,59 @@ export default function QueryConsole({
             return;
         }
 
+        const bindings = editor ? await askParameters(selection) : {};
+
+        if (bindings === null) {
+            return;
+        }
+
+        // An essai à blanc or a read-only project keeps nothing: there is nothing to confirm.
+        const risky =
+            runSettings.mode === 'dry_run' || editor?.readOnly
+                ? []
+                : riskyStatements(selection);
+
+        if (
+            risky.length > 0 &&
+            !(await AlertDialog.call({
+                title: t('tables.console.risky_title'),
+                description: `${tChoice('tables.console.risky_description', risky.length)}\n\n${risky.map((item) => item.slice(0, 160)).join('\n')}`,
+                icon: TriangleAlertIcon,
+                variant: 'destructive',
+                confirmText: t('tables.console.run'),
+                cancelText: t('common.cancel'),
+            }))
+        ) {
+            return;
+        }
+
         setProcessing(true);
         setFailure(null);
         setPlan(null);
+        runId.current = editor ? crypto.randomUUID() : null;
+        lastStatements.current = selection;
 
         try {
             const result = await requestTableData<ConsoleRun>(
                 'post',
-                runUrl ?? QueryConsoleController.url({ project: projectId }),
-                { data: { ...runData, sql: selection } },
+                editor?.runUrl ??
+                    QueryConsoleController.url({ project: projectId }),
+                {
+                    data: editor
+                        ? {
+                              sql: selection,
+                              file: editor.fileName,
+                              bindings,
+                              mode: runSettings.mode,
+                              runId: runId.current,
+                          }
+                        : { sql: selection },
+                },
             );
 
             setRun(result);
+            setRunBindings(bindings);
+            setRunVersion((version) => version + 1);
             setSelected(Math.max(0, result.results.length - 1));
 
             if (withLocalHistory) {
@@ -280,7 +469,8 @@ export default function QueryConsole({
             setFailure((exception as TableRequestError).first());
         } finally {
             setProcessing(false);
-            onRan?.();
+            runId.current = null;
+            editor?.onRan();
         }
     };
 
@@ -292,7 +482,7 @@ export default function QueryConsole({
         try {
             setSql(formatSql(sql, driver));
         } catch (exception) {
-            toast.error("Le SQL n'a pas pu être formaté", {
+            toast.error(t('tables.console.format_failed'), {
                 description: (exception as Error).message.split('\n')[0],
             });
         }
@@ -326,16 +516,22 @@ export default function QueryConsole({
             return;
         }
 
+        const bindings = await askParameters(statement.text);
+
+        if (bindings === null) {
+            return;
+        }
+
         setExplaining(true);
 
         try {
             setPlan(
                 await requestTableData<QueryPlan>('post', explainUrl, {
-                    data: { sql: statement.text },
+                    data: { sql: statement.text, bindings },
                 }),
             );
         } catch (exception) {
-            toast.error("Le plan d'exécution n'a pas pu être calculé", {
+            toast.error(t('tables.console.explain_failed'), {
                 description: (exception as TableRequestError).first(),
             });
         } finally {
@@ -454,15 +650,88 @@ export default function QueryConsole({
     return (
         <div className="flex min-h-0 flex-1 flex-col">
             <div className="flex items-center gap-2 border-b px-3 py-2">
-                <Button
-                    size="sm"
-                    onClick={() => void execute()}
-                    disabled={processing || sql.trim() === ''}
-                    icon={PlayIcon}
-                    processing={processing}
-                >
-                    Exécuter
-                </Button>
+                {processing && editor?.canCancel ? (
+                    <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => void cancel()}
+                        processing={cancelling}
+                        icon={SquareIcon}
+                        tooltip={t('tables.console.cancel_tooltip')}
+                    >
+                        {t('common.cancel')}
+                    </Button>
+                ) : (
+                    <Button
+                        size="sm"
+                        onClick={() => void execute()}
+                        disabled={processing || sql.trim() === ''}
+                        icon={PlayIcon}
+                        processing={processing}
+                    >
+                        {t('tables.console.run')}
+                    </Button>
+                )}
+                {editor &&
+                    (editor.readOnly ? (
+                        <span
+                            className="inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-xs text-muted-foreground"
+                            title={t('tables.console.read_only_description')}
+                        >
+                            <LockIcon className="size-3.5" />
+                            {t('ai.access_modes.read-only')}
+                        </span>
+                    ) : (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={processing}
+                                    tooltip={
+                                        t(TRANSACTION_MODES[runSettings.mode]
+                                            .description)
+                                    }
+                                >
+                                    {t(TRANSACTION_MODES[runSettings.mode].label)}
+                                    <ChevronDownIcon />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-72">
+                                <DropdownMenuLabel>
+                                    {t('tables.console.transaction')}
+                                </DropdownMenuLabel>
+                                <DropdownMenuRadioGroup
+                                    value={runSettings.mode}
+                                    onValueChange={(value) =>
+                                        changeRunSettings({
+                                            mode: value as TransactionMode,
+                                        })
+                                    }
+                                >
+                                    {(
+                                        Object.keys(
+                                            TRANSACTION_MODES,
+                                        ) as TransactionMode[]
+                                    ).map((mode) => (
+                                        <DropdownMenuRadioItem
+                                            key={mode}
+                                            value={mode}
+                                            className="flex-col items-start gap-0"
+                                        >
+                                            {t(TRANSACTION_MODES[mode].label)}
+                                            <span className="text-xs text-muted-foreground">
+                                                {
+                                                    t(TRANSACTION_MODES[mode]
+                                                        .description)
+                                                }
+                                            </span>
+                                        </DropdownMenuRadioItem>
+                                    ))}
+                                </DropdownMenuRadioGroup>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    ))}
                 <Button
                     variant="outline"
                     size="sm"
@@ -470,11 +739,11 @@ export default function QueryConsole({
                     disabled={sql.trim() === ''}
                     icon={AlignLeftIcon}
                     tooltip={[
-                        'Mettre en forme le script, mots-clés en majuscules',
-                        ['Maj', 'Alt', 'F'],
+                        t('tables.console.format_tooltip'),
+                        [t('tables.console.keys.shift'), 'Alt', 'F'],
                     ]}
                 >
-                    Formater
+                    {t('tables.console.format')}
                 </Button>
                 <Button
                     variant={writerOpen ? 'secondary' : 'ghost'}
@@ -482,9 +751,9 @@ export default function QueryConsole({
                     onClick={() => setWriterOpen(!writerOpen)}
                     aria-pressed={writerOpen}
                     icon={SparklesIcon}
-                    tooltip="Décrire une requête à l'assistant : elle est ajoutée à la fin du script et sélectionnée"
+                    tooltip={t('tables.console.write_tooltip')}
                 >
-                    Écrire avec l'IA
+                    {t('tables.console.write_with_ai')}
                 </Button>
                 {reviewUrl && (
                     <DropdownMenu>
@@ -502,22 +771,22 @@ export default function QueryConsole({
                                 }
                                 icon={WandSparklesIcon}
                             >
-                                Relire avec l'IA
+                                {t('tables.console.review_with_ai')}
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="start" className="w-64">
                             <DropdownMenuLabel>
-                                La sélection, ou l'instruction sous le curseur
+                                {t('tables.console.selection_or_statement')}
                             </DropdownMenuLabel>
                             <DropdownMenuItem
                                 onSelect={() => void ask('explain')}
                             >
-                                Expliquer
+                                {t('tables.console.explain')}
                             </DropdownMenuItem>
                             <DropdownMenuItem
                                 onSelect={() => void ask('optimize')}
                             >
-                                Optimiser
+                                {t('tables.console.optimize')}
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
@@ -530,18 +799,17 @@ export default function QueryConsole({
                         disabled={sql.trim() === ''}
                         processing={explaining}
                         icon={WorkflowIcon}
-                        tooltip="Le plan d'exécution de la sélection, ou de l'instruction sous le curseur, sans l'exécuter"
+                        tooltip={t('tables.console.plan_tooltip')}
                     >
-                        Plan
+                        {t('tables.console.plan')}
                     </Button>
                 )}
                 <span className="hidden text-xs text-muted-foreground sm:inline">
-                    <Kbd>Ctrl</Kbd> + <Kbd>Entrée</Kbd>, la sélection seule si
-                    du texte est sélectionné
+                    <Kbd>Ctrl</Kbd> + <Kbd>{t('shortcuts.keys.enter')}</Kbd>, {t('tables.console.run_hint')}
                     <span className="hidden xl:inline">
                         {' · '}
-                        <Kbd>Ctrl</Kbd> + <Kbd>Maj</Kbd> + <Kbd>Entrée</Kbd>,
-                        l'instruction sous le curseur
+                        <Kbd>Ctrl</Kbd> + <Kbd>{t('tables.console.keys.shift')}</Kbd> + <Kbd>{t('shortcuts.keys.enter')}</Kbd>,{' '}
+                        {t('tables.console.run_statement_hint')}
                     </span>
                 </span>
                 {withLocalHistory && (
@@ -554,7 +822,7 @@ export default function QueryConsole({
                                 disabled={history.length === 0}
                             >
                                 <HistoryIcon />
-                                Historique
+                                {t('sql_editor.explorer.history')}
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent
@@ -562,7 +830,7 @@ export default function QueryConsole({
                             className="max-h-96 w-[min(32rem,90vw)] overflow-y-auto"
                         >
                             <DropdownMenuLabel>
-                                Requêtes récentes
+                                {t('tables.console.recent_queries')}
                             </DropdownMenuLabel>
                             {history.map((item) => (
                                 <DropdownMenuItem
@@ -596,8 +864,8 @@ export default function QueryConsole({
                         <div className="shrink-0 border-b px-3 py-2">
                             <AiPromptInput
                                 icon={SparklesIcon}
-                                placeholder="Décrivez la requête, par exemple : les 10 clients qui ont le plus commandé"
-                                label="Écrire la requête"
+                                placeholder={t('tables.console.write_placeholder')}
+                                label={t('tables.console.write_label')}
                                 onSubmit={writeQuery}
                                 processing={writer.processing}
                                 error={writer.error}
@@ -616,7 +884,7 @@ export default function QueryConsole({
                                 review && (
                                     <>
                                         <p className="font-medium">
-                                            {REVIEW_TITLES[review.mode]}
+                                            {t(REVIEW_TITLES[review.mode])}
                                         </p>
                                         <p className="max-h-40 overflow-y-auto whitespace-pre-wrap text-muted-foreground">
                                             {review.explanation}
@@ -636,8 +904,8 @@ export default function QueryConsole({
                                 {review?.sql && (
                                     <Button size="sm" onClick={applyReview}>
                                         {review.range
-                                            ? "Remplacer l'instruction"
-                                            : 'Ajouter au script'}
+                                            ? t('tables.console.replace_statement')
+                                            : t('tables.console.add_to_script')}
                                     </Button>
                                 )}
                                 <Button
@@ -648,7 +916,7 @@ export default function QueryConsole({
                                         reviewer.reset();
                                     }}
                                 >
-                                    Fermer
+                                    {t('common.close')}
                                 </Button>
                             </div>
                         </div>
@@ -660,6 +928,7 @@ export default function QueryConsole({
                         driver={driver}
                         tables={tables}
                         completion={completion}
+                        snippets={snippets}
                         onReady={(created) => {
                             view.current = created;
                             onEditorReady?.(created);
@@ -686,7 +955,7 @@ export default function QueryConsole({
                     {failure && (
                         <Alert
                             variant="destructive"
-                            title="Le script n'a pas été exécuté"
+                            title={t('tables.console.script_failed')}
                             message={failure}
                             className="m-3 w-auto"
                         />
@@ -714,8 +983,8 @@ export default function QueryConsole({
                                             >
                                                 {index + 1}.{' '}
                                                 {item.columns
-                                                    ? `${item.rows.length}${item.truncated ? '+' : ''} ligne${item.rows.length > 1 ? 's' : ''}`
-                                                    : `${item.affected ?? 0} modifiée${(item.affected ?? 0) > 1 ? 's' : ''}`}
+                                                    ? tChoice('tables.counts.rows', item.rows.length, { count: `${item.rows.length}${item.truncated ? '+' : ''}` })
+                                                    : tChoice('tables.console.affected', item.affected ?? 0)}
                                             </TabsTrigger>
                                         ))}
                                         {run.error && (
@@ -724,7 +993,7 @@ export default function QueryConsole({
                                                 disabled
                                                 className="text-xs text-destructive disabled:opacity-100"
                                             >
-                                                {run.error.index}. erreur
+                                                {run.error.index}. {t('tables.console.error')}
                                             </TabsTrigger>
                                         )}
                                     </TabsList>
@@ -734,7 +1003,7 @@ export default function QueryConsole({
                             {run.error && (
                                 <Alert
                                     variant="destructive"
-                                    title={`Instruction ${run.error.index} refusée`}
+                                    title={t('tables.console.statement_refused', { index: run.error.index })}
                                     message={run.error.message}
                                     className="m-3 w-auto"
                                 >
@@ -745,8 +1014,7 @@ export default function QueryConsole({
                                     </code>
                                     {run.results.length > 0 && (
                                         <p className="text-xs opacity-80">
-                                            Les instructions précédentes ont été
-                                            exécutées, les suivantes non.
+                                            {t('tables.console.previous_ran')}
                                         </p>
                                     )}
                                     {reviewUrl && (
@@ -759,17 +1027,51 @@ export default function QueryConsole({
                                             processing={reviewing === 'fix'}
                                             onClick={() => void ask('fix')}
                                         >
-                                            Corriger avec l'IA
+                                            {t('tables.console.fix_with_ai')}
                                         </Button>
                                     )}
                                 </Alert>
                             )}
 
+                            {run.transaction === 'rolled_back' && (
+                                <p className="mx-3 mt-2 rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
+                                    {editor?.readOnly
+                                        ? t('tables.console.rolled_back_read_only')
+                                        : run.error
+                                          ? t('tables.console.rolled_back_error', { index: run.error.index })
+                                          : t('tables.console.rolled_back_dry_run')}
+                                </p>
+                            )}
+                            {run.transaction === 'committed' && (
+                                <p className="mx-3 mt-2 text-xs text-muted-foreground">
+                                    {t('tables.console.committed')}
+                                </p>
+                            )}
+
                             {result && !plan && (
                                 <ResultView
+                                    key={`${runVersion}:${selected}`}
                                     result={result}
-                                    exportUrl={exportUrl}
-                                    exportName={exportName}
+                                    context={
+                                        editor && {
+                                            projectId,
+                                            rowsUrl: editor.rowsUrl,
+                                            exportUrl: editor.exportUrl,
+                                            exportName: editor.fileName,
+                                            bindings: runBindings,
+                                            editable:
+                                                !editor.readOnly &&
+                                                run.transaction !==
+                                                    'rolled_back',
+                                            onChanged: () => {
+                                                if (lastStatements.current) {
+                                                    void execute(
+                                                        lastStatements.current,
+                                                    );
+                                                }
+                                            },
+                                        }
+                                    }
                                 />
                             )}
                         </>
@@ -797,224 +1099,12 @@ export default function QueryConsole({
                     {!run && !failure && !plan && (
                         <EmptyState
                             icon={SquareTerminalIcon}
-                            title="Console SQL"
-                            description="Saisissez une ou plusieurs instructions séparées par « ; ». Les requêtes renvoient leurs mille premières lignes, les autres le nombre de lignes modifiées."
+                            title={t('tables.console.title')}
+                            description={t('tables.console.empty_description')}
                         />
                     )}
                 </ResizablePanel>
             </ResizablePanelGroup>
-        </div>
-    );
-}
-
-function ResultView({
-    result,
-    exportUrl,
-    exportName,
-}: {
-    result: ConsoleResult;
-    exportUrl?: string;
-    exportName?: string;
-}) {
-    'use no memo';
-
-    const [exporting, setExporting] = useState(false);
-
-    const scrollRef = useRef<HTMLDivElement>(null);
-    const rows = result.rows;
-    const columns = result.columns ?? [];
-
-    const virtualizer = useVirtualizer({
-        count: rows.length,
-        getScrollElement: () => scrollRef.current,
-        estimateSize: () => RESULT_ROW_HEIGHT,
-        overscan: 12,
-    });
-
-    if (result.columns === null) {
-        return (
-            <p className="m-3 text-sm">
-                {result.affected ?? 0} ligne
-                {(result.affected ?? 0) > 1 ? 's' : ''} modifiée
-                {(result.affected ?? 0) > 1 ? 's' : ''}
-                <span className="text-muted-foreground">
-                    {' '}
-                    en {result.duration} ms
-                </span>
-            </p>
-        );
-    }
-
-    const copy = (format: CopyFormat) =>
-        navigator.clipboard
-            .writeText(copyResult(format, result.statement, columns, rows))
-            .then(() =>
-                toast.success(`Résultat copié en ${COPY_LABELS[format]}`, {
-                    duration: 1500,
-                }),
-            );
-
-    /**
-     * Every row of the query, read again by the server: the console shows only the first thousand.
-     */
-    const download = async (format: 'csv' | 'json') => {
-        if (!exportUrl) {
-            return;
-        }
-
-        setExporting(true);
-
-        try {
-            await downloadFile(exportUrl, {
-                sql: result.statement,
-                format,
-                name: exportName,
-            });
-        } catch (exception) {
-            toast.error("Le résultat n'a pas été exporté", {
-                description: (exception as TableRequestError).first(),
-            });
-        } finally {
-            setExporting(false);
-        }
-    };
-
-    const width = 56 + columns.length * RESULT_COLUMN_WIDTH;
-
-    return (
-        <div className="flex min-h-0 flex-1 flex-col">
-            <div className="flex items-center gap-3 px-3 py-1.5 text-xs text-muted-foreground">
-                <span>
-                    {rows.length} ligne{rows.length > 1 ? 's' : ''}
-                    {result.truncated &&
-                        ', les suivantes ne sont pas affichées'}{' '}
-                    en {result.duration} ms
-                </span>
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="ml-auto h-7"
-                            disabled={rows.length === 0}
-                        >
-                            <ClipboardCopyIcon />
-                            Copier
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                        <DropdownMenuLabel>
-                            Copier les lignes affichées
-                        </DropdownMenuLabel>
-                        {(Object.keys(COPY_LABELS) as CopyFormat[]).map(
-                            (format) => (
-                                <DropdownMenuItem
-                                    key={format}
-                                    onSelect={() => void copy(format)}
-                                >
-                                    En {COPY_LABELS[format]}
-                                </DropdownMenuItem>
-                            ),
-                        )}
-                    </DropdownMenuContent>
-                </DropdownMenu>
-                {exportUrl && (
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7"
-                                disabled={rows.length === 0}
-                                processing={exporting}
-                            >
-                                <DownloadIcon />
-                                Exporter
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-56">
-                            <DropdownMenuLabel>
-                                Toutes les lignes de la requête
-                            </DropdownMenuLabel>
-                            <DropdownMenuItem
-                                onSelect={() => void download('csv')}
-                            >
-                                En CSV
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                                onSelect={() => void download('json')}
-                            >
-                                En JSON
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                )}
-            </div>
-            <div
-                ref={scrollRef}
-                className="relative min-h-0 flex-1 overflow-auto border-t text-sm"
-            >
-                <div
-                    style={{
-                        width,
-                        height: virtualizer.getTotalSize() + RESULT_ROW_HEIGHT,
-                    }}
-                    className="relative"
-                >
-                    <div
-                        className="sticky top-0 z-10 flex border-b bg-muted text-xs font-medium"
-                        style={{ height: RESULT_ROW_HEIGHT, width }}
-                    >
-                        <span className="sticky left-0 w-14 shrink-0 border-r bg-muted" />
-                        {columns.map((column, index) => (
-                            <span
-                                key={index}
-                                className="flex shrink-0 items-center truncate border-r px-2"
-                                style={{ width: RESULT_COLUMN_WIDTH }}
-                                title={column}
-                            >
-                                {column}
-                            </span>
-                        ))}
-                    </div>
-                    {virtualizer.getVirtualItems().map((item) => (
-                        <div
-                            key={item.key}
-                            className="absolute left-0 flex border-b border-border/50 hover:bg-muted/40"
-                            style={{
-                                top: item.start + RESULT_ROW_HEIGHT,
-                                height: RESULT_ROW_HEIGHT,
-                                width,
-                            }}
-                        >
-                            <span className="sticky left-0 flex w-14 shrink-0 items-center justify-end border-r bg-background pr-2 text-xs text-muted-foreground tabular-nums">
-                                {item.index + 1}
-                            </span>
-                            {rows[item.index].map((value, index) => (
-                                <span
-                                    key={index}
-                                    className={cn(
-                                        'flex shrink-0 items-center truncate border-r border-border/50 px-2',
-                                        value === null &&
-                                            'text-xs text-muted-foreground/70',
-                                        typeof value === 'number' &&
-                                            'justify-end tabular-nums',
-                                    )}
-                                    style={{ width: RESULT_COLUMN_WIDTH }}
-                                    title={
-                                        value !== null &&
-                                        String(value).length > 24
-                                            ? cellRawText(value).slice(0, 1000)
-                                            : undefined
-                                    }
-                                >
-                                    {cellText(value)}
-                                </span>
-                            ))}
-                        </div>
-                    ))}
-                </div>
-            </div>
         </div>
     );
 }

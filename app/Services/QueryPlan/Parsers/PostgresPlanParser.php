@@ -9,6 +9,7 @@ use App\Services\QueryPlan\Data\Plan;
 use App\Services\QueryPlan\Data\PlanNode;
 use App\Services\QueryPlan\PlanOperation;
 use App\Services\QueryPlan\SqlClauses;
+use App\Support\TranslatableMessage;
 
 /**
  * Le plan de PostgreSQL renvoyé par EXPLAIN (FORMAT JSON) : un arbre Plan / Plans dont le Total Cost inclut celui des enfants.
@@ -58,7 +59,7 @@ class PostgresPlanParser extends BasePlanParser
             'Nested Loop', 'Hash Join', 'Merge Join' => $this->join($step, $children),
             'Hash' => new PlanNode(PlanOperation::Hash, subtitle: $this->firstTable($children), table: $this->firstTable($children), estimatedRows: $rows, cost: $cost, selfCost: $this->selfCost($cost, $children), children: $children),
             'Aggregate', 'HashAggregate', 'GroupAggregate' => $this->aggregate($step, $children),
-            'Sort', 'Incremental Sort' => $this->keyed(PlanOperation::Sort, 'Clé de tri', $this->keys($step['Sort Key'] ?? null), $step, $children, ['filesort' => true]),
+            'Sort', 'Incremental Sort' => $this->keyed(PlanOperation::Sort, 'query_plan.conditions.sort_key', $this->keys($step['Sort Key'] ?? null), $step, $children, ['filesort' => true]),
             'Unique' => new PlanNode(PlanOperation::Distinct, estimatedRows: $rows, cost: $cost, selfCost: $this->selfCost($cost, $children), children: $children),
             'Limit' => new PlanNode(
                 operation: PlanOperation::Limit,
@@ -66,7 +67,7 @@ class PostgresPlanParser extends BasePlanParser
                 estimatedRows: $rows,
                 cost: $cost,
                 selfCost: $this->selfCost($cost, $children),
-                condition: ['label' => 'Nombre de lignes', 'value' => (string) ($this->clauses->limit() ?? $rows)],
+                condition: ['label' => new TranslatableMessage('query_plan.conditions.row_count'), 'value' => (string) ($this->clauses->limit() ?? $rows)],
                 facts: ['limit' => $this->clauses->limit() ?? $rows],
                 children: $children,
             ),
@@ -131,8 +132,8 @@ class PostgresPlanParser extends BasePlanParser
             table: $table,
             index: isset($step['Index Name']) ? (string) $step['Index Name'] : null,
             badge: match (true) {
-                $type === 'Index Only Scan' => 'index couvrant',
-                $operation === PlanOperation::FullScan && $filter !== null => 'aucun index utilisable',
+                $type === 'Index Only Scan' => new TranslatableMessage('query_plan.badges.covering_index'),
+                $operation === PlanOperation::FullScan && $filter !== null => new TranslatableMessage('query_plan.badges.no_usable_index'),
                 default => null,
             },
             rowsExamined: $operation === PlanOperation::FullScan ? ($this->tableRows[$table] ?? $rows) : $rows,
@@ -140,8 +141,8 @@ class PostgresPlanParser extends BasePlanParser
             cost: $cost,
             selfCost: $this->selfCost($cost, $children),
             condition: match (true) {
-                $filter !== null => ['label' => 'Filtre appliqué', 'value' => SqlClauses::unwrap($filter)],
-                $indexCondition !== null => ['label' => "Condition d'index", 'value' => SqlClauses::unwrap($indexCondition)],
+                $filter !== null => ['label' => new TranslatableMessage('query_plan.conditions.filter'), 'value' => SqlClauses::unwrap($filter)],
+                $indexCondition !== null => ['label' => new TranslatableMessage('query_plan.conditions.index_condition'), 'value' => SqlClauses::unwrap($indexCondition)],
                 default => null,
             },
             facts: [
@@ -199,7 +200,7 @@ class PostgresPlanParser extends BasePlanParser
             estimatedRows: $this->int($step['Plan Rows'] ?? null),
             cost: $cost,
             selfCost: $this->selfCost($cost, $children),
-            condition: $condition === null ? null : ['label' => 'Condition de jointure', 'value' => $condition],
+            condition: $condition === null ? null : ['label' => new TranslatableMessage('query_plan.conditions.join_condition'), 'value' => $condition],
             facts: ['joinType' => $step['Join Type'] ?? null],
             children: $children,
         );
@@ -224,7 +225,7 @@ class PostgresPlanParser extends BasePlanParser
      */
     protected function aggregate(array $step, array $children): PlanNode
     {
-        $node = $this->keyed(PlanOperation::Group, 'Clé de regroupement', $this->keys($step['Group Key'] ?? null), $step, $children, [
+        $node = $this->keyed(PlanOperation::Group, 'query_plan.conditions.group_key', $this->keys($step['Group Key'] ?? null), $step, $children, [
             'strategy' => $step['Strategy'] ?? ($step['Node Type'] === 'HashAggregate' ? 'Hashed' : null),
         ]);
 
@@ -275,7 +276,7 @@ class PostgresPlanParser extends BasePlanParser
      */
     protected function filterCondition(array $step): ?array
     {
-        return isset($step['Filter']) ? ['label' => 'Filtre appliqué', 'value' => SqlClauses::unwrap((string) $step['Filter'])] : null;
+        return isset($step['Filter']) ? ['label' => new TranslatableMessage('query_plan.conditions.filter'), 'value' => SqlClauses::unwrap((string) $step['Filter'])] : null;
     }
 
     /**

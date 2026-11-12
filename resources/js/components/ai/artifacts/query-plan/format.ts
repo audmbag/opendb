@@ -13,6 +13,8 @@ import {
     Table2Icon,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { trans } from '@/lib/i18n';
+import { numberFormatter } from '@/lib/intl';
 import type {
     PlanAlert,
     PlanAlertSeverity,
@@ -21,13 +23,6 @@ import type {
     QueryPlan,
 } from '@/types/agent';
 
-const integerFormatter = new Intl.NumberFormat('fr-FR', {
-    maximumFractionDigits: 0,
-});
-const costFormatter = new Intl.NumberFormat('fr-FR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-});
 
 export const READ_OPERATIONS: PlanOperation[] = [
     'full_scan',
@@ -75,25 +70,27 @@ export const OPERATION_ICONS: Record<PlanOperation, LucideIcon> = {
  * An estimated number of rows, always prefixed with « ~ ».
  */
 export function formatRows(rows: number): string {
-    return `~${integerFormatter.format(rows)}`;
+    return `~${numberFormatter({ maximumFractionDigits: 0 }).format(rows)}`;
 }
 
 export function formatCost(cost: number): string {
-    return costFormatter.format(cost);
+    return numberFormatter({ minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(cost);
 }
 
 /**
  * A share of the total cost, between 0 and 1, as a rounded percentage.
  */
 export function formatShare(share: number): string {
-    return `${integerFormatter.format(Math.round(share * 100))}\u00a0%`;
+    return numberFormatter({ style: 'percent', maximumFractionDigits: 0 }).format(share);
 }
 
 /**
  * A signed change of the cost, between -1 and 1 (« −72 % »).
  */
 export function formatChange(change: number): string {
-    return `${change < 0 ? '−' : '+'}${integerFormatter.format(Math.abs(Math.round(change * 100)))}\u00a0%`;
+    return numberFormatter({ style: 'percent', maximumFractionDigits: 0, signDisplay: 'always' })
+        .format(change)
+        .replace('-', '−');
 }
 
 export const isRead = (node: PlanNode): boolean =>
@@ -173,39 +170,39 @@ export function inputRows(node: PlanNode, plan: QueryPlan): number | null {
 export function nodeMetrics(node: PlanNode, plan: QueryPlan): string {
     const ownCost =
         plan.hasCosts && (node.selfCost ?? 0) > 0
-            ? ` · coût ${formatCost(node.selfCost ?? 0)}`
+            ? ` · ${trans('query_plan.metrics.cost', { cost: formatCost(node.selfCost ?? 0) })}`
             : '';
 
     if (node.operation === 'result') {
         return plan.hasCosts && plan.totals.cost !== null
-            ? `coût total ${formatCost(plan.totals.cost)}`
-            : 'résultat de la requête';
+            ? trans('query_plan.metrics.total_cost', { cost: formatCost(plan.totals.cost) })
+            : trans('query_plan.metrics.query_result');
     }
 
     if (isRead(node)) {
         const rows =
             node.rowsExamined === null
-                ? 'lignes non estimées'
-                : `${formatRows(node.rowsExamined)} lignes`;
+                ? trans('query_plan.metrics.rows_not_estimated')
+                : trans('query_plan.metrics.rows', { rows: formatRows(node.rowsExamined) });
 
         return (
             rows +
             (plan.hasCosts && node.selfCost !== null
-                ? ` · coût ${formatCost(node.selfCost)}`
+                ? ` · ${trans('query_plan.metrics.cost', { cost: formatCost(node.selfCost) })}`
                 : '')
         );
     }
 
     if (node.estimatedRows !== null) {
-        return `${formatRows(node.estimatedRows)} lignes${ownCost}`;
+        return trans('query_plan.metrics.rows', { rows: formatRows(node.estimatedRows) }) + ownCost;
     }
 
     const received = inputRows(node, plan);
 
     return (
         (received === null
-            ? 'lignes non estimées'
-            : `${formatRows(received)} lignes en entrée`) + ownCost
+            ? trans('query_plan.metrics.rows_not_estimated')
+            : trans('query_plan.metrics.input_rows', { rows: formatRows(received) })) + ownCost
     );
 }
 
@@ -229,7 +226,7 @@ export function createdIndex(plan: QueryPlan): string | null {
 }
 
 /**
- * The plan of a version of the comparison: « Avant » shows the previous plan with the same component.
+ * The plan of a version of the comparison: « Before » shows the previous plan with the same component.
  */
 export function planVersion(
     plan: QueryPlan,

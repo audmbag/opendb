@@ -2,11 +2,12 @@
 
 namespace App\Ai\Tools\Mail;
 
-use App\Ai\Tools\Database\ExportDatabase;
 use App\Models\User;
 use App\Services\Mailer\Data\OutgoingMail;
 use App\Services\Mailer\MailerManager;
 use App\Services\Mailer\RecipientGuard;
+use App\Services\Workspace\ProjectWorkspace;
+use App\Support\TranslatableMessage;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Facades\Cache;
 use Laravel\Ai\Approvals\Approval;
@@ -24,7 +25,7 @@ class SendMail implements Approvable, Tool
     public function __construct(
         public User $user,
         protected MailerManager $mailerManager,
-        protected string $projectPath,
+        protected ProjectWorkspace $workspace,
     ) {}
 
     /**
@@ -37,11 +38,11 @@ class SendMail implements Approvable, Tool
 
     public function description(): Stringable|string
     {
-        return 'Prépare un mail envoyé avec la configuration SMTP de l\'utilisateur. '
-            .'Les pièces jointes doivent être des fichiers du dossier `'.ExportDatabase::EXPORT_DIRECTORY.'` du projet, '
-            .'par exemple une archive créée par `ExportDatabase`. '
-            .'N\'utilise ce tool que si l\'utilisateur demande un envoi dans la conversation en cours. '
-            .'Après l\'appel, rapporte ce qui a réellement été envoyé (tel que renvoyé par ce tool), ou que l\'utilisateur a annulé.';
+        return 'Prepares a mail sent with the SMTP configuration of the user. '
+            .'The attachments must be files of the `'.$this->workspace->relativePath(ProjectWorkspace::EXPORTS).'` folder of the project, '
+            .'for example an archive created by `ExportDatabase`. '
+            .'Only use this tool when the user asks for a mail in the current conversation. '
+            .'After the call, report what was really sent (as returned by this tool), or that the user cancelled.';
     }
 
     public function handle(Request $request): Stringable|string
@@ -49,35 +50,35 @@ class SendMail implements Approvable, Tool
         $values = Cache::pull(static::submissionCacheKey((string) $request->toolCallId()));
 
         if (! is_array($values)) {
-            return "L'utilisateur n'a pas soumis le formulaire : le mail n'a pas été envoyé.";
+            return 'The user did not submit the form: the mail was not sent.';
         }
 
         $submission = OutgoingMail::fromArray($values);
 
         try {
-            $result = $this->mailerManager->send($this->user, $submission, $this->projectPath, ExportDatabase::EXPORT_DIRECTORY);
+            $result = $this->mailerManager->send($this->user, $submission, $this->workspace->projectPath(), $this->workspace->relativePath(ProjectWorkspace::EXPORTS));
         } catch (RuntimeException $e) {
             return $e->getMessage();
         }
 
         $proposal = OutgoingMail::fromArray($request->all());
-        $attachments = $result['attachments'] === [] ? 'aucune' : implode(', ', $result['attachments']);
+        $attachments = $result['attachments'] === [] ? 'none' : implode(', ', $result['attachments']);
         $changes = $this->changes($proposal, $submission);
 
         return implode("\n", [
-            'Mail envoyé. Voici ce qui a réellement été envoyé :',
-            '- Destinataires : '.implode(', ', $result['to']),
-            "- Objet : « {$submission->subject} »",
-            "- Pièces jointes : {$attachments}",
+            'Mail sent. Here is what was really sent:',
+            '- Recipients: '.implode(', ', $result['to']),
+            "- Subject: \"{$submission->subject}\"",
+            "- Attachments: {$attachments}",
             $changes === []
-                ? 'L\'utilisateur a envoyé ta proposition sans la modifier.'
-                : "L'utilisateur a modifié ta proposition dans le formulaire avant l'envoi :\n".implode("\n", $changes)."\n"
-                    .'Rapporte uniquement le mail réellement envoyé ci-dessus : ne mentionne plus les valeurs de ta proposition.',
+                ? 'The user sent your proposal without changing it.'
+                : "The user changed your proposal in the form before sending it:\n".implode("\n", $changes)."\n"
+                    .'Only report the mail really sent above: do not mention the values of your proposal anymore.',
         ]);
     }
 
     /**
-     * Ce que l'utilisateur a changé dans le formulaire par rapport au mail proposé par l'agent.
+     * What the user changed in the form compared to the mail proposed by the agent.
      *
      * @return list<string>
      */
@@ -86,21 +87,21 @@ class SendMail implements Approvable, Tool
         $changes = [];
 
         if (array_diff($proposal->to, $sent->to) !== [] || array_diff($sent->to, $proposal->to) !== []) {
-            $changes[] = '- destinataires : tu avais proposé '.(implode(', ', $proposal->to) ?: 'aucun').', le mail est parti à '.implode(', ', $sent->to);
+            $changes[] = '- recipients: you had proposed '.(implode(', ', $proposal->to) ?: 'none').', the mail was sent to '.implode(', ', $sent->to);
         }
 
         if ($proposal->subject !== $sent->subject) {
-            $changes[] = "- objet : tu avais proposé « {$proposal->subject} », l'objet envoyé est « {$sent->subject} »";
+            $changes[] = "- subject: you had proposed \"{$proposal->subject}\", the sent subject is \"{$sent->subject}\"";
         }
 
         if (trim($proposal->body) !== trim($sent->body)) {
-            $changes[] = '- message : l\'utilisateur a réécrit le corps du mail';
+            $changes[] = '- message: the user rewrote the body of the mail';
         }
 
         $removed = array_diff($proposal->attachments, $sent->attachments);
 
         if ($removed !== []) {
-            $changes[] = '- pièces jointes non envoyées : '.implode(', ', $removed);
+            $changes[] = '- attachments not sent: '.implode(', ', $removed);
         }
 
         return $changes;
@@ -111,24 +112,24 @@ class SendMail implements Approvable, Tool
         return [
             'to' => $schema->array()
                 ->items($schema->string())
-                ->description('Adresses des destinataires, toutes autorisées (au plus '.RecipientGuard::MAX_RECIPIENTS.').')
+                ->description('Addresses of the recipients, all allowed (at most '.RecipientGuard::MAX_RECIPIENTS.').')
                 ->required(),
             'subject' => $schema->string()
-                ->description('Objet du mail.')
+                ->description('Subject of the mail.')
                 ->required(),
             'body' => $schema->string()
-                ->description('Corps du mail en texte brut : un court message, les données partent en pièce jointe. '
-                    .'Sépare les paragraphes par de vrais retours à la ligne, jamais par les séquences littérales `\n` ou `\n\n`.')
+                ->description('Body of the mail in plain text: a short message, the data goes in an attachment. '
+                    .'Separate the paragraphs with real line breaks, never with the literal sequences `\n` or `\n\n`.')
                 ->required(),
             'attachments' => $schema->array()
                 ->items($schema->string())
-                ->description('Chemins des pièces jointes, relatifs au dossier du projet (ex. `'.ExportDatabase::EXPORT_DIRECTORY.'/export.zip`).')
+                ->description('Paths of the attachments, relative to the folder of the project (e.g. `'.$this->workspace->relativePath(ProjectWorkspace::EXPORTS.'/export.zip').'`).')
                 ->nullable(),
         ];
     }
 
     protected function needsApproval(Request $request): Approval|bool
     {
-        return Approval::required('Saisie utilisateur requise via formulaire.');
+        return Approval::required((new TranslatableMessage('ai.approvals.form_input'))->toJson());
     }
 }

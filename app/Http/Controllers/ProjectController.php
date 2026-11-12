@@ -25,6 +25,14 @@ use RuntimeException;
 
 class ProjectController extends Controller
 {
+    /**
+     * The projects of the user, listed by the command palette to open one of them.
+     */
+    public function index(ProjectRepository $projectRepository): JsonResponse
+    {
+        return response()->json(['data' => $projectRepository->getProjects()]);
+    }
+
     public function storeInfos(ProjectInfoRequest $request, ProjectRepository $projectRepository): JsonResponse
     {
         $data = $request->validated();
@@ -69,11 +77,11 @@ class ProjectController extends Controller
             ]);
 
         } catch (DatabaseCheckException $e) {
-            throw ValidationException::withMessages(['cloningFailed' => 'Cloning failed, database error: '.$e->getMessage()]);
+            throw ValidationException::withMessages(['cloningFailed' => __('cloning.errors.database', ['error' => $e->getMessage()])]);
         } catch (CloningException $e) {
-            throw ValidationException::withMessages(['cloningFailed' => 'Cloning failed: '.$e->getMessage()]);
+            throw ValidationException::withMessages(['cloningFailed' => __('cloning.errors.failed', ['error' => $e->getMessage()])]);
         } catch (Exception $e) {
-            throw ValidationException::withMessages(['cloningFailed' => 'Cloning failed, unexpected error: '.$e->getMessage()]);
+            throw ValidationException::withMessages(['cloningFailed' => __('cloning.errors.unexpected', ['error' => $e->getMessage()])]);
         }
     }
 
@@ -84,7 +92,7 @@ class ProjectController extends Controller
     {
         $file = $request->logFile($systemInfoService);
 
-        abort_if($file === null, 404, 'Aucun log trouvé pour ce clonage.');
+        abort_if($file === null, 404, __('cloning.ui.logs_not_found'));
 
         return response()->json(CloningResult::for($file)->toArray());
     }

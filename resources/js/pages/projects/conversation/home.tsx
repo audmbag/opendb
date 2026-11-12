@@ -1,4 +1,5 @@
 import { usePage } from '@inertiajs/react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { useEffect } from 'react';
 import PromptInput from '@/components/ai/prompt-input';
 import AppLogo from '@/components/app-logo';
@@ -10,6 +11,7 @@ import { useAgentSettingsStore } from '@/store/use-agent-settings-store';
 
 const Home = () => {
 
+    const { t } = useLaravelReactI18n();
     const { startConversationRequest, startConversation } = useConversation();
     const agentSettings = usePage().props.auth.user.settings.agent;
 
@@ -25,7 +27,7 @@ const Home = () => {
         <div className="flex h-full flex-col items-center gap-8 p-4 pt-32">
             <AppLogo />
             <H3 className="font-normal">
-                Comment puis-je vous aider aujourd'hui ?
+                {t('conversations.welcome')}
             </H3>
             <PromptInput
                 onSubmit={startConversation}

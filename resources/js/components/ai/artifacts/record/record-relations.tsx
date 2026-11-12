@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { ArrowDownLeftIcon, ArrowUpRightIcon, ChevronRightIcon } from 'lucide-react';
 import { describeIncoming, describeKey } from '@/components/ai/artifacts/record/format';
 import type { RecordLocation } from '@/components/ai/artifacts/record/format';
@@ -24,14 +25,15 @@ function Count({ value }: { value: number }) {
  * The records the foreign keys of the record point to, which open in the card, and the number of records pointing to it.
  */
 export default function RecordRelations({ record, onOpen }: Props) {
+    const { t } = useLaravelReactI18n();
     const incoming = [...record.incoming].sort((first, second) => second.count - first.count);
     const incomingTotal = incoming.reduce((sum, relation) => sum + relation.count, 0);
 
     return (
         <div className="flex flex-col gap-2 p-2">
-            <CardFrame title="Références sortantes" icon={ArrowUpRightIcon} badge={<Count value={record.outgoing.length} />}>
+            <CardFrame title={t('ai.record.outgoing')} icon={ArrowUpRightIcon} badge={<Count value={record.outgoing.length} />}>
                 {record.outgoing.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Cet enregistrement ne référence aucune autre table.</p>
+                    <p className="text-sm text-muted-foreground">{t('ai.record.no_outgoing')}</p>
                 ) : (
                     <div className="flex flex-col gap-2">
                         {record.outgoing.map((relation) => (
@@ -54,7 +56,7 @@ export default function RecordRelations({ record, onOpen }: Props) {
                 )}
             </CardFrame>
 
-            <CardFrame title="Références entrantes" icon={ArrowDownLeftIcon} badge={<Count value={incomingTotal} />}>
+            <CardFrame title={t('ai.record.incoming_title')} icon={ArrowDownLeftIcon} badge={<Count value={incomingTotal} />}>
                 <p className="text-sm text-muted-foreground">{describeIncoming(incoming)}</p>
 
                 {incoming.length > 0 && (

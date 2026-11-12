@@ -4,6 +4,7 @@ namespace App\Database\Drivers;
 
 use App\Database\Contracts\DriverContract;
 use App\Database\ExplainOutput;
+use App\Database\ReadOnlyQueryGuard;
 use App\Database\Schema\Identifier;
 use Illuminate\Database\Connection;
 use Throwable;
@@ -187,10 +188,60 @@ class MySQLDriver extends BaseDriver implements DriverContract
         return 'EXPLAIN FORMAT=TRADITIONAL';
     }
 
+    public function connectionId(): ?string
+    {
+        return (string) $this->connection->selectOne('SELECT CONNECTION_ID() AS id')->id;
+    }
+
+    /**
+     * KILL QUERY interrompt la requête sans fermer la connexion, qui renvoie alors son erreur à l'exécution en cours.
+     */
+    public function cancel(string $connectionId): bool
+    {
+        return $this->connection->statement('KILL QUERY '.(int) $connectionId);
+    }
+
+    /**
+     * Le DDL est validé sans attendre la fin de la transaction, et une table MyISAM ne revient pas en arrière :
+     * l'annulation n'est garantie que pour des lectures et des écritures sur des tables InnoDB.
+     *
+     * @param  list<string>  $statements
+     */
+    public function canRollBack(array $statements): bool
+    {
+        $writes = array_values(array_filter($statements, fn (string $statement): bool => ! ReadOnlyQueryGuard::isReadOnly($statement)));
+
+        if ($writes === []) {
+            return true;
+        }
+
+        foreach ($writes as $statement) {
+            if (preg_match('/^\s*(?:CREATE|ALTER|DROP|RENAME|TRUNCATE|GRANT|REVOKE|LOCK|UNLOCK)\b/i', $statement)) {
+                return false;
+            }
+        }
+
+        [$tableEngines, $otherSchemas] = $this->tableEngines();
+
+        return collect($writes)->every(fn (string $statement): bool => self::writeTouchesOnlyInnoDbTables($statement, $tableEngines, $otherSchemas));
+    }
+
     /**
      * Une table MyISAM ne revient pas en arrière au ROLLBACK : l'essai n'est fait que si toutes les tables citées sont InnoDB.
      */
     public function dryRunAffectedRows(string $sql, array $bindings = []): ?int
+    {
+        [$tableEngines, $otherSchemas] = $this->tableEngines();
+
+        return self::writeTouchesOnlyInnoDbTables($sql, $tableEngines, $otherSchemas) ? parent::dryRunAffectedRows($sql, $bindings) : null;
+    }
+
+    /**
+     * Le moteur de chaque table de la base, par nom, et les autres bases du serveur.
+     *
+     * @return array{0: array<string, string>, 1: list<string>}
+     */
+    protected function tableEngines(): array
     {
         $tableEngines = collect($this->connection->select(
             'SELECT TABLE_NAME AS name, ENGINE AS engine FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()'
@@ -201,7 +252,7 @@ class MySQLDriver extends BaseDriver implements DriverContract
             $this->connection->select('SELECT SCHEMA_NAME AS name FROM information_schema.SCHEMATA WHERE SCHEMA_NAME <> DATABASE()'),
         );
 
-        return self::writeTouchesOnlyInnoDbTables($sql, $tableEngines, $otherSchemas) ? parent::dryRunAffectedRows($sql, $bindings) : null;
+        return [$tableEngines, $otherSchemas];
     }
 
     /**

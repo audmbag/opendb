@@ -1,0 +1,37 @@
+<?php
+
+return [
+    'detach' => 'Do not attach :file',
+    'attach' => 'Attach :file',
+    'attachments_failed' => 'Could not load the attachments.',
+    'attachments' => 'Attachments',
+    'attached_count' => '[0,*] :count / :total attached',
+    'max_size' => 'of :size max.',
+    'you' => 'You',
+    'expired' => 'This email no longer waits for approval: it was not sent.',
+    'new' => 'New email',
+    'recipients' => 'Recipients',
+    'loading_recipients' => 'Loading the recipients…',
+    'add_recipient' => 'Add an allowed recipient…',
+    'no_recipient' => 'No allowed recipient. Add some in Settings > Mail.',
+    'subject' => 'Subject',
+    'body' => 'Message',
+    'send' => 'Send',
+    'messages' => [
+        'smtp_saved' => 'The SMTP configuration has been saved.',
+        'smtp_connected' => 'The connection to the SMTP server succeeded.',
+    ],
+    'errors' => [
+        'send_failed' => 'Sending failed: :error',
+        'missing_settings' => 'No SMTP configuration: the user must first fill it in Settings > Mail.',
+        'attachments_too_large' => 'The attachments exceed :size MB in total.',
+        'attachment_refused' => 'Attachment refused: `:path` is not a file of the `:directory` folder of the project.',
+        'no_recipient' => 'Give at least one recipient.',
+        'too_many_recipients' => 'An email cannot have more than :max recipients.',
+        'invalid_addresses' => 'Invalid address(es): :addresses.',
+        'recipients_refused' => 'Sending refused: :recipients is not among the allowed recipients (Settings > Mail).',
+        'invalid_address' => 'The address ":email" is invalid.',
+        'already_allowed' => 'The address ":email" is already among the allowed recipients.',
+        'not_allowed' => 'The address ":email" is not among the allowed recipients.',
+    ],
+];

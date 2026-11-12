@@ -1,17 +1,12 @@
 import { usePage } from '@inertiajs/react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { DownloadIcon, SearchIcon } from 'lucide-react';
 import { useDeferredValue, useState } from 'react';
 import { toast } from 'sonner';
 import Button from '@/components/form/button';
+import Modal from '@/components/modals/modal';
+import ModalFooter from '@/components/modals/modal-footer';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
@@ -37,10 +32,14 @@ type Format = 'sql' | 'csv';
 type Compression = 'none' | 'zip' | 'gzip' | 'tar';
 
 const COMPRESSIONS: { value: Compression; label: string; hint: string }[] = [
-    { value: 'none', label: 'Aucune', hint: 'le fichier tel quel' },
-    { value: 'zip', label: 'Zip', hint: '.zip' },
-    { value: 'gzip', label: 'Gzip', hint: '.gz' },
-    { value: 'tar', label: 'Tar', hint: '.tar' },
+    {
+        value: 'none',
+        label: 'exports.compressions.none',
+        hint: 'tables.export.no_compression_hint',
+    },
+    { value: 'zip', label: 'exports.compressions.zip', hint: '.zip' },
+    { value: 'gzip', label: 'exports.compressions.gzip', hint: '.gz' },
+    { value: 'tar', label: 'exports.compressions.tar', hint: '.tar' },
 ];
 
 /**
@@ -53,6 +52,7 @@ export default function ExportDialog({
     initialTables,
     onClose,
 }: Props) {
+    const { t } = useLaravelReactI18n();
     const [contents, setContents] = useState<Record<string, Content>>(() =>
         Object.fromEntries(
             (initialTables?.length
@@ -122,10 +122,10 @@ export default function ExportDialog({
                 },
             );
 
-            toast.success('Export téléchargé', { description: name });
+            toast.success(t('tables.export.downloaded'), { description: name });
             onClose();
         } catch (exception) {
-            toast.error("L'export a échoué", {
+            toast.error(t('tables.export.failed'), {
                 description: (exception as TableRequestError).first(),
             });
         } finally {
@@ -134,187 +134,218 @@ export default function ExportDialog({
     };
 
     return (
-        <Dialog open onOpenChange={(open) => !open && !processing && onClose()}>
-            <DialogContent className="flex max-h-[90vh] flex-col sm:max-w-2xl">
-                <DialogHeader>
-                    <DialogTitle>Exporter la base</DialogTitle>
-                    <DialogDescription>
-                        Le script SQL recrée les tables puis leurs lignes, clés
-                        étrangères désactivées le temps de l'import. Le CSV
-                        donne un fichier de lignes par table.
-                    </DialogDescription>
-                </DialogHeader>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                    <fieldset className="flex flex-col gap-2">
-                        <legend className="mb-2 text-sm font-medium">
-                            Format
-                        </legend>
-                        <RadioGroup
-                            value={format}
-                            onValueChange={(value) =>
-                                setFormat(value as Format)
-                            }
-                        >
-                            <Label className="flex items-center gap-2 font-normal">
-                                <RadioGroupItem value="sql" />
-                                Script SQL
-                            </Label>
-                            <Label className="flex items-center gap-2 font-normal">
-                                <RadioGroupItem value="csv" />
-                                CSV, un fichier par table
-                            </Label>
-                        </RadioGroup>
-                    </fieldset>
-                    <fieldset className="flex flex-col gap-2">
-                        <legend className="mb-2 text-sm font-medium">
-                            Compression
-                        </legend>
-                        <RadioGroup
-                            value={compression}
-                            onValueChange={(value) =>
-                                setCompression(value as Compression)
-                            }
-                            className="grid-cols-2"
-                        >
-                            {COMPRESSIONS.map((item) => (
-                                <Label
-                                    key={item.value}
-                                    className="flex items-center gap-2 font-normal"
-                                    title={item.hint}
-                                >
-                                    <RadioGroupItem value={item.value} />
-                                    {item.label}
-                                </Label>
-                            ))}
-                        </RadioGroup>
-                        {compression === 'none' && format === 'csv' && (
-                            <p className="text-xs text-muted-foreground">
-                                Plusieurs tables en CSV sont regroupées dans un
-                                zip.
-                            </p>
-                        )}
-                    </fieldset>
-                </div>
-
-                <div className="flex min-h-0 flex-1 flex-col gap-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                        <label className="relative flex min-w-48 flex-1 items-center">
-                            <span className="sr-only">Filtrer les tables</span>
-                            <SearchIcon className="pointer-events-none absolute left-2.5 size-4 text-muted-foreground" />
-                            <input
-                                type="search"
-                                value={search}
-                                onChange={(event) =>
-                                    setSearch(event.target.value)
+        <Modal
+            open
+            showHeader
+            className="h-[min(90vh,46rem)] sm:max-w-2xl"
+            onOpenChange={(open) => !open && !processing && onClose()}
+            icon={DownloadIcon}
+            title={t('tables.list.export_database')}
+            description={t('tables.export.description')}
+        >
+            <div className="flex h-full flex-col">
+                <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <fieldset className="flex flex-col gap-2">
+                            <legend className="mb-2 text-sm font-medium">
+                                {t('settings.export.format')}
+                            </legend>
+                            <RadioGroup
+                                value={format}
+                                onValueChange={(value) =>
+                                    setFormat(value as Format)
                                 }
-                                placeholder="Filtrer les tables"
-                                className="h-8 w-full rounded-md border border-input bg-transparent pr-2 pl-8 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
-                            />
-                        </label>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setAll({ schema: true, data: true })}
-                        >
-                            Tout cocher
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setAll(null)}
-                        >
-                            Tout décocher
-                        </Button>
+                            >
+                                <Label className="flex items-center gap-2 font-normal">
+                                    <RadioGroupItem value="sql" />
+                                    {t('tables.import.sql_script')}
+                                </Label>
+                                <Label className="flex items-center gap-2 font-normal">
+                                    <RadioGroupItem value="csv" />
+                                    {t('exports.formats.csv')}
+                                </Label>
+                            </RadioGroup>
+                        </fieldset>
+                        <fieldset className="flex flex-col gap-2">
+                            <legend className="mb-2 text-sm font-medium">
+                                {t('settings.export.compression')}
+                            </legend>
+                            <RadioGroup
+                                value={compression}
+                                onValueChange={(value) =>
+                                    setCompression(value as Compression)
+                                }
+                                className="grid-cols-2"
+                            >
+                                {COMPRESSIONS.map((item) => (
+                                    <Label
+                                        key={item.value}
+                                        className="flex items-center gap-2 font-normal"
+                                        title={t(item.hint)}
+                                    >
+                                        <RadioGroupItem value={item.value} />
+                                        {t(item.label)}
+                                    </Label>
+                                ))}
+                            </RadioGroup>
+                            {compression === 'none' && format === 'csv' && (
+                                <p className="text-xs text-muted-foreground">
+                                    {t('tables.export.csv_zip')}
+                                </p>
+                            )}
+                        </fieldset>
                     </div>
 
-                    <div className="min-h-40 flex-1 overflow-y-auto rounded-md border">
-                        <table className="w-full text-sm">
-                            <thead className="sticky top-0 bg-muted text-left text-xs text-muted-foreground">
-                                <tr>
-                                    <th className="px-3 py-1.5 font-medium">
-                                        Table
-                                    </th>
-                                    <th
-                                        className={cn(
-                                            'w-24 px-3 py-1.5 text-center font-medium',
-                                            format === 'csv' && 'opacity-50',
-                                        )}
-                                    >
-                                        Structure
-                                    </th>
-                                    <th className="w-24 px-3 py-1.5 text-center font-medium">
-                                        Données
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {visible.map((table) => {
-                                    const content = contents[table.name] ?? {
-                                        schema: false,
-                                        data: false,
-                                    };
+                    <div className="flex min-h-0 flex-1 flex-col gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <label className="relative flex min-w-48 flex-1 items-center">
+                                <span className="sr-only">
+                                    {t('tables.export.filter_tables')}
+                                </span>
+                                <SearchIcon className="pointer-events-none absolute left-2.5 size-4 text-muted-foreground" />
+                                <input
+                                    type="search"
+                                    value={search}
+                                    onChange={(event) =>
+                                        setSearch(event.target.value)
+                                    }
+                                    placeholder={t(
+                                        'tables.export.filter_tables',
+                                    )}
+                                    className="h-8 w-full rounded-md border border-input bg-transparent pr-2 pl-8 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+                                />
+                            </label>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                    setAll({ schema: true, data: true })
+                                }
+                            >
+                                {t('tables.export.check_all')}
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setAll(null)}
+                            >
+                                {t('tables.export.uncheck_all')}
+                            </Button>
+                        </div>
 
-                                    return (
-                                        <tr
-                                            key={table.name}
-                                            className="border-t"
+                        <div className="min-h-40 flex-1 overflow-y-auto rounded-md border">
+                            <table className="w-full text-sm">
+                                <thead className="sticky top-0 bg-muted text-left text-xs text-muted-foreground">
+                                    <tr>
+                                        <th className="px-3 py-1.5 font-medium">
+                                            {t('tables.import.table')}
+                                        </th>
+                                        <th
+                                            className={cn(
+                                                'w-24 px-3 py-1.5 text-center font-medium',
+                                                format === 'csv' &&
+                                                    'opacity-50',
+                                            )}
                                         >
-                                            <td className="max-w-0 truncate px-3 py-1.5">
-                                                {table.name}
-                                            </td>
-                                            <td className="px-3 py-1.5 text-center">
-                                                <Checkbox
-                                                    checked={content.schema}
-                                                    disabled={format === 'csv'}
-                                                    onCheckedChange={(
-                                                        checked,
-                                                    ) =>
-                                                        setContent(table.name, {
-                                                            ...content,
-                                                            schema:
-                                                                checked ===
-                                                                true,
-                                                        })
-                                                    }
-                                                    aria-label={`Structure de ${table.name}`}
-                                                />
-                                            </td>
-                                            <td className="px-3 py-1.5 text-center">
-                                                <Checkbox
-                                                    checked={content.data}
-                                                    onCheckedChange={(
-                                                        checked,
-                                                    ) =>
-                                                        setContent(table.name, {
-                                                            ...content,
-                                                            data:
-                                                                checked ===
-                                                                true,
-                                                        })
-                                                    }
-                                                    aria-label={`Données de ${table.name}`}
-                                                />
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+                                            {t(
+                                                'tables.workspace.tabs.structure',
+                                            )}
+                                        </th>
+                                        <th className="w-24 px-3 py-1.5 text-center font-medium">
+                                            {t('tables.workspace.tabs.data')}
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {visible.map((table) => {
+                                        const content = contents[
+                                            table.name
+                                        ] ?? {
+                                            schema: false,
+                                            data: false,
+                                        };
+
+                                        return (
+                                            <tr
+                                                key={table.name}
+                                                className="border-t"
+                                            >
+                                                <td className="max-w-0 truncate px-3 py-1.5">
+                                                    {table.name}
+                                                </td>
+                                                <td className="px-3 py-1.5 text-center">
+                                                    <Checkbox
+                                                        checked={content.schema}
+                                                        disabled={
+                                                            format === 'csv'
+                                                        }
+                                                        onCheckedChange={(
+                                                            checked,
+                                                        ) =>
+                                                            setContent(
+                                                                table.name,
+                                                                {
+                                                                    ...content,
+                                                                    schema:
+                                                                        checked ===
+                                                                        true,
+                                                                },
+                                                            )
+                                                        }
+                                                        aria-label={t(
+                                                            'tables.export.structure_of',
+                                                            {
+                                                                table: table.name,
+                                                            },
+                                                        )}
+                                                    />
+                                                </td>
+                                                <td className="px-3 py-1.5 text-center">
+                                                    <Checkbox
+                                                        checked={content.data}
+                                                        onCheckedChange={(
+                                                            checked,
+                                                        ) =>
+                                                            setContent(
+                                                                table.name,
+                                                                {
+                                                                    ...content,
+                                                                    data:
+                                                                        checked ===
+                                                                        true,
+                                                                },
+                                                            )
+                                                        }
+                                                        aria-label={t(
+                                                            'tables.export.data_of',
+                                                            {
+                                                                table: table.name,
+                                                            },
+                                                        )}
+                                                    />
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 
-                <DialogFooter className="items-center">
+                <ModalFooter>
                     <p className="mr-auto text-sm text-muted-foreground">
-                        {chosen.length} table{chosen.length > 1 ? 's' : ''} sur{' '}
-                        {tables.length}
+                        {t('tables.export.chosen', {
+                            count: chosen.length,
+                            total: tables.length,
+                        })}
                     </p>
                     <Button
                         variant="outline"
                         onClick={onClose}
                         disabled={processing}
                     >
-                        Annuler
+                        {t('common.cancel')}
                     </Button>
                     <Button
                         onClick={download}
@@ -322,10 +353,10 @@ export default function ExportDialog({
                         icon={DownloadIcon}
                         processing={processing}
                     >
-                        Exporter
+                        {t('tables.workspace.export')}
                     </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                </ModalFooter>
+            </div>
+        </Modal>
     );
 }

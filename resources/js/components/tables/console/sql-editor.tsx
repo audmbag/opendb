@@ -1,6 +1,8 @@
 import { MariaSQL, MySQL, PostgreSQL, SQLite, sql } from '@codemirror/lang-sql';
 import type { SQLDialect } from '@codemirror/lang-sql';
 import CodeMirror, { EditorView, keymap, Prec } from '@uiw/react-codemirror';
+import type { ViewUpdate } from '@uiw/react-codemirror';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { useEffect, useMemo, useState } from 'react';
 import type { RefObject } from 'react';
 import { useEditorSyntaxTheme } from '@/components/tables/console/editor-syntax-theme';
@@ -9,6 +11,8 @@ import { useSyntaxTheme } from '@/hooks/use-syntax-theme';
 import { useValueAsRef } from '@/hooks/use-value-as-ref';
 import { statementAt } from '@/lib/sql';
 import { cn } from '@/lib/utils';
+import { builtinSnippets, snippetSource } from './sql-snippets';
+import type { Snippet } from './sql-snippets';
 
 type Props = {
     value: string;
@@ -25,6 +29,10 @@ type Props = {
      * The columns of each table, offered after `table.` once they are known. Without them only the tables are completed.
      */
     completion?: Record<string, string[]>;
+    /**
+     * The snippets offered by the completion: those of opendb for the engine, without the editor that configures them.
+     */
+    snippets?: Snippet[];
     /**
      * The selected text, or null when nothing is selected: the console runs only it.
      */
@@ -52,6 +60,36 @@ type Props = {
      */
     onReady?: (view: EditorView) => void;
     className?: string;
+};
+
+/**
+ * The callbacks given to the editor, built once: each calls the latest version of the listener, so that the editor is
+ * never configured again because of them.
+ */
+const stableListeners = (
+    listeners: RefObject<{
+        onChange: (value: string) => void;
+        onSelectionChange: (selection: string | null) => void;
+    }>,
+) => ({
+    handleChange: (next: string) => listeners.current.onChange(next),
+    handleUpdate: (update: ViewUpdate) => {
+        if (update.selectionSet || update.docChanged) {
+            const { from, to } = update.state.selection.main;
+
+            listeners.current.onSelectionChange(
+                from === to ? null : update.state.sliceDoc(from, to),
+            );
+        }
+    },
+});
+
+/**
+ * Defined once: a new object at each render would configure the editor again.
+ */
+const BASIC_SETUP = {
+    foldGutter: false,
+    highlightActiveLineGutter: false,
 };
 
 const DIALECTS: Record<string, SQLDialect> = {
@@ -155,9 +193,11 @@ export default function SqlEditor({
     onRunStatement,
     selection = null,
     completion,
+    snippets,
     onReady,
     className,
 }: Props) {
+    const { t } = useLaravelReactI18n();
     const { resolvedAppearance } = useAppearance();
     const { definition: syntaxTheme } = useSyntaxTheme();
     // The default light or dark theme of the editor while the syntax theme loads.
@@ -204,40 +244,43 @@ export default function SqlEditor({
                 ),
                 upperCaseKeywords: true,
             }),
+            // The models of queries, completed with the tables and keywords of the dialect.
+            (DIALECTS[driver] ?? MySQL).language.data.of({
+                autocomplete: snippetSource(
+                    snippets ?? builtinSnippets(driver),
+                ),
+            }),
             shortcuts(handlers),
             // Above the light and dark themes of the editor, which paint their own background.
             Prec.highest(consoleTheme),
             EditorView.lineWrapping,
         ],
-        [driver, tablesKey, completion, handlers],
+        [driver, tablesKey, completion, snippets, handlers],
+    );
+
+    // The editor is configured again whenever these callbacks change, which would drop the fields of a snippet
+    // being filled in: they never change, and call the latest props.
+    const listeners = useValueAsRef({ onChange, onSelectionChange });
+    const { handleChange, handleUpdate } = useMemo(
+        () => stableListeners(listeners),
+        [listeners],
     );
 
     return (
         <CodeMirror
             value={value}
-            onChange={onChange}
+            onChange={handleChange}
             onCreateEditor={(created) => {
                 setView(created);
                 onReady?.(created);
             }}
-            onUpdate={(update) => {
-                if (update.selectionSet || update.docChanged) {
-                    const { from, to } = update.state.selection.main;
-
-                    onSelectionChange(
-                        from === to ? null : update.state.sliceDoc(from, to),
-                    );
-                }
-            }}
+            onUpdate={handleUpdate}
             extensions={extensions}
             theme={editorTheme ?? resolvedAppearance}
             placeholder="SELECT * FROM …"
             autoFocus
-            aria-label="Requête SQL"
-            basicSetup={{
-                foldGutter: false,
-                highlightActiveLineGutter: false,
-            }}
+            aria-label={t('tables.console.sql_query')}
+            basicSetup={BASIC_SETUP}
             className={cn(
                 'h-48 shrink-0 resize-y overflow-hidden border-b',
                 className,

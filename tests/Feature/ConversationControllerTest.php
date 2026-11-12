@@ -3,6 +3,8 @@
 use App\Ai\Agents\SQLDatabaseAgent;
 use App\Ai\Enums\AgentAccessModeEnum;
 use App\Ai\Enums\AgentEffortEnum;
+use App\Ai\Middleware\StopWhenCancelled;
+use App\Ai\Services\AnswerCancellation;
 use App\Ai\Services\ProviderManagerService;
 use App\Jobs\GenerateConversationTitle;
 use App\Models\Project;
@@ -22,6 +24,7 @@ use Laravel\Ai\Exceptions\RateLimitedException;
 use Laravel\Ai\Exceptions\StreamErrorException;
 use Laravel\Ai\Models\Conversation;
 use Laravel\Ai\Models\ConversationMessage;
+use Laravel\Ai\PendingStep;
 use Laravel\Ai\Prompts\AgentPrompt;
 use Laravel\Ai\Streaming\Events\Error;
 
@@ -193,6 +196,28 @@ it('answers with the selected provider and model, using the stored credentials',
         ->toContain('"type":"data-model","id":"model","data":"claude-opus-5-5"')
         ->and(config('ai.providers.anthropic.key'))->toBe('stored-anthropic-key')
         ->and(config('ai.providers.anthropic.url'))->toBe('https://anthropic.test/v1');
+});
+
+it('answers with a custom provider through the OpenAI-compatible driver', function () {
+    $user = User::factory()->create();
+    $project = Project::factory()->for($user)->create();
+    $project->driver_config()->create(['driver_id' => 'sqlite', 'database' => ':memory:']);
+    $conversation = $user->conversations()->create(['id' => (string) Str::uuid(), 'project_id' => $project->id]);
+    Provider::query()->create([
+        'id' => 'my-llm',
+        'label' => 'My LLM',
+        'api_key' => 'sk-custom',
+        'api_url' => 'https://llm.example.test/v1',
+        'custom_openai_compatible' => true,
+        'models' => [['id' => 'llama-4', 'label' => 'Llama 4', 'context_window' => null, 'active' => true]],
+    ]);
+    SQLDatabaseAgent::fake(['Bonjour !']);
+
+    $response = postChatMessage($user, $conversation, ['provider' => 'my-llm', 'model' => 'llama-4']);
+
+    $response->assertOk();
+    expect($response->streamedContent())->toContain('"type":"data-provider","id":"provider","data":"my-llm"')
+        ->and(config('ai.providers.my-llm'))->toBe(['driver' => 'openai-compatible', 'key' => 'sk-custom', 'url' => 'https://llm.example.test/v1']);
 });
 
 it('gives the agent the selected access mode and effort', function () {
@@ -470,6 +495,38 @@ it('renders an answer after its tool calls, followed by the provider and the mod
         );
 });
 
+it('renders the text a step wrote before the tools it called, as it was streamed', function () {
+    $user = User::factory()->create();
+    $project = Project::factory()->for($user)->create();
+    $conversation = $user->conversations()->create(['id' => (string) Str::uuid(), 'project_id' => $project->id]);
+    ConversationMessage::create([
+        'id' => (string) Str::uuid7(),
+        'conversation_id' => $conversation->id,
+        'agent' => SQLDatabaseAgent::class,
+        'role' => 'assistant',
+        'content' => "Je regarde les tables.\n\nIl y a une table.",
+        'attachments' => [],
+        'steps' => [
+            ['content' => 'Je regarde les tables.', 'tool_calls' => [['id' => 'call_1', 'name' => 'ListTables', 'arguments' => [], 'result' => '["users"]']], 'reasoning' => '', 'replay_blocks' => [], 'provider_tool_calls' => []],
+            ['content' => 'Il y a une table.', 'tool_calls' => [], 'reasoning' => '', 'replay_blocks' => [], 'provider_tool_calls' => []],
+        ],
+        'usage' => [],
+        'meta' => ['provider' => 'anthropic', 'model' => 'claude-sonnet-5-5'],
+        'status' => MessageStatus::Completed,
+    ]);
+
+    $response = $this->actingAs($user)->get("/{$project->id}/chat/{$conversation->id}");
+
+    $response->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('initialMessages.0.parts.0', ['type' => 'text', 'text' => 'Je regarde les tables.'])
+            ->where('initialMessages.0.parts.1.type', 'tool-ListTables')
+            ->where('initialMessages.0.parts.1.state', 'output-available')
+            ->where('initialMessages.0.parts.2', ['type' => 'text', 'text' => 'Il y a une table.'])
+            ->where('initialMessages.0.parts.3.type', 'data-provider')
+        );
+});
+
 function storeUserMessage(Conversation $conversation, string $content): void
 {
     ConversationMessage::create([
@@ -516,4 +573,141 @@ it('refuses a search without terms', function () {
         ->getJson("/{$project->id}/conversations/search")
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['search']);
+});
+
+/**
+ * @param  list<string>  $userMessages
+ */
+function postRegeneration(User $user, Conversation $conversation, array $userMessages): TestResponse
+{
+    connectAnthropic();
+
+    return test()->actingAs($user)->postJson("/conversations/{$conversation->id}/chat", [
+        'id' => $conversation->id,
+        'trigger' => 'regenerate-message',
+        'messages' => collect($userMessages)->map(fn (string $text, int $index) => [
+            'id' => "msg_{$index}",
+            'role' => 'user',
+            'parts' => [['type' => 'text', 'text' => $text]],
+        ])->all(),
+        'provider' => 'anthropic',
+        'model' => 'claude-opus-5-5',
+    ]);
+}
+
+function storeAnswer(Conversation $conversation, string $content, array $meta = []): ConversationMessage
+{
+    return ConversationMessage::create([
+        'id' => (string) Str::uuid7(),
+        'conversation_id' => $conversation->id,
+        'agent' => SQLDatabaseAgent::class,
+        'role' => 'assistant',
+        'content' => $content,
+        'attachments' => [],
+        'steps' => [['content' => $content, 'tool_calls' => [], 'reasoning' => '', 'replay_blocks' => [], 'provider_tool_calls' => []]],
+        'usage' => [],
+        'meta' => ['provider' => 'anthropic', 'model' => 'claude-opus-5-5', ...$meta],
+        'status' => MessageStatus::Completed,
+    ]);
+}
+
+function conversationWithDriver(User $user): Conversation
+{
+    $project = Project::factory()->for($user)->create();
+    $project->driver_config()->create(['driver_id' => 'sqlite', 'database' => ':memory:']);
+
+    return $user->conversations()->create(['id' => (string) Str::uuid(), 'project_id' => $project->id]);
+}
+
+it('replaces the last answer when the user asks for it again', function () {
+    $user = User::factory()->create();
+    $conversation = conversationWithDriver($user);
+    storeUserMessage($conversation, 'Bonjour');
+    storeAnswer($conversation, 'Salut !');
+    storeUserMessage($conversation, 'Combien de tables ?');
+    storeAnswer($conversation, 'Il y en a deux.');
+    SQLDatabaseAgent::fake(['Il y en a trois.']);
+
+    postRegeneration($user, $conversation, ['Bonjour', 'Combien de tables ?'])->assertOk()->streamedContent();
+
+    expect($conversation->messages()->oldest()->orderBy('id')->get()->map->only(['role', 'content'])->all())->toBe([
+        ['role' => 'user', 'content' => 'Bonjour'],
+        ['role' => 'assistant', 'content' => 'Salut !'],
+        ['role' => 'user', 'content' => 'Combien de tables ?'],
+        ['role' => 'assistant', 'content' => 'Il y en a trois.'],
+    ]);
+});
+
+it('keeps the previous exchanges when the message asked again is not saved yet', function () {
+    $user = User::factory()->create();
+    $conversation = conversationWithDriver($user);
+    storeUserMessage($conversation, 'Bonjour');
+    storeAnswer($conversation, 'Salut !');
+    SQLDatabaseAgent::fake(['Il y en a trois.']);
+
+    postRegeneration($user, $conversation, ['Bonjour', 'Combien de tables ?'])->assertOk()->streamedContent();
+
+    expect($conversation->messages()->oldest()->orderBy('id')->pluck('content')->all())
+        ->toBe(['Bonjour', 'Salut !', 'Combien de tables ?', 'Il y en a trois.']);
+});
+
+it('asks the answer being streamed to stop', function () {
+    $user = User::factory()->create();
+    $conversation = conversationWithDriver($user);
+
+    $this->actingAs($user)->postJson("/conversations/{$conversation->id}/cancel")->assertNoContent();
+
+    expect(app(AnswerCancellation::class)->isRequested($conversation->id))->toBeTrue();
+});
+
+it('saves an answer stopped by the user as interrupted', function () {
+    $user = User::factory()->create();
+    $conversation = conversationWithDriver($user);
+    SQLDatabaseAgent::fake([function () use ($conversation) {
+        app(AnswerCancellation::class)->request($conversation->id);
+
+        return 'Je commence…';
+    }]);
+
+    postChatMessage($user, $conversation)->assertOk()->streamedContent();
+
+    $answer = $conversation->messages()->where('role', 'assistant')->sole();
+    expect($answer->meta['cancelled'])->toBeTrue()
+        ->and(app(AnswerCancellation::class)->isRequested($conversation->id))->toBeFalse();
+});
+
+it('ignores a stop asked before the answer started', function () {
+    $user = User::factory()->create();
+    $conversation = conversationWithDriver($user);
+    app(AnswerCancellation::class)->request($conversation->id);
+    SQLDatabaseAgent::fake(['Bonjour !']);
+
+    postChatMessage($user, $conversation)->assertOk()->streamedContent();
+
+    expect($conversation->messages()->where('role', 'assistant')->sole())
+        ->content->toBe('Bonjour !')
+        ->meta->not->toHaveKey('cancelled');
+});
+
+it('stops the agent before its next step once the answer is stopped', function () {
+    $cancellation = app(AnswerCancellation::class);
+    $middleware = new StopWhenCancelled(fn () => 'conversation-id', $cancellation);
+    $step = Mockery::mock(PendingStep::class);
+
+    $cancellation->request('conversation-id');
+
+    expect($middleware->handle($step, fn () => throw new LogicException('The step should not run.'))->stopped())->toBeTrue();
+});
+
+it('renders an answer stopped by the user as interrupted', function () {
+    $user = User::factory()->create();
+    $project = Project::factory()->for($user)->create();
+    $conversation = $user->conversations()->create(['id' => (string) Str::uuid(), 'project_id' => $project->id]);
+    $answer = storeAnswer($conversation, 'Je commence…', ['cancelled' => true]);
+
+    $this->actingAs($user)->get("/{$project->id}/chat/{$conversation->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('initialMessages.0.parts.3', ['type' => 'data-cancelled', 'id' => "data-cancelled-{$answer->id}", 'data' => true])
+        );
 });

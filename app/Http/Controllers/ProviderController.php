@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\CustomProviderRequest;
 use App\Http\Requests\ProviderRequest;
 use App\Models\Provider;
 use App\Repository\ProviderRepository;
@@ -21,7 +22,16 @@ class ProviderController extends Controller
         ]);
     }
 
-    public function store(ProviderRequest $request) {}
+    public function store(CustomProviderRequest $request, ProviderRepository $providerRepository): RedirectResponse
+    {
+        $provider = $providerRepository->createCustom($request->validated());
+
+        Inertia::flash([
+            'success' => __('settings.providers.messages.connected', ['provider' => $provider->label]),
+        ]);
+
+        return back();
+    }
 
     public function connect(ProviderRequest $request, Provider $provider, ProviderRepository $providerRepository): RedirectResponse
     {
@@ -31,20 +41,20 @@ class ProviderController extends Controller
             $provider = $providerRepository->connect($data, $provider);
         } catch (RequestException $exception) {
             Inertia::flash([
-                'error' => "Impossible de connecter le provider {$provider->label}, vérifiez votre clé API et l'URL si nécessaire.",
+                'error' => __('settings.providers.messages.invalid_key', ['provider' => $provider->label]),
             ]);
 
             return back();
         } catch (AiException $exception) {
             Inertia::flash([
-                'error' => "Impossible de connecter le provider {$provider->label}, la connexion au fournisseur {$provider->label} a échoué. Essayer plus tard",
+                'error' => __('settings.providers.messages.connection_failed', ['provider' => $provider->label]),
             ]);
 
             return back();
         }
 
         Inertia::flash([
-            'success' => "Le provider {$provider->label} a été connecté, vous pouvez maintenant utiliser ses modèles.",
+            'success' => __('settings.providers.messages.connected', ['provider' => $provider->label]),
         ]);
 
         return back();
@@ -58,7 +68,7 @@ class ProviderController extends Controller
     {
         $provider = $providerRepository->disconnect($provider);
 
-        return response()->json(['success' => true, 'message' => "Le provider {$provider->label} a été déconnecté, vous n'avez plus accès à ses modèles."]);
+        return response()->json(['success' => true, 'message' => __('settings.providers.messages.disconnected', ['provider' => $provider->label])]);
     }
 
     public function toggleModel(Provider $provider, Request $request, ProviderRepository $providerRepository): JsonResponse

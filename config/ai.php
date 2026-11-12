@@ -55,7 +55,7 @@ return [
 
         'ollama' => [
             'driver' => 'ollama',
-            'url' => env('OLLAMA_URL', 'https://ollama.com'),
+            'url' => env('OLLAMA_URL', 'http://localhost:11434'),
         ],
 
         // 'openai-compatible' => [

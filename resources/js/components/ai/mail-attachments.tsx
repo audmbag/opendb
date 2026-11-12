@@ -1,4 +1,5 @@
 import { useHttp } from '@inertiajs/react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { PaperclipIcon, TriangleAlertIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { formatBytes } from '@/components/ai/artifacts/format';
@@ -6,6 +7,7 @@ import type { DescribedFile } from '@/components/ai/file-row';
 import FileRow from '@/components/ai/file-row';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
+import { trans } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import MailFormController from '@/wayfinder/actions/App/Http/Controllers/Chat/MailFormController';
 
@@ -35,6 +37,7 @@ const AttachmentRow = ({
     enabled: boolean;
     onToggle: (enabled: boolean) => void;
 }) => {
+    const { t } = useLaravelReactI18n();
     const id = `attachment-${file.path}`;
 
     return (
@@ -48,7 +51,7 @@ const AttachmentRow = ({
                     checked={enabled}
                     disabled={file.error !== null}
                     onCheckedChange={onToggle}
-                    aria-label={enabled ? `Ne pas joindre ${file.name}` : `Joindre ${file.name}`}
+                    aria-label={enabled ? t('mail.detach', { file: file.name }) : t('mail.attach', { file: file.name })}
                 />
             }
         />
@@ -56,6 +59,7 @@ const AttachmentRow = ({
 };
 
 export default function MailAttachments({ conversationId, toolCallId, disabled, onToggle, onLoaded, error }: Props) {
+    const { t, tChoice } = useLaravelReactI18n();
     const [files, setFiles] = useState<MailAttachmentFile[] | null>(null);
     const [maxTotalBytes, setMaxTotalBytes] = useState<number | null>(null);
     const [loadingError, setLoadingError] = useState<string | null>(null);
@@ -70,7 +74,7 @@ export default function MailAttachments({ conversationId, toolCallId, disabled, 
                 onLoaded?.(data.files);
             },
             onHttpException: () => {
-                setLoadingError('Impossible de charger les pièces jointes.');
+                setLoadingError(trans('mail.attachments_failed'));
 
                 return false;
             },
@@ -88,12 +92,12 @@ export default function MailAttachments({ conversationId, toolCallId, disabled, 
             <div className="flex items-center justify-between gap-2">
                 <span className="flex items-center gap-1.5 text-sm font-medium">
                     <PaperclipIcon className="size-4 text-muted-foreground" />
-                    Pièces jointes
+                    {t('mail.attachments')}
                 </span>
                 {files && (
                     <span className={cn('text-xs text-muted-foreground', exceedsLimit && 'text-destructive')}>
-                        {enabledFiles.length} / {files.length} jointe{enabledFiles.length > 1 ? 's' : ''} · {formatBytes(totalBytes)}
-                        {maxTotalBytes !== null && ` sur ${formatBytes(maxTotalBytes)} max.`}
+                        {tChoice('mail.attached_count', enabledFiles.length, { total: files.length })} · {formatBytes(totalBytes)}
+                        {maxTotalBytes !== null && ` ${t('mail.max_size', { size: formatBytes(maxTotalBytes) })}`}
                     </span>
                 )}
             </div>

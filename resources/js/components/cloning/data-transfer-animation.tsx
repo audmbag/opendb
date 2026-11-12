@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import type { LucideIcon } from 'lucide-react';
 import { CheckIcon, DatabaseIcon, TriangleAlertIcon, XIcon } from 'lucide-react';
 import { AnimatePresence, MotionConfig, motion, useReducedMotion } from 'motion/react';
@@ -5,6 +6,7 @@ import type { Transition } from 'motion/react';
 import React from 'react';
 import IconStackGlow from '@/components/icon-stack-glow';
 import { Muted } from '@/components/typograpfy/typography';
+import { trans } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
 export type TransferStatus = 'transferring' | 'success' | 'warning' | 'error';
@@ -44,15 +46,15 @@ const STATUS_COLORS: Record<TransferStatus, string> = {
 };
 
 const STATUSES: Record<Exclude<TransferStatus, 'transferring'>, { icon: LucideIcon; label: string }> = {
-    success: { icon: CheckIcon, label: 'Clonage réussi' },
-    warning: { icon: TriangleAlertIcon, label: 'Clonage terminé avec des avertissements' },
-    error: { icon: XIcon, label: 'Clonage échoué' },
+    success: { icon: CheckIcon, label: 'cloning.ui.animation.success' },
+    warning: { icon: TriangleAlertIcon, label: 'cloning.ui.status.warning.title' },
+    error: { icon: XIcon, label: 'cloning.ui.status.error.title' },
 };
 
 /**
  * Nom affiché d'une base : le nom du fichier pour SQLite, le nom de la base sinon.
  */
-const databaseName = (database?: string | null) => database?.split(/[\\/]/).pop() || 'Base de données';
+const databaseName = (database?: string | null) => database?.split(/[\\/]/).pop() || trans('projects.status.database');
 
 const DriverTile = ({ driverId }: Pick<Endpoint, 'driverId'>) => {
     return (
@@ -64,6 +66,8 @@ const DriverTile = ({ driverId }: Pick<Endpoint, 'driverId'>) => {
 };
 
 const EndpointLabel = ({ database }: Pick<Endpoint, 'database'>) => {
+    useLaravelReactI18n();
+
     return (
         <Muted className="w-full truncate text-center text-xs" title={database ?? undefined}>
             {databaseName(database)}
@@ -134,6 +138,7 @@ const DestinationEndpoint = ({ driverId, database, status }: Endpoint & { status
  * Les paquets restent immobiles lorsque l'utilisateur a demandé à réduire les animations.
  */
 export default function DataTransferAnimation({ source, destination, status = 'transferring', className, ...props }: Props) {
+    const { t } = useLaravelReactI18n();
     const animated = !useReducedMotion();
     const transferring = status === 'transferring';
     const sourceName = databaseName(source.database);
@@ -143,7 +148,7 @@ export default function DataTransferAnimation({ source, destination, status = 't
         <MotionConfig reducedMotion="user">
             <div
                 role="img"
-                aria-label={transferring ? `Transfert des données de ${sourceName} vers ${destinationName}` : STATUSES[status].label}
+                aria-label={transferring ? t('cloning.ui.animation.transferring', { source: sourceName, destination: destinationName }) : t(STATUSES[status].label)}
                 className={cn('flex w-full items-start gap-3', className)}
                 {...props}
             >

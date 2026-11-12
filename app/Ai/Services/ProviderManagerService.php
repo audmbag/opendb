@@ -15,8 +15,13 @@ use function Laravel\Ai\agent;
 
 readonly class ProviderManagerService
 {
+    /**
+     * @param  string  $name  the name the provider is configured under in config('ai.providers')
+     * @param  string  $api_key  empty for a provider answering without a key, like a local Ollama
+     */
     public function __construct(
-        private Lab $provider,
+        private string $name,
+        private Lab $driver,
         private string $api_key,
         private ?string $api_url = null
     ) {
@@ -26,38 +31,45 @@ readonly class ProviderManagerService
     /**
      * Use the credentials stored for the provider. Without a stored URL, the SDK uses the default one of the provider.
      */
-    public static function for(Provider $provider): self
+    public static function for(Provider $provider, ?string $api_key = null, ?string $api_url = null): self
     {
-        return new self($provider->id, $provider->api_key, $provider->api_url);
+        return new self(
+            $provider->name(),
+            $provider->driver(),
+            $api_key ?? (string) $provider->api_key,
+            $api_url ?? $provider->api_url,
+        );
     }
 
     private function setConfig(): void
     {
         Config::set([
-            "ai.providers.{$this->provider->value}" => [...[
-                'driver' => $this->provider->value,
+            "ai.providers.{$this->name}" => [...[
+                'driver' => $this->driver->value,
                 'key' => $this->api_key,
             ], ...($this->api_url ? ['url' => $this->api_url] : [])],
-            'ai.default' => $this->provider->value,
-            'ai.default_for_images' => $this->provider->value,
-            'ai.default_for_audio' => $this->provider->value,
-            'ai.default_for_transcription' => $this->provider->value,
-            'ai.default_for_embeddings' => $this->provider->value,
-            'ai.default_for_reranking' => $this->provider->value,
+            'ai.default' => $this->name,
+            'ai.default_for_images' => $this->name,
+            'ai.default_for_audio' => $this->name,
+            'ai.default_for_transcription' => $this->name,
+            'ai.default_for_embeddings' => $this->name,
+            'ai.default_for_reranking' => $this->name,
         ]);
 
-        Ai::forgetInstance($this->provider->value);
+        Ai::forgetInstance($this->name);
     }
 
     public function getModes(): Collection
     {
-        $ai_models = app(ModelRegistry::class)->provider($this->provider);
+        $ai_models = app(ModelRegistry::class)->provider($this->name);
 
         return $ai_models->map(function (AiModel $model) {
             return [
                 'id' => $model->id,
                 'label' => $model->name,
                 'context_window' => $model->contextWindow,
+                // What the model reads besides text, when the provider tells it: an empty list is not known.
+                'modalities' => $model->modalities,
                 'active' => false,
             ];
         });
@@ -73,12 +85,12 @@ readonly class ProviderManagerService
                 ___
                 {$prompt}
                 ___
-            PROMPT, provider: $this->provider, model: $model);
+            PROMPT, provider: $this->name, model: $model);
 
-            return Str::limit($response->text, 100);
+            return Str::limit($response->text);
 
         } catch (Throwable) {
-            return Str::limit($prompt, 100, preserveWords: true);
+            return Str::limit($prompt, 30, preserveWords: true);
         }
     }
 }

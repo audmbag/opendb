@@ -29,14 +29,14 @@ class GenerateConversationTitle implements ShouldQueue
     public function __construct(
         public Conversation $conversation,
         public string $message,
-        public Lab $provider,
+        public Lab|string $provider,
         public string $model,
     ) {}
 
     public function handle(): void
     {
         $this->conversation->update([
-            'title' => ProviderManagerService::for(Provider::findOrFail($this->provider->value))->generateConversationTitle($this->message, $this->model),
+            'title' => ProviderManagerService::for(Provider::findOrFail($this->provider instanceof Lab ? $this->provider->value : $this->provider))->generateConversationTitle($this->message, $this->model),
         ]);
     }
 

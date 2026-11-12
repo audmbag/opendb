@@ -30,7 +30,7 @@ it('logs the input tokens of a step and those read from the cache', function () 
         meta: new Meta,
     );
     Log::shouldReceive('channel')->with('agent-logs')->andReturnSelf();
-    Log::shouldReceive('info')->once()->withArgs(fn (string $message, array $context) => $message === 'Réponse agent'
+    Log::shouldReceive('info')->once()->withArgs(fn (string $message, array $context) => $message === 'Agent answer'
         && $context['input_tokens'] === 1000
         && $context['cached_input_tokens'] === 600);
 

@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { ArrowUpRightIcon, SearchIcon } from 'lucide-react';
 import { useId, useState } from 'react';
 import { formatCell } from '@/components/ai/artifacts/format';
@@ -21,6 +22,7 @@ type Props = {
  * The columns of the record in the order of the table, filtered by name and optionally without their NULL values.
  */
 export default function RecordFields({ record, hideNull, onHideNullChange, onOpen }: Props) {
+    const { t } = useLaravelReactI18n();
     const switchId = useId();
     const [search, setSearch] = useState('');
 
@@ -37,7 +39,7 @@ export default function RecordFields({ record, hideNull, onHideNullChange, onOpe
         <>
             <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                 <div className="flex items-baseline gap-2">
-                    <span className="text-sm font-medium">Colonnes</span>
+                    <span className="text-sm font-medium">{t('ai.record.columns')}</span>
                     <span className="text-sm text-muted-foreground tabular-nums">{formatInteger(entries.length)}</span>
                 </div>
 
@@ -45,18 +47,18 @@ export default function RecordFields({ record, hideNull, onHideNullChange, onOpe
                     <div className="flex items-center gap-2">
                         <Switch id={switchId} checked={hideNull} onCheckedChange={onHideNullChange} />
                         <Label htmlFor={switchId} className="font-normal text-muted-foreground">
-                            Masquer les NULL ({formatInteger(nullCount)})
+                            {t('ai.record.hide_nulls', { count: formatInteger(nullCount) })}
                         </Label>
                     </div>
 
                     <label className="relative flex w-56 max-w-full items-center">
-                        <span className="sr-only">Filtrer les colonnes</span>
+                        <span className="sr-only">{t('ai.record.filter_columns')}</span>
                         <SearchIcon className="pointer-events-none absolute left-2.75 size-3.75 text-muted-foreground" />
                         <Input
                             type="search"
                             value={search}
                             onChange={(event) => setSearch(event.target.value)}
-                            placeholder="Filtrer les colonnes..."
+                            placeholder={t('ai.record.filter_columns_placeholder')}
                             className="pl-8.5"
                         />
                     </label>
@@ -92,7 +94,7 @@ export default function RecordFields({ record, hideNull, onHideNullChange, onOpe
                                     <button
                                         type="button"
                                         className="group inline-flex min-w-0 items-center gap-1.5 rounded-sm text-left text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-                                        aria-label={`Ouvrir ${relation.table} ${formatCell(value)}`}
+                                        aria-label={t('ai.record.open', { table: relation.table, key: formatCell(value) })}
                                         onClick={() => onOpen({ table: relation.table, key: relation.key })}
                                     >
                                         <span className="tabular-nums underline-offset-4 group-hover:underline">{formatCell(value)}</span>
@@ -109,7 +111,7 @@ export default function RecordFields({ record, hideNull, onHideNullChange, onOpe
             </dl>
 
             {visibleEntries.length === 0 && (
-                <div className="border-t px-6 py-10 text-center text-sm text-muted-foreground">Aucune colonne ne correspond à ce filtre.</div>
+                <div className="border-t px-6 py-10 text-center text-sm text-muted-foreground">{t('ai.record.no_column_match')}</div>
             )}
         </>
     );

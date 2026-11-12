@@ -33,9 +33,12 @@ class SaveWithCloningRequest extends FormRequest
     /**
      * Determine if the user is authorized to make this request.
      */
+    /**
+     * Cloning the database of a project also needs the CLONE privilege, on top of managing the project.
+     */
     public function authorize(): bool
     {
-        return true;
+        return $this->user()->can('clone', $this->route('project'));
     }
 
     /**
@@ -64,7 +67,7 @@ class SaveWithCloningRequest extends FormRequest
                 if ($validator->errors()->isEmpty() && $this->targetsSourceDatabase()) {
                     $validator->errors()->add(
                         'cloningDriverConfig.database',
-                        'La base de données cible ne peut pas être la même que la base de données source.',
+                        __('requests.cloning.same_database'),
                     );
                 }
             },
@@ -146,7 +149,7 @@ class SaveWithCloningRequest extends FormRequest
             $tableKey = "anonymisation.tables.{$table}";
 
             if (! is_array($columns)) {
-                $validator->errors()->add($tableKey, "Les colonnes de la table « {$table} » doivent former un tableau.");
+                $validator->errors()->add($tableKey, __('requests.cloning.table_columns', ['table' => $table]));
 
                 continue;
             }
@@ -155,7 +158,7 @@ class SaveWithCloningRequest extends FormRequest
 
             foreach ($columns as $column => $transformation) {
                 if (! is_array($transformation)) {
-                    $validator->errors()->add("{$tableKey}.{$column}", "La transformation de la colonne « {$column} » doit être un tableau.");
+                    $validator->errors()->add("{$tableKey}.{$column}", __('requests.cloning.column_transformation', ['column' => $column]));
 
                     continue;
                 }
@@ -264,14 +267,14 @@ class SaveWithCloningRequest extends FormRequest
         $file = app(SystemInfoService::class)->applicationPath('tmp', $value, CloningManager::SOURCE_CONNECTION_NAME.'.cloning.yaml');
 
         if (! is_file($file)) {
-            $fail('La session de clonage est introuvable ou a expiré, relancez la configuration du clonage.');
+            $fail(__('requests.cloning.session_expired'));
         }
     }
 
     protected function scalarOrNull(string $attribute, mixed $value, Closure $fail): void
     {
         if ($value !== null && ! is_scalar($value)) {
-            $fail("The {$attribute} must be a scalar value.");
+            $fail(__('requests.scalar', ['attribute' => $attribute]));
         }
     }
 

@@ -1,7 +1,9 @@
 import { Link, router } from '@inertiajs/react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { PlugIcon, TrashIcon } from 'lucide-react';
 import React, { memo, useCallback, useState } from 'react';
 import { toast } from 'sonner';
+import { formatRelativeTime } from '@/components/ai/artifacts/record/format';
 import DatabaseIconHelper from '@/components/database-icon-helper';
 import Button from '@/components/form/button';
 import DeleteProjectDialog from '@/components/project/delete-project-dialog';
@@ -10,6 +12,7 @@ import Tooltip from '@/components/tooltip';
 import { H6, Muted } from '@/components/typograpfy/typography';
 import { buttonVariants } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { trans } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import type { Project } from '@/types/models/project';
 import ConversationController from '@/wayfinder/actions/App/Http/Controllers/ConversationController';
@@ -47,6 +50,7 @@ export const ProjectItemSkeleton = memo(({ count = 3 }: { count?: number }) => (
 ));
 
 const ProjectItem = ({ project, className, ...props }: Props) => {
+    const { t } = useLaravelReactI18n();
     const [confirming, setConfirming] = useState(false);
     const [processing, setProcessing] = useState(false);
     const [error, setError] = useState<string | undefined>(undefined);
@@ -62,7 +66,7 @@ const ProjectItem = ({ project, className, ...props }: Props) => {
                 onSuccess: () => {
                     setConfirming(false);
                     toast.success(
-                        `Le projet ${project.name} a été supprimé avec succès.`,
+                        trans('projects.deleted', { project: project.name }),
                         {
                             duration: 5000,
                         },
@@ -99,7 +103,7 @@ const ProjectItem = ({ project, className, ...props }: Props) => {
                 <Muted>{project.description}</Muted>
                 <div className="flex items-center gap-2 pt-2">
                     <Muted className="text-xs">
-                        {project.created_at_diff_for_humans}
+                        {project.created_at ? formatRelativeTime(project.created_at) : project.created_at_diff_for_humans}
                     </Muted>
                     <Muted className="text-xs">•</Muted>
                     <p className="text-xs">
@@ -113,16 +117,18 @@ const ProjectItem = ({ project, className, ...props }: Props) => {
                     className={buttonVariants({ variant: 'secondary' })}
                 >
                     <PlugIcon />
-                    Se connecter
+                    {t('projects.connect')}
                 </Link>
-                <Button
-                    variant="destructive"
-                    size="icon"
-                    icon={TrashIcon}
-                    tooltip={'Supprimer le projet'}
-                    processing={processing}
-                    onClick={() => setConfirming(true)}
-                />
+                {project.can_manage && (
+                    <Button
+                        variant="destructive"
+                        size="icon"
+                        icon={TrashIcon}
+                        tooltip={t('projects.delete.title')}
+                        processing={processing}
+                        onClick={() => setConfirming(true)}
+                    />
+                )}
             </div>
             <DeleteProjectDialog
                 projectName={project.name}

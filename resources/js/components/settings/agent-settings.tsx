@@ -1,4 +1,5 @@
 import { router, useHttp, usePage } from '@inertiajs/react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { BotIcon, SaveIcon } from 'lucide-react';
 import type React from 'react';
 import { toast } from 'sonner';
@@ -13,21 +14,32 @@ import SettingsController from '@/wayfinder/actions/App/Http/Controllers/Setting
 const MAX_STEPS = { min: 3, max: 50 };
 const MAX_ROWS = { min: 10, max: 1000 };
 
-const accessModes = [
-    { value: 'read-only', label: 'Lecture seule' },
-    { value: 'read-write', label: 'Lecture-écriture' },
-];
+const ACCESS_MODES = ['read-only', 'read-write'] as const;
 
-const efforts = [
-    { value: 'default', label: 'Standard' },
-    { value: 'high', label: 'Élevé' },
-];
+const EFFORTS = ['default', 'high'] as const;
+
+const SCHEMA_APPLY_MODES = ['draft', 'additions', 'auto'] as const;
 
 /**
  * How the agent behaves by default: the mode and effort of a new conversation, and the limits of its work.
  */
 export default function AgentSettings() {
+    const { t } = useLaravelReactI18n();
     const { auth } = usePage().props;
+
+    const accessModes = ACCESS_MODES.map((value) => ({
+        value,
+        label: t(`ai.access_modes.${value}`),
+    }));
+    const efforts = EFFORTS.map((value) => ({
+        value,
+        label: t(`ai.efforts.${value}`),
+    }));
+
+    const schemaApplyModes = SCHEMA_APPLY_MODES.map((value) => ({
+        value,
+        label: t(`erd.assistant.mode.${value}`),
+    }));
 
     const form = useHttp<UserSettings['agent'], { message: string }>({
         ...auth.user.settings.agent,
@@ -48,8 +60,8 @@ export default function AgentSettings() {
     return (
         <form onSubmit={save}>
             <CardFrame
-                title="Agent IA"
-                description="Le comportement de l'agent dans chaque nouvelle conversation."
+                title={t('settings.agent.title')}
+                description={t('settings.agent.description')}
                 icon={BotIcon}
                 actions={
                     <Button
@@ -59,13 +71,13 @@ export default function AgentSettings() {
                         processing={form.processing}
                         disabled={!form.isDirty}
                     >
-                        Enregistrer
+                        {t('common.save')}
                     </Button>
                 }
             >
                 <SettingRow
-                    label="Mode d'accès par défaut"
-                    description="En lecture seule, l'agent ne peut rien modifier dans la base. Vous pouvez toujours changer de mode dans la conversation."
+                    label={t('settings.agent.access_mode')}
+                    description={t('settings.agent.access_mode_description')}
                 >
                     <Select
                         name="accessMode"
@@ -81,8 +93,8 @@ export default function AgentSettings() {
                     />
                 </SettingRow>
                 <SettingRow
-                    label="Effort par défaut"
-                    description="Un effort élevé laisse le modèle réfléchir plus longtemps, quand il le permet : plus lent et plus coûteux."
+                    label={t('settings.agent.effort')}
+                    description={t('settings.agent.effort_description')}
                 >
                     <Select
                         name="effort"
@@ -98,9 +110,31 @@ export default function AgentSettings() {
                     />
                 </SettingRow>
                 <SettingRow
-                    label="Étapes par réponse"
+                    label={t('settings.agent.schema_apply_mode')}
+                    description={t(
+                        'settings.agent.schema_apply_mode_description',
+                    )}
+                >
+                    <Select
+                        name="schemaApplyMode"
+                        items={schemaApplyModes}
+                        value={form.data.schemaApplyMode}
+                        onValueChange={(value) =>
+                            form.setData(
+                                'schemaApplyMode',
+                                value as UserSettings['agent']['schemaApplyMode'],
+                            )
+                        }
+                        error={form.errors.schemaApplyMode}
+                    />
+                </SettingRow>
+                <SettingRow
+                    label={t('settings.agent.max_steps')}
                     htmlFor="maxSteps"
-                    description={`Le nombre maximal d'appels d'outils pour répondre à un message (${MAX_STEPS.min} à ${MAX_STEPS.max}).`}
+                    description={t(
+                        'settings.agent.max_steps_description',
+                        MAX_STEPS,
+                    )}
                 >
                     <Input
                         id="maxSteps"
@@ -117,9 +151,12 @@ export default function AgentSettings() {
                     />
                 </SettingRow>
                 <SettingRow
-                    label="Lignes lues par requête"
+                    label={t('settings.agent.max_rows')}
                     htmlFor="maxRows"
-                    description={`Le nombre maximal de lignes qu'une requête renvoie au modèle (${MAX_ROWS.min} à ${MAX_ROWS.max}). Plus il est élevé, plus la réponse coûte de jetons.`}
+                    description={t(
+                        'settings.agent.max_rows_description',
+                        MAX_ROWS,
+                    )}
                 >
                     <Input
                         id="maxRows"

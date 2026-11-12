@@ -5,7 +5,7 @@ export type CopyFormat = 'csv' | 'markdown' | 'insert';
 
 export const COPY_LABELS: Record<CopyFormat, string> = {
     csv: 'CSV',
-    markdown: 'tableau Markdown',
+    markdown: 'tables.console.copy_formats.markdown',
     insert: 'INSERT',
 };
 

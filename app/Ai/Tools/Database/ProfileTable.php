@@ -17,13 +17,13 @@ class ProfileTable extends BaseTool implements Tool
 
     public function description(): Stringable|string
     {
-        return 'Affiche dans l\'interface, sous forme d\'artefact, le profil des données d\'une table : pour chaque '
-            .'colonne, le taux de valeurs NULL, le nombre de valeurs distinctes, le minimum et le maximum, la longueur '
-            .'moyenne des textes et les valeurs les plus fréquentes (calculés sur un échantillon de '
-            .TableProfiler::SAMPLE_SIZE.' lignes). Ce tool ne te renvoie pas ces statistiques : il sert uniquement au '
-            .'rendu. Utilise-le quand l\'utilisateur veut VOIR la qualité ou la répartition des données d\'une table '
-            .'(ex. "profile la table users", "quelles colonnes de orders sont mal remplies ?"). '
-            .'Le paramètre `tableName` est le nom exact de la table.';
+        return 'Displays in the interface, as an artifact, the data profile of a table: for each '
+            .'column, the rate of NULL values, the number of distinct values, the minimum and the maximum, the average '
+            .'length of the texts and the most frequent values (computed on a sample of '
+            .TableProfiler::SAMPLE_SIZE.' rows). This tool does not return these statistics to you: it is only for the '
+            .'rendering. Use it when the user wants to SEE the quality or the distribution of the data of a table '
+            .'(e.g. "profile the users table", "which columns of orders are badly filled?"). '
+            .'The `tableName` parameter is the exact name of the table.';
     }
 
     public function handle(Request $request): Stringable|string
@@ -40,7 +40,7 @@ class ProfileTable extends BaseTool implements Tool
         return [
             'tableName' => $schema->string()
                 ->required()
-                ->description('Le nom exact de la table à profiler.'),
+                ->description('The exact name of the table to profile.'),
         ];
     }
 }

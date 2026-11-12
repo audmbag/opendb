@@ -1,4 +1,6 @@
 import { formatCell } from '@/components/ai/artifacts/format';
+import { transChoice } from '@/lib/i18n';
+import { numberFormatter } from '@/lib/intl';
 import type { CellValue, ColumnProfile } from '@/types/agent';
 
 /**
@@ -21,37 +23,33 @@ export type DerivedColumn = ColumnProfile & {
     severity: NullSeverity;
     needsAttention: boolean;
     isUnique: boolean;
-    cardinality: 'Unique' | 'Catégorielle' | null;
+    cardinality: 'unique' | 'categorical' | null;
     distinctRate: number | null;
     hasRepetition: boolean;
 };
 
-const integerFormatter = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 });
-
-const percentFormatter = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 1 });
-
-const lengthFormatter = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-
 export function formatInteger(value: number): string {
-    return integerFormatter.format(value);
+    return numberFormatter({ maximumFractionDigits: 0 }).format(value);
 }
 
 /**
  * A rate between 0 and 100 with at most one decimal, dropped when it is whole: « 0 % », « 38,2 % », « 100 % ».
  */
 export function formatPercent(rate: number): string {
-    return `${percentFormatter.format(Math.round(rate * 10) / 10)}\u00a0%`;
+    return numberFormatter({ style: 'percent', minimumFractionDigits: 0, maximumFractionDigits: 1 }).format(
+        Math.round(rate * 10) / 1000,
+    );
 }
 
 export function formatLength(length: number | null): string {
-    return length === null ? '–' : lengthFormatter.format(length);
+    return length === null ? '–' : numberFormatter({ minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(length);
 }
 
 /**
- * « 0 ligne », « 1 ligne », « 1 000 lignes ».
+ * « 0 ligne », « 1 ligne », « 1 000 lignes », in the language of the interface.
  */
 export function formatRows(count: number): string {
-    return `${formatInteger(count)} ${count > 1 ? 'lignes' : 'ligne'}`;
+    return transChoice('tables.counts.rows', count, { count: formatInteger(count) });
 }
 
 /**
@@ -89,7 +87,7 @@ export function deriveColumn(column: ColumnProfile, sampleSize: number): Derived
         severity: nullSeverity(nullRate),
         needsAttention: nullRate > WARN_THRESHOLD,
         isUnique,
-        cardinality: isUnique ? 'Unique' : isCategorical ? 'Catégorielle' : null,
+        cardinality: isUnique ? 'unique' : isCategorical ? 'categorical' : null,
         distinctRate: column.distinctCount !== null && filled > 0 ? (column.distinctCount / filled) * 100 : null,
         hasRepetition: (column.topValues[0]?.count ?? 0) > 1,
     };

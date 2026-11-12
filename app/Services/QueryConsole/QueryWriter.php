@@ -36,7 +36,7 @@ class QueryWriter
         $listed = array_slice($tables, 0, self::LISTED_TABLES);
 
         if (count($tables) > count($listed)) {
-            $listed[] = '… ('.(count($tables) - count($listed)).' autres, à chercher avec ListTables)';
+            $listed[] = '… ('.(count($tables) - count($listed)).' more, to find with ListTables)';
         }
 
         $response = new QueryWriterAgent($driver, $listed, Str::substr(trim($script), -self::SCRIPT_LENGTH))
@@ -45,7 +45,7 @@ class QueryWriter
         $sql = trim((string) ($response['sql'] ?? ''));
 
         if ($sql === '') {
-            throw new RuntimeException("L'assistant n'a pas écrit de requête. Reformulez la demande.");
+            throw new RuntimeException(__('tables.console.errors.no_query_written'));
         }
 
         return [

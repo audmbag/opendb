@@ -1,4 +1,5 @@
 import { router } from '@inertiajs/react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     DatabaseIcon,
     ComputerIcon,
@@ -26,8 +27,10 @@ import type { Project } from '@/types/models/project';
 import HomeController from '@/wayfinder/actions/App/Http/Controllers/HomeController';
 
 const DatabaseConnectionStatus = () => {
+    const { t } = useLaravelReactI18n();
+
     return (
-        <Tooltip value={"Connecté"}>
+        <Tooltip value={t('projects.status.connected')}>
             <Badge
                 variant="outline"
                 className="bg-green-50 p-1.25 text-green-700 dark:bg-green-950 dark:text-green-300"
@@ -57,6 +60,7 @@ export function DatabaseStatusBar({
     showLabels = true,
     className,
 }: Props) {
+    const { t } = useLaravelReactI18n();
     const { processing, testConnection } = useDriverConfigTestConnection();
     const { copying, handleCopy } = useCopyConfig(driver_config, 5000);
     const { openFolder, processing: openingFolder } = useOpenProjectFolder(projectId);
@@ -104,24 +108,24 @@ export function DatabaseStatusBar({
                         <>
                             <div className="flex items-center gap-2">
                                 <ComputerIcon className="size-4 text-muted-foreground" />
-                                {showLabels && <Muted>Host</Muted>}
+                                {showLabels && <Muted>{t('projects.status.host')}</Muted>}
                                 <Small>{driver_config.host}</Small>
                             </div>
                             <div className="flex items-center gap-2">
                                 <EthernetPortIcon className="size-4 text-muted-foreground" />
-                                {showLabels && <Muted>Port</Muted>}
+                                {showLabels && <Muted>{t('projects.status.port')}</Muted>}
                                 <Small>{driver_config.port}</Small>
                             </div>
                             <div className="flex items-center gap-2">
                                 <UserIcon className="size-4 text-muted-foreground" />
-                                {showLabels && <Muted>Username</Muted>}
+                                {showLabels && <Muted>{t('projects.status.username')}</Muted>}
                                 <Small>{driver_config.username}</Small>
                             </div>
                         </>
                     )}
                     <div className="flex items-center gap-2">
                         <DatabaseIcon className="size-4 text-muted-foreground" />
-                        {showLabels && <Muted>Base de données</Muted>}
+                        {showLabels && <Muted>{t('projects.status.database')}</Muted>}
                         <Small>{driver_config.database}</Small>
                     </div>
                 </div>
@@ -132,7 +136,7 @@ export function DatabaseStatusBar({
                         icon={FolderOpenIcon}
                         size="icon"
                         variant="secondary"
-                        tooltip="Ouvrir le dossier dans l'explorateur de fichiers"
+                        tooltip={t('projects.status.open_folder')}
                         onClick={openFolder}
                         processing={openingFolder}
                     />
@@ -142,7 +146,7 @@ export function DatabaseStatusBar({
                         icon={RefreshCwIcon}
                         size="icon"
                         variant="secondary"
-                        tooltip="Réconnecter"
+                        tooltip={t('projects.status.reconnect')}
                         onClick={handleTestConnection}
                         processing={processing}
                     />
@@ -154,8 +158,8 @@ export function DatabaseStatusBar({
                         variant="secondary"
                         tooltip={
                             copying
-                                ? 'Configuration coprié'
-                                : 'Copier la configuration'
+                                ? t('projects.status.configuration_copied')
+                                : t('projects.status.copy_configuration')
                         }
                         onClick={handleCopy}
                         stateAppearance={copying ? 'success' : undefined}
@@ -166,7 +170,7 @@ export function DatabaseStatusBar({
                         icon={UnplugIcon}
                         size="icon"
                         variant="destructive"
-                        tooltip="Déconnecter"
+                        tooltip={t('projects.status.disconnect')}
                         onClick={handleDisconnect}
                     />
                 )}

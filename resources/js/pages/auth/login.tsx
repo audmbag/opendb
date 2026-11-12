@@ -1,4 +1,5 @@
 import { Form } from '@inertiajs/react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { LogInIcon } from 'lucide-react';
 import Alert from '@/components/alert';
 import AppLogo from '@/components/app-logo';
@@ -11,6 +12,8 @@ import LoginController from '@/wayfinder/actions/App/Http/Controllers/Auth/Login
 
 
 const LoginForm = () => {
+    const { t } = useLaravelReactI18n();
+
     return (
         <div className="flex min-h-svh">
             <div className="relative hidden flex-1 flex-col bg-muted p-8 lg:flex">
@@ -20,8 +23,7 @@ const LoginForm = () => {
                     />
                 </div>
                 <Lead className="text-lg font-medium">
-                    "Votre agent AI personnel pour la manipulation de vos bases
-                    de données."
+                    {t('login.tagline')}
                 </Lead>
             </div>
             <Separator orientation="vertical" className="hidden lg:flex" />
@@ -39,28 +41,28 @@ const LoginForm = () => {
                                     size="xs"
                                 />
                                 <H2 className="font-semibold -mb-1">
-                                    Connexion
+                                    {t('login.title')}
                                 </H2>
                             </div>
                             {errors.failed && (
                                 <Alert
                                     className="mb-4"
                                     variant="destructive"
-                                    title="Échec de la connexion"
+                                    title={t('login.failed')}
                                     message={errors.failed}
                                 />
                             )}
                             <Input
-                                label="Nom d'utilisateur"
-                                placeholder="Entrez le nom d'utilisateur"
-                                description="Saisissez ici le nom d'utilisateur ou mettez celui par défaut"
+                                label={t('login.username')}
+                                placeholder={t('login.username_placeholder')}
+                                description={t('login.username_description')}
                                 name="name"
                                 error={errors.name}
                             />
                             <Input
-                                label="Mot de passe"
-                                placeholder="Entrez le mot de passe"
-                                description="Saisissez ici le mot de passe"
+                                label={t('login.password')}
+                                placeholder={t('login.password_placeholder')}
+                                description={t('login.password_description')}
                                 name="password"
                                 type="password"
                                 error={errors.password}
@@ -73,7 +75,7 @@ const LoginForm = () => {
                                     type="submit"
                                     className="w-full flex-row-reverse"
                                 >
-                                    Se connecter
+                                    {t('login.submit')}
                                 </Button>
                             </div>
                         </>

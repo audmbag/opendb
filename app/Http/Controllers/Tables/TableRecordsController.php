@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers\Tables;
 
+use App\Database\Exceptions\PrivilegeException;
 use App\Database\Exceptions\TableNotFoundException;
 use App\Database\TableRecordForm;
+use App\Enums\PrivilegeEnum;
 use App\Models\Project;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class TableRecordsController extends TableController
@@ -17,9 +20,13 @@ class TableRecordsController extends TableController
     public function store(Project $project, string $table, Request $request): JsonResponse
     {
         try {
-            $form = new TableRecordForm($this->driver($project), $table);
+            $driver = $this->driver($project);
+            $driver->assertPrivilege(PrivilegeEnum::Insert, $table);
+            $form = new TableRecordForm($driver, $table);
         } catch (TableNotFoundException $exception) {
             throw new NotFoundHttpException($exception->getMessage(), $exception);
+        } catch (PrivilegeException $exception) {
+            throw new AccessDeniedHttpException($exception->getMessage(), $exception);
         }
 
         $values = $form->normalize($request->validate(

@@ -4,9 +4,11 @@ export function schemaExportToDbSchema(schema: SchemaExport): DbSchema {
     const tables: SchemaTable[] = schema.map((table) => ({
         id: table.name,
         name: table.name,
+        draft: table.draft,
         columns: table.columns.map((column) => ({
             name: column.name,
             type: column.type,
+            draft: column.draft,
             pk: table.primary_key.includes(column.name),
             fk: table.foreign_keys.some((foreignKey) =>
                 foreignKey.columns.includes(column.name),
@@ -21,7 +23,23 @@ export function schemaExportToDbSchema(schema: SchemaExport): DbSchema {
                 return [];
             }
 
+            const sameColumns = (columns: string[]) =>
+                columns.length === foreignKey.columns.length &&
+                columns.every((column) => foreignKey.columns.includes(column));
+            const unique =
+                sameColumns(table.primary_key) ||
+                table.indexes.some(
+                    (index) => index.unique && sameColumns(index.columns),
+                );
+            const nullable = table.columns.some(
+                (column) =>
+                    column.nullable && foreignKey.columns.includes(column.name),
+            );
+
             return foreignKey.columns.map((column, index) => ({
+                unique,
+                nullable,
+                draft: foreignKey.draft,
                 source: table.name,
                 sourceColumn: column,
                 target: foreignKey.references_table,

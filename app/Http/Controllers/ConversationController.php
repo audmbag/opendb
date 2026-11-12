@@ -2,15 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use App\Ai\Agents\SQLDatabaseAgent;
 use App\Ai\Protocols\VercelDataProtocolWithModel;
+use App\Ai\Services\AnswerCancellation;
+use App\Ai\Services\ConversationTurn;
 use App\Http\Requests\ConversationMessageRequest;
 use App\Http\Requests\ConversationRequest;
 use App\Http\Requests\ConversationSearchRequest;
 use App\Http\Requests\ConversationStoreRequest;
 use App\Models\Project;
 use App\Repository\ConversationRepository;
-use App\Repository\ProviderRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response as HttpResponse;
 use Inertia\Response;
@@ -37,7 +37,7 @@ class ConversationController extends Controller
     public function home(Project $project): Response
     {
         return inertia('projects/conversation/home', [
-            'project' => $project->load(['driver_config.driver']),
+            'project' => $project->withConnectionFor(request()->user()),
         ]);
     }
 
@@ -46,7 +46,7 @@ class ConversationController extends Controller
         abort_if($conversation->is_archived, HttpResponse::HTTP_NOT_FOUND);
 
         return inertia('projects/conversation/conversation', [
-            'project' => $project->load(['driver_config.driver']),
+            'project' => $project->withConnectionFor(request()->user()),
             'conversation' => $conversation,
             'initialMessages' => $conversationRepository->UIMessages($conversation),
         ]);
@@ -99,17 +99,34 @@ class ConversationController extends Controller
         return response()->noContent();
     }
 
-    public function chat(Conversation $conversation, ConversationMessageRequest $request, ProviderRepository $providerRepository): StreamableAgentResponse
+    /**
+     * Stream the answer of the agent. An answer asked again replaces the previous one, and an answer the user stops
+     * keeps the steps taken until then: the request goes on once the page has stopped reading it.
+     */
+    public function chat(Conversation $conversation, ConversationMessageRequest $request, ConversationTurn $turn): StreamableAgentResponse
     {
+        ignore_user_abort(true);
+
         $chat = Vercel::chat($request);
-        $provider = $request->selectedProvider();
-        $model = $request->selectedModel();
 
-        $providerRepository->activate($provider);
-
-        return new SQLDatabaseAgent($request->accessMode(), Project::firstWhere('id', $conversation->project_id), $model, $request->effort())
-            ->continue($conversation->id, $request->user())
-            ->stream($chat, provider: $provider->id, model: $model)
+        return $turn
+            ->stream(
+                $conversation,
+                $request->user(),
+                $chat,
+                $request->agentSettings(),
+                $request->regeneratesAnswer() ? $request->userMessagesCount() : null,
+            )
             ->usingProtocol(new VercelDataProtocolWithModel($chat->messageId()));
+    }
+
+    /**
+     * Stop the answer being streamed in the conversation, before its next step.
+     */
+    public function cancel(Conversation $conversation, AnswerCancellation $cancellation): HttpResponse
+    {
+        $cancellation->request($conversation->id);
+
+        return response()->noContent();
     }
 }

@@ -1,81 +1,52 @@
 import { Form } from '@inertiajs/react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { PlugIcon } from 'lucide-react';
 import type { FormDataErrors } from 'node_modules/@inertiajs/core/types/types';
 import { Fragment } from 'react';
-import { createCallable } from 'react-call';
 import { toast } from 'sonner';
 import Button from '@/components/form/button';
 import Input from '@/components/form/input';
 import KeyValue from '@/components/form/key-value';
-import Modal from '@/components/modals/modal';
-import ModelModalHeader from '@/components/settings/model-modal-header';
 import type { Provider } from '@/types/models/provider';
 import ProviderController from '@/wayfinder/actions/App/Http/Controllers/ProviderController';
 
-type Props = {
-    provider?: Provider;
-};
+const CustomProviderFields = ({ errors }: { errors: FormDataErrors<Record<string, any>> }) => {
+    const { t } = useLaravelReactI18n();
 
-type ProviderConnectResult = {
-    provider: Provider;
-} | null
-
-const ConnectProviderModal = createCallable<Props, ProviderConnectResult>(
-    ({ provider, call }) => {
-        return (
-            <Modal
-                open={!call.ended}
-                onOpenChange={() => call.end(null)}
-                className="h-auto sm:max-w-170"
-                scrollable
-            >
-                <ConnectProviderModalContent
-                    provider={provider}
-                    onCancel={() => call.end(null)}
-                    onSuccess={call.end}
-                />
-            </Modal>
-        );
-    },
-    1000,
-);
-
-
-const ConstomProviderFiledls = (errors: FormDataErrors<Record<string, any>>) => {
     return (
         <Fragment>
             <Input
-                label="ID du provider"
+                label={t('settings.providers.id')}
                 name="id"
-                placeholder="mon-fournisseur"
-                description="Lettres minuscules, chiffres, traits d'union ou tirets bas"
+                placeholder={t('settings.providers.id_placeholder')}
+                description={t('settings.providers.id_description')}
                 error={errors.id}
             />
             <Input
-                label="Nom d'affichage"
+                label={t('settings.providers.label')}
                 name="label"
-                placeholder="Ex: Mon Fournisseur"
+                placeholder={t('settings.providers.label_placeholder')}
                 error={errors.label}
             />
             <Input
-                label="Url de base"
+                label={t('settings.providers.api_url')}
                 name="api_url"
-                placeholder="Ex: https://api.monfournisseur.com/v1"
+                placeholder={t('settings.providers.api_url_placeholder')}
                 error={errors.api_url}
             />
             <Input
-                label="Clé d'API"
+                label={t('settings.providers.api_key')}
                 name="api_key"
-                placeholder="Ex: sk-abc123def456..."
+                placeholder={t('settings.providers.api_key_placeholder')}
                 error={errors.api_key}
             />
             <KeyValue
-                label="Modèles"
-                description="Ajouter des modèles que vous souhaitez utiliser avec ce provider."
+                label={t('settings.providers.models')}
+                description={t('settings.providers.models_description')}
                 name={"models"}
-                keyPlaceholder="ID du modèle (ex: gpt-4)"
-                valuePlaceholder="Nom d'affichage (ex: GPT-4)"
-                addLabel="Ajouter un modèle"
+                keyPlaceholder={t('settings.providers.model_id_placeholder')}
+                valuePlaceholder={t('settings.providers.model_label_placeholder')}
+                addLabel={t('settings.providers.add_model')}
                 minItems={1}
                 error={errors.models}
             />
@@ -83,18 +54,24 @@ const ConstomProviderFiledls = (errors: FormDataErrors<Record<string, any>>) => 
     );
 };
 
-const ConnectProviderModalContent = ({
+/**
+ * The key of a provider, or the address and the models of a custom one, shown as a page of the models settings.
+ */
+const ConnectProviderForm = ({
     provider,
     onCancel,
     onSuccess,
 }: {
     provider?: Provider;
     onCancel: () => void;
-    onSuccess: (result: NonNullable<ProviderConnectResult>) => void;
+    onSuccess: () => void;
 }) => {
+    const { t } = useLaravelReactI18n();
+    const isOllama = provider?.id === 'ollama';
+
     return (
         <Form
-            className="flex flex-col gap-4 p-4"
+            className="flex flex-col gap-4"
             onSuccess={(page) => {
                 if(page.flash.error) {
                     toast.error(page.flash.error as string, {
@@ -105,10 +82,7 @@ const ConnectProviderModalContent = ({
                 }
 
                 toast.success(page.flash.success as string);
-
-                if (provider) {
-                    onSuccess({ provider });
-                }
+                onSuccess();
             }}
             action={
                 provider
@@ -119,49 +93,42 @@ const ConnectProviderModalContent = ({
         >
             {({ errors, processing }) => (
                 <>
-                    <ModelModalHeader
-                        provider={provider}
-                        title={`Connecter le fournisseur : ${provider?.label || 'Un fournisseur personnalisé'}`}
-                        onBack={onCancel}
-                    />
                     {provider ? (
                         <>
                             <Input
-                                label={`Clé d'API ${provider.label}`}
+                                label={t(isOllama ? 'settings.providers.optional_api_key' : 'settings.providers.provider_api_key', { provider: provider.label })}
                                 name="api_key"
                                 error={errors.api_key}
-                                placeholder="Coller la clé ici..."
-                                description={`
-                                Entrez votre clé API ${provider.label} pour connecter votre compte et utiliser les modèles ${provider.label} dans ${'OpenDB'}.
-                            `}
+                                placeholder={t('settings.providers.paste_key')}
+                                description={t(isOllama ? 'settings.providers.api_key_optional_description' : 'settings.providers.api_key_description', { provider: provider.label })}
                             />
-                            {provider.id === 'ollama' && (
+                            {isOllama && (
                                 <Input
-                                    label="Url de base"
+                                    label={t('settings.providers.api_url')}
                                     name="api_url"
-                                    placeholder="Ex: https://api.monfournisseur.com/v1"
+                                    placeholder={t('settings.providers.api_url_placeholder')}
                                     error={errors.api_url}
                                     defaultValue={provider.api_url}
                                 />
                             )}
                         </>
                     ) : (
-                        <ConstomProviderFiledls />
+                        <CustomProviderFields errors={errors} />
                     )}
-                    <div className="flex items-end justify-end gap-2 pt-4">
+                    <div className="flex items-end justify-end gap-2 pt-2">
                         <Button
                             variant="secondary"
                             onClick={onCancel}
                             disabled={processing}
                         >
-                            Anuler
+                            {t('common.cancel')}
                         </Button>
                         <Button
                             icon={PlugIcon}
                             type="submit"
                             processing={processing}
                         >
-                            Connecter
+                            {t('settings.models.connect')}
                         </Button>
                     </div>
                 </>
@@ -170,4 +137,4 @@ const ConnectProviderModalContent = ({
     );
 };
 
-export default ConnectProviderModal;
+export default ConnectProviderForm;

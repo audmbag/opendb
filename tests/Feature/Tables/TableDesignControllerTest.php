@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use Illuminate\Database\Connection;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
 
 beforeEach(function () {
@@ -91,6 +92,31 @@ it('changes a table: adds, renames, changes and drops columns while keeping its 
     expect($connection->getSchemaBuilder()->getColumnListing('customers'))->toBe(['id', 'full_name', 'email'])
         ->and($connection->table('customers')->pluck('full_name')->all())->toBe(['Ada', 'Grace', 'Alan'])
         ->and($connection->table('orders')->count())->toBe(3);
+});
+
+it('adds a foreign key to an existing table from the structure it reads, keeping its rows', function () {
+    designConnection()->getSchemaBuilder()->create('reviews', function (Blueprint $table) {
+        $table->id();
+        $table->unsignedBigInteger('customer_id');
+        $table->text('body');
+    });
+    designConnection()->table('reviews')->insert(['customer_id' => 2, 'body' => 'Parfait']);
+
+    $design = $this->actingAs($this->user)->getJson(tablesUri('/reviews/design'))->json('data');
+    $design['foreignKeys'][] = [
+        'original' => null, 'name' => null, 'columns' => ['customer_id'], 'referencesTable' => 'customers',
+        'referencesColumns' => ['id'], 'onDelete' => 'cascade', 'onUpdate' => null,
+    ];
+
+    $this->actingAs($this->user)->putJson(tablesUri('/reviews/design'), $design)->assertOk();
+
+    $connection = designConnection();
+    expect($connection->getSchemaBuilder()->getForeignKeys('reviews'))->sequence(
+        fn ($foreignKey) => $foreignKey->columns->toBe(['customer_id'])
+            ->foreign_table->toBe('customers')
+            ->foreign_columns->toBe(['id'])
+            ->on_delete->toBe('cascade'),
+    )->and($connection->table('reviews')->pluck('body')->all())->toBe(['Parfait']);
 });
 
 it('reports the statement the database refuses', function () {

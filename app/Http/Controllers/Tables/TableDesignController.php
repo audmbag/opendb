@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Tables;
 use App\Http\Requests\Tables\TableDesignRequest;
 use App\Http\Requests\Tables\TableNameRequest;
 use App\Models\Project;
+use App\Services\Privileges\PrivilegeManager;
 use App\Services\TableBrowser\TableBrowserManager;
 use App\Services\TableDesigner\TableDesignerManager;
 use Illuminate\Http\JsonResponse;
@@ -14,7 +15,7 @@ use Illuminate\Http\JsonResponse;
  */
 class TableDesignController extends TableController
 {
-    public function __construct(TableBrowserManager $tables, protected TableDesignerManager $designer)
+    public function __construct(TableBrowserManager $tables, protected TableDesignerManager $designer, protected PrivilegeManager $privileges)
     {
         parent::__construct($tables);
     }
@@ -57,6 +58,7 @@ class TableDesignController extends TableController
     {
         return $this->respond(function () use ($project, $table, $request): array {
             $this->designer->rename($this->driver($project), $table, $request->validated('name'));
+            $this->privileges->renameTable($project, $table, $request->validated('name'));
 
             return ['name' => $request->validated('name')];
         });
@@ -83,6 +85,7 @@ class TableDesignController extends TableController
     {
         return $this->respond(function () use ($project, $table): array {
             $this->designer->drop($this->driver($project), $table);
+            $this->privileges->forgetTable($project, $table);
 
             return ['dropped' => $table];
         });

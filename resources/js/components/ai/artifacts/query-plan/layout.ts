@@ -2,6 +2,7 @@ import type { Edge, Node } from '@xyflow/react';
 import ELK from 'elkjs/lib/elk.bundled.js';
 import { showsCostShare } from '@/components/ai/artifacts/query-plan/format';
 import type { StepDirection } from '@/components/ai/artifacts/query-plan/format';
+import type { ServerMessage } from '@/lib/i18n';
 import type { PlanNode, QueryPlan } from '@/types/agent';
 
 export const NODE_WIDTH = 264;
@@ -25,7 +26,7 @@ export type PlanNodeData = {
 export type PlanFlowNode = Node<PlanNodeData, 'plan'>;
 
 export type FlowEdgeData = {
-    label: string | null;
+    label: ServerMessage | null;
     rows: number | null;
     /**
      * Whether the edge is on the most expensive path, from a table to the result.

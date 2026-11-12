@@ -1,10 +1,10 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     FileArchiveIcon,
     FileCodeIcon,
     FileIcon,
     FileSpreadsheetIcon,
     FileTextIcon,
-    ImageIcon,
 } from 'lucide-react';
 import React, { memo, useCallback } from 'react';
 import type { AttachmentData} from '@/components/ai-elements/attachments';
@@ -42,6 +42,7 @@ function fallbackIconFor(mediaType: string): React.ReactNode {
 
 
 const AttachmentItem = memo(({ attachment, onRemove }: AttachmentItemProps) => {
+    const { t } = useLaravelReactI18n();
     const handleRemove = useCallback(
         () => onRemove?.(attachment.id),
         [onRemove, attachment.id],
@@ -58,7 +59,7 @@ const AttachmentItem = memo(({ attachment, onRemove }: AttachmentItemProps) => {
                 <AttachmentPreview
                     fallbackIcon={fallbackIconFor(attachment.mediaType)}
                 />
-                {onRemove && <AttachmentRemove />}
+                {onRemove && <AttachmentRemove label={t('common.remove')} />}
             </Attachment>
         </Tooltip>
     );

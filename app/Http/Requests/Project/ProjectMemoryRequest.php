@@ -34,9 +34,9 @@ class ProjectMemoryRequest extends FormRequest
     public function attributes(): array
     {
         return [
-            'entries' => 'mémoire',
-            'entries.*.note' => 'entrée',
-            'entries.*.date' => 'date',
+            'entries' => __('attributes.memory'),
+            'entries.*.note' => __('attributes.entry'),
+            'entries.*.date' => __('attributes.date'),
         ];
     }
 

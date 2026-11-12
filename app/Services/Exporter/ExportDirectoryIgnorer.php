@@ -14,7 +14,7 @@ class ExportDirectoryIgnorer
 {
     public const string FILE = '.gitignore';
 
-    public const string CONTENT = "# Les exports d'opendb ne sont jamais versionnés.\n*\n";
+    public const string CONTENT = "# The exports of opendb are never versioned.\n*\n";
 
     public function ignore(string $directory): void
     {

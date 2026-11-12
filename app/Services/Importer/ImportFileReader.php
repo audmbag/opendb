@@ -29,7 +29,7 @@ class ImportFileReader
         };
 
         if ($content === false) {
-            throw new RuntimeException("Le fichier {$name} ne peut pas être lu : il est vide ou mal compressé.");
+            throw new RuntimeException(__('imports.errors.unreadable', ['file' => $name]));
         }
 
         // A byte order mark would stick to the first statement or the first column name.
@@ -42,13 +42,13 @@ class ImportFileReader
     protected function fromZip(string $path, string $extension): string
     {
         if (! class_exists(ZipArchive::class)) {
-            throw new RuntimeException("L'extension PHP zip n'est pas disponible pour lire cette archive.");
+            throw new RuntimeException(__('imports.errors.zip_missing'));
         }
 
         $zip = new ZipArchive;
 
         if ($zip->open($path) !== true) {
-            throw new RuntimeException("L'archive zip ne peut pas être ouverte.");
+            throw new RuntimeException(__('imports.errors.zip_unreadable'));
         }
 
         try {
@@ -63,6 +63,6 @@ class ImportFileReader
             $zip->close();
         }
 
-        throw new RuntimeException("L'archive ne contient aucun fichier .{$extension}.");
+        throw new RuntimeException(__('imports.errors.no_file', ['extension' => $extension]));
     }
 }

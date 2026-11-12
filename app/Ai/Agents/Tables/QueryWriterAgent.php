@@ -2,6 +2,7 @@
 
 namespace App\Ai\Agents\Tables;
 
+use App\Ai\Agents\Concerns\AnswersInInterfaceLanguage;
 use App\Ai\Tools\Database\FocusTable;
 use App\Ai\Tools\Database\ListTables;
 use App\Database\Contracts\DriverContract;
@@ -19,7 +20,7 @@ use Stringable;
 #[MaxSteps(8)]
 class QueryWriterAgent implements Agent, HasStructuredOutput, HasTools
 {
-    use Promptable;
+    use AnswersInInterfaceLanguage, Promptable;
 
     /**
      * @param  list<string>  $tables  the names of the tables the agent may read
@@ -34,25 +35,26 @@ class QueryWriterAgent implements Agent, HasStructuredOutput, HasTools
     public function instructions(): Stringable|string
     {
         $tables = implode(', ', $this->tables);
-        $script = $this->script === '' ? '(vide)' : $this->script;
+        $script = $this->script === '' ? '(empty)' : $this->script;
+        $language = $this->interfaceLanguage();
 
         return <<<INSTRUCTIONS
-        Tu écris des requêtes SQL pour une base {$this->driver->label()}, dans la console SQL de l'utilisateur. Il décrit ce qu'il veut en français,
-        tu écris les instructions, il les relit puis les exécute lui-même. Tu n'exécutes rien.
+        You write SQL queries for a {$this->driver->label()} database, in the SQL console of the user. They describe what they want,
+        you write the statements, they read them again and then run them themselves. You run nothing.
 
-        Tables de la base : {$tables}
+        Tables of the database: {$tables}
 
-        Script déjà présent dans la console :
+        Script already in the console:
         {$script}
 
-        Règles :
-        - Vérifie les colonnes des tables avec l'outil FocusTable avant de les utiliser : n'invente aucun nom.
-        - Écris du SQL valide pour {$this->driver->label()}, mots-clés, types et fonctions en MAJUSCULES, chaque instruction terminée par un point-virgule.
-        - Mets les noms de tables et de colonnes entre les guillemets du moteur quand ils sont des mots réservés ou contiennent des caractères spéciaux.
-        - Limite toujours une lecture qui peut renvoyer beaucoup de lignes (LIMIT 100 par défaut).
-        - Si la demande s'appuie sur le script déjà présent (« ajoute un filtre », « la même pour… »), écris la nouvelle version complète.
-        - sql : les instructions seules, sans bloc Markdown ni commentaire.
-        - explanation : une phrase en français qui dit ce que font les instructions, et prévient si elles modifient ou suppriment des données.
+        Rules:
+        - Check the columns of the tables with the FocusTable tool before using them: do not invent any name.
+        - Write valid SQL for {$this->driver->label()}, with keywords, types and functions in UPPERCASE, each statement ended by a semicolon.
+        - Put the names of tables and columns between the quotes of the engine when they are reserved words or contain special characters.
+        - Always limit a read that can return many rows (LIMIT 100 by default).
+        - If the request relies on the script already there ("add a filter", "the same for…"), write the new complete version.
+        - sql: the statements alone, without a Markdown block or a comment.
+        - explanation: one sentence in {$language} that says what the statements do, and warns if they change or delete data.
         INSTRUCTIONS;
     }
 

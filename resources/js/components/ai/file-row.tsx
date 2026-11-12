@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import type { LucideIcon } from 'lucide-react';
 import {
     CalendarClockIcon,
@@ -15,6 +16,7 @@ import {
 import type { ReactNode } from 'react';
 import { formatBytes } from '@/components/ai/artifacts/format';
 import { Badge } from '@/components/reui/badge';
+import { dateFormatter } from '@/lib/intl';
 import { cn } from '@/lib/utils';
 
 export type DescribedFile = {
@@ -58,60 +60,63 @@ const ARCHIVE: Omit<FileKind, 'label'> = {
     className: 'bg-amber-500/10 text-amber-600',
 };
 
+/**
+ * The kinds of files, their label being a key of lang/{locale}/files.php.
+ */
 const FILE_KINDS: Record<string, FileKind> = {
-    zip: { label: 'Archive ZIP', ...ARCHIVE },
-    tar: { label: 'Archive TAR', ...ARCHIVE },
-    'tar.gz': { label: 'Archive TAR.GZ', ...ARCHIVE },
-    gz: { label: 'Archive GZIP', ...ARCHIVE },
-    'sql.gz': { label: 'Dump SQL compressé', ...ARCHIVE },
-    'csv.gz': { label: 'CSV compressé', ...ARCHIVE },
+    zip: { label: 'files.kinds.zip', ...ARCHIVE },
+    tar: { label: 'files.kinds.tar', ...ARCHIVE },
+    'tar.gz': { label: 'files.kinds.tar_gz', ...ARCHIVE },
+    gz: { label: 'files.kinds.gz', ...ARCHIVE },
+    'sql.gz': { label: 'files.kinds.sql_gz', ...ARCHIVE },
+    'csv.gz': { label: 'files.kinds.csv_gz', ...ARCHIVE },
     sql: {
-        label: 'Dump SQL',
+        label: 'files.kinds.sql',
         icon: FileCodeIcon,
         className: 'bg-sky-500/10 text-sky-600',
     },
     csv: {
-        label: 'Tableur CSV',
+        label: 'files.kinds.csv',
         icon: FileSpreadsheetIcon,
         className: 'bg-emerald-500/10 text-emerald-600',
     },
     xlsx: {
-        label: 'Classeur Excel',
+        label: 'files.kinds.xlsx',
         icon: FileSpreadsheetIcon,
         className: 'bg-emerald-500/10 text-emerald-600',
     },
     json: {
-        label: 'JSON',
+        label: 'files.kinds.json',
         icon: FileJsonIcon,
         className: 'bg-violet-500/10 text-violet-600',
     },
     pdf: {
-        label: 'Document PDF',
+        label: 'files.kinds.pdf',
         icon: FileTextIcon,
         className: 'bg-red-500/10 text-red-600',
     },
     txt: {
-        label: 'Texte',
+        label: 'files.kinds.txt',
         icon: FileTextIcon,
         className: 'bg-slate-500/10 text-slate-600',
     },
     md: {
-        label: 'Markdown',
+        label: 'files.kinds.md',
         icon: FileTextIcon,
         className: 'bg-slate-500/10 text-slate-600',
     },
     png: {
-        label: 'Image PNG',
+        label: 'files.kinds.png',
         icon: FileImageIcon,
         className: 'bg-pink-500/10 text-pink-600',
     },
     jpg: {
-        label: 'Image JPEG',
+        label: 'files.kinds.jpeg',
         icon: FileImageIcon,
         className: 'bg-pink-500/10 text-pink-600',
     },
     jpeg: {
-        label: 'Image JPEG',
+        label: 'files.kinds.jpeg',
         icon: FileImageIcon,
         className: 'bg-pink-500/10 text-pink-600',
     },
@@ -120,7 +125,7 @@ const FILE_KINDS: Record<string, FileKind> = {
 const fileKind = (file: DescribedFile): FileKind => {
     if (file.error) {
         return {
-            label: 'Indisponible',
+            label: 'files.kinds.unavailable',
             icon: FileWarningIcon,
             className: 'bg-destructive/10 text-destructive',
         };
@@ -128,7 +133,7 @@ const fileKind = (file: DescribedFile): FileKind => {
 
     return (
         FILE_KINDS[file.extension] ?? {
-            label: file.extension ? `Fichier .${file.extension}` : 'Fichier',
+            label: file.extension ? 'files.kinds.extension' : 'files.kinds.file',
             icon: FileIcon,
             className: 'bg-muted text-muted-foreground',
         }
@@ -136,10 +141,7 @@ const fileKind = (file: DescribedFile): FileKind => {
 };
 
 const formatDate = (value: string): string =>
-    new Date(value).toLocaleString('fr-FR', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-    });
+    dateFormatter({ dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 
 /**
  * The extension of a file name, keeping the double extensions of archives (`sql.gz`, `tar.gz`).
@@ -155,6 +157,7 @@ export default function FileRow({
     action,
     className,
 }: Props) {
+    const { t } = useLaravelReactI18n();
     const kind = fileKind(file);
     const details = (
         <>
@@ -174,7 +177,7 @@ export default function FileRow({
             ) : (
                 <span className="flex flex-wrap items-center gap-1.5">
                     <Badge variant="secondary" size="sm">
-                        {kind.label}
+                        {t(kind.label, { extension: file.extension })}
                     </Badge>
                     {file.size !== null && (
                         <Badge variant="outline" size="sm">

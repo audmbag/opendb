@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { PlusIcon, XIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Button from '@/components/form/button';
@@ -52,6 +53,7 @@ function FilterRow({
     onRemove: () => void;
     autoFocus: boolean;
 }) {
+    const { t } = useLaravelReactI18n();
     const column = columns.find((item) => item.name === filter.column);
     const [value, setValue] = useState(filter.value ?? '');
     const [syncedValue, setSyncedValue] = useState(filter.value);
@@ -83,18 +85,18 @@ function FilterRow({
     );
     const placeholder =
         filter.operator === 'in'
-            ? 'valeur, autre valeur'
+            ? t('tables.filters.placeholders.in')
             : column?.kind === 'date'
-              ? 'AAAA-MM-JJ'
+              ? t('tables.filters.placeholders.date')
               : column?.kind === 'boolean'
-                ? '1 ou 0'
-                : 'Valeur';
+                ? t('tables.filters.placeholders.boolean')
+                : t('common.value');
 
     return (
         <li className="flex flex-wrap items-center gap-2">
             <NativeSelect
                 size="sm"
-                aria-label="Colonne"
+                aria-label={t('ai.profile.headers.column')}
                 value={filter.column}
                 onChange={(event) => {
                     const next = columns.find(
@@ -125,7 +127,7 @@ function FilterRow({
 
             <NativeSelect
                 size="sm"
-                aria-label="Comparaison"
+                aria-label={t('tables.filters.comparison')}
                 value={filter.operator}
                 onChange={(event) => {
                     const operator = event.target.value as FilterOperator;
@@ -143,7 +145,7 @@ function FilterRow({
                         key={operator.value}
                         value={operator.value}
                     >
-                        {operator.label}
+                        {t(operator.label)}
                     </NativeSelectOption>
                 ))}
             </NativeSelect>
@@ -159,7 +161,7 @@ function FilterRow({
                         }
                     }}
                     placeholder={placeholder}
-                    aria-label="Valeur"
+                    aria-label={t('common.value')}
                     className="h-8 w-56 min-w-0 rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
                 />
             )}
@@ -168,7 +170,7 @@ function FilterRow({
                 variant="ghost"
                 size="icon-sm"
                 onClick={onRemove}
-                aria-label="Retirer le filtre"
+                aria-label={t('tables.filters.remove')}
             >
                 <XIcon />
             </Button>
@@ -208,6 +210,7 @@ export default function FilterBar({
     onChange,
     onDismissExplanation,
 }: Props) {
+    const { t } = useLaravelReactI18n();
     const add = () => onChange([...filters, createFilter(columns)], match);
 
     if (filters.length === 0 && !explanation) {
@@ -224,27 +227,27 @@ export default function FilterBar({
                         onClick={onDismissExplanation}
                         className="shrink-0 text-xs underline-offset-4 hover:text-foreground hover:underline"
                     >
-                        Masquer
+                        {t('tables.filters.hide')}
                     </button>
                 </p>
             )}
 
             {filters.length > 1 && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    Lignes qui respectent
+                    {t('tables.filters.rows_matching')}
                     <NativeSelect
                         size="sm"
-                        aria-label="Combinaison des filtres"
+                        aria-label={t('tables.filters.combination')}
                         value={match}
                         onChange={(event) =>
                             onChange(filters, event.target.value as FilterMatch)
                         }
                     >
                         <NativeSelectOption value="all">
-                            tous les filtres
+                            {t('tables.filters.all')}
                         </NativeSelectOption>
                         <NativeSelectOption value="any">
-                            au moins un filtre
+                            {t('tables.filters.any')}
                         </NativeSelectOption>
                     </NativeSelect>
                 </div>
@@ -286,7 +289,7 @@ export default function FilterBar({
             <div className="flex items-center gap-2">
                 <Button variant="ghost" size="sm" onClick={add}>
                     <PlusIcon />
-                    Ajouter un filtre
+                    {t('tables.filters.add')}
                 </Button>
                 {filters.length > 0 && (
                     <Button
@@ -295,7 +298,7 @@ export default function FilterBar({
                         className="text-muted-foreground"
                         onClick={() => onChange([], 'all')}
                     >
-                        Tout retirer
+                        {t('tables.filters.remove_all')}
                     </Button>
                 )}
             </div>

@@ -5,6 +5,10 @@ export interface AiModel {
     label: string;
     active: boolean;
     context_window: number;
+    /**
+     * What the model reads, like `text` and `image`, when its provider tells it. An empty or missing list is not known.
+     */
+    modalities?: string[];
 }
 
 export interface Provider extends BaseModel {

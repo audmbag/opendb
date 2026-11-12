@@ -7,6 +7,8 @@ namespace App\Services\SqlEditor;
 use App\Database\Contracts\DriverContract;
 use App\Database\ReadOnlyQueryGuard;
 use App\Database\SelectQuery;
+use App\Enums\PrivilegeEnum;
+use App\Services\QueryConsole\StatementParameters;
 use App\Services\TableBrowser\TableBrowserManager;
 use Generator;
 use PDO;
@@ -22,22 +24,29 @@ use RuntimeException;
  */
 class QueryResultExporter
 {
-    public function __construct(private TableBrowserManager $tables) {}
+    public function __construct(
+        private TableBrowserManager $tables,
+        private StatementParameters $parameters,
+    ) {}
 
     /**
      * Run the query and return what writes its rows, once the database accepted it.
      *
+     * @param  array<string, ?string>  $bindings  the values of the `:name` parameters
      * @return callable(resource): void
      *
-     * @throws RuntimeException when the query is not a single SELECT, or the database refuses it
+     * @throws RuntimeException when the query is not a single SELECT, a parameter has no value, or the database refuses it
      */
-    public function open(DriverContract $driver, string $sql, string $format): callable
+    public function open(DriverContract $driver, string $sql, string $format, array $bindings = []): callable
     {
         if (! in_array($format, ['csv', 'json'], true)) {
             throw new RuntimeException("Format d'export inconnu : {$format}.");
         }
 
         $sql = ReadOnlyQueryGuard::assertExplainable($sql);
+        $driver->assertQueryAllowed($sql);
+        $driver->assertPrivilegeOnQuery(PrivilegeEnum::Export, $sql);
+        $bindings = $this->parameters->bindingsFor($sql, $bindings);
         $pdo = $driver->getConnection()->getPdo();
 
         // MySQL sends the whole result to PHP before the first row by default: it is read as it comes instead.
@@ -46,13 +55,18 @@ class QueryResultExporter
         }
 
         try {
-            $statement = $pdo->query($sql);
+            if ($bindings === []) {
+                $statement = $pdo->query($sql);
+            } else {
+                $statement = $pdo->prepare($sql);
+                $statement->execute($bindings);
+            }
         } catch (PDOException $exception) {
             throw new RuntimeException((string) ($exception->errorInfo[2] ?? $exception->getMessage()), previous: $exception);
         }
 
         $columns = array_map(
-            fn (int $index): string => (string) ($statement->getColumnMeta($index)['name'] ?? "colonne {$index}"),
+            fn (int $index): string => (string) ($statement->getColumnMeta($index)['name'] ?? __('tables.console.column_number', ['number' => $index])),
             range(0, max(0, $statement->columnCount() - 1)),
         );
 

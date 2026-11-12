@@ -17,9 +17,8 @@ class ShowSchemaDiagram extends BaseTool implements Tool
 
     public function description(): Stringable|string
     {
-        return 'Affiche un diagramme visuel du schéma de la base de données dans l\'interface, sous forme '
-            .'d\'artefact. Ce tool ne renvoie AUCUNE donnée à analyser : utilise-le uniquement quand '
-            .'l\'utilisateur demande explicitement à VOIR un diagramme ou un schéma visuel.';
+        return 'Displays a visual diagram of the database schema in the interface, as an artifact. This tool returns '
+            .'NO data to analyze: only use it when the user explicitly asks to SEE a diagram or a visual schema.';
     }
 
     public function handle(Request $request): Stringable|string
@@ -39,11 +38,11 @@ class ShowSchemaDiagram extends BaseTool implements Tool
     {
         return [
             'focusedTable' => $schema->object(fn ($schema) => [
-                'tableName' => $schema->string()->required()->description('Le nom de la table cible.'),
-                'withRelatedTables' => $schema->boolean()->required()->description('Indique si les tables liées par clé étrangère dans les deux sens doivent aussi apparaître dans le diagramme.'),
+                'tableName' => $schema->string()->required()->description('The name of the target table.'),
+                'withRelatedTables' => $schema->boolean()->required()->description('Whether the tables related by a foreign key, in both directions, must also appear in the diagram.'),
             ])
                 ->nullable()
-                ->description('Un objet nullable qui, s\'il est renseigné, indique que le diagramme doit être centré sur une seule table. Laisse-le à null pour afficher le diagramme complet de la base.'),
+                ->description('A nullable object which, when set, centers the diagram on a single table. Leave it null to display the complete diagram of the database.'),
         ];
     }
 
@@ -59,11 +58,11 @@ class ShowSchemaDiagram extends BaseTool implements Tool
         }
 
         if (! isset($focusedTable['tableName'])) {
-            throw new RuntimeException('Si `focusedTable` est renseigné, il doit contenir la clé `tableName` avec le nom exact de la table cible.');
+            throw new RuntimeException('When `focusedTable` is set, it must hold the `tableName` key with the exact name of the target table.');
         }
 
         if (! isset($focusedTable['withRelatedTables'])) {
-            throw new RuntimeException('Si `focusedTable` est renseigné avec un `tableName`, il doit aussi contenir la clé `withRelatedTables` avec une valeur booléenne.');
+            throw new RuntimeException('When `focusedTable` is set with a `tableName`, it must also hold the `withRelatedTables` key with a boolean value.');
         }
 
         $table = $focusedTable['tableName'];

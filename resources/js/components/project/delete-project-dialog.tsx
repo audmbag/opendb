@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { Trash2Icon } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
@@ -36,6 +37,7 @@ export default function DeleteProjectDialog({
     processing = false,
     error,
 }: Props) {
+    const { t } = useLaravelReactI18n();
     const [typedName, setTypedName] = useState('');
 
     const canDelete = typedName === projectName && !processing;
@@ -73,14 +75,13 @@ export default function DeleteProjectDialog({
                         <AlertDialogMedia className="size-10 bg-destructive/10 text-destructive dark:bg-destructive/20">
                             <Trash2Icon className="size-5" />
                         </AlertDialogMedia>
-                        <AlertDialogTitle>Supprimer le projet</AlertDialogTitle>
+                        <AlertDialogTitle>{t('projects.delete.title')}</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Ses conversations et la mémoire de l'agent seront
-                            supprimées définitivement. Saisissez{' '}
+                            {t('projects.delete.description_before')}{' '}
                             <strong className="font-medium text-foreground select-all">
                                 {projectName}
                             </strong>{' '}
-                            pour confirmer.
+                            {t('projects.delete.description_after')}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <div className="px-4 pb-4">
@@ -88,7 +89,7 @@ export default function DeleteProjectDialog({
                             name="name"
                             autoComplete="off"
                             placeholder={projectName}
-                            aria-label="Nom du projet à supprimer"
+                            aria-label={t('projects.delete.name_label')}
                             value={typedName}
                             onChange={(event) =>
                                 setTypedName(event.target.value)
@@ -102,7 +103,7 @@ export default function DeleteProjectDialog({
                             disabled={processing}
                             onClick={() => changeOpen(false)}
                         >
-                            Annuler
+                            {t('common.cancel')}
                         </Button>
                         <Button
                             type="submit"
@@ -110,7 +111,7 @@ export default function DeleteProjectDialog({
                             processing={processing}
                             disabled={!canDelete}
                         >
-                            Supprimer
+                            {t('common.delete')}
                         </Button>
                     </AlertDialogFooter>
                 </form>

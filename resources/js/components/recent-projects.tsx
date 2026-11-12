@@ -1,4 +1,5 @@
 import { Deferred, usePage } from '@inertiajs/react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     FolderOpenIcon,
     FolderPlusIcon,
@@ -10,6 +11,7 @@ import ProjectItem, {
     ProjectItemSkeleton,
 } from '@/components/project/project-item';
 import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/reui/frame";
+import { usePrivileges } from '@/hooks/use-privileges';
 import { useProjectModal } from '@/hooks/use-project-modal';
 import type { Project } from '@/types/models/project';
 import CreateProjectModal from "./modals/create-project-modal";
@@ -17,24 +19,26 @@ import CreateProjectModal from "./modals/create-project-modal";
 
 
 export function RecentProjects() {
+    const { t } = useLaravelReactI18n();
 
     const { props: { recentProjects, projectCount } } = usePage<{recentProjects: Project[], projectCount: number}>();
 
     const { setOpen } = useProjectModal()
+    const canCreate = usePrivileges().can('create_project');
 
     return (
         <>
             <CreateProjectModal />
             <Frame className="w-full">
-                {!!projectCount && (
+                {!!projectCount && canCreate && (
                     <FrameHeader className="flex flex-row items-center justify-between">
-                        <FrameTitle>Projet récents</FrameTitle>
+                        <FrameTitle>{t('projects.recent')}</FrameTitle>
                         <div>
                             <Button
                                 onClick={() => setOpen(true)}
                                 icon={FolderPlusIcon}
                             >
-                                Créer un projet
+                                {t('projects.create')}
                             </Button>
                         </div>
                     </FrameHeader>
@@ -50,16 +54,16 @@ export function RecentProjects() {
                     ) : (
                         <FramePanel>
                             <EmptyState
-                                title="Aucun projet récent trouvé"
-                                description="Vous n'avez pas encore ouvert de projet. Créez un nouveau projet pour commencer."
+                                title={t('projects.no_recent')}
+                                description={canCreate ? t('projects.no_recent_description') : t('projects.no_accessible_project_description')}
                                 icon={FolderOpenIcon}
-                                actions={[
+                                actions={canCreate ? [
                                     {
-                                        label: 'Créer un projet',
+                                        label: t('projects.create'),
                                         onClick: () => setOpen(true),
                                         icon: FolderPlusIcon,
                                     },
-                                ]}
+                                ] : []}
                             />
                         </FramePanel>
                     )}

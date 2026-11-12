@@ -6,6 +6,7 @@ use App\Ai\Enums\MailRecipientActionEnum;
 use App\Models\MailRecipient;
 use App\Models\User;
 use App\Repository\MailRecipientRepository;
+use App\Support\TranslatableMessage;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Approvals\Approval;
 use Laravel\Ai\Concerns\InteractsWithApprovals;
@@ -26,11 +27,11 @@ class ManageMailRecipients implements Approvable, Tool
 
     public function description(): Stringable|string
     {
-        return 'Gère la liste des destinataires autorisés à recevoir un mail via `SendMail`. '
-            .'Le paramètre `action` vaut `list` (lister les destinataires), `add` (ajouter `email`, avec un `name` facultatif) '
-            .'ou `remove` (retirer `email`). L\'ajout et le retrait demandent l\'autorisation de l\'utilisateur, '
-            .'sauf si l\'adresse est déjà autorisée (ajout) ou absente de la liste (retrait) : le tool te répond alors directement, '
-            .'transmets simplement sa réponse à l\'utilisateur.';
+        return 'Manages the list of the recipients allowed to receive a mail through `SendMail`. '
+            .'The `action` parameter is `list` (list the recipients), `add` (add `email`, with an optional `name`) '
+            .'or `remove` (remove `email`). Adding and removing ask for the permission of the user, '
+            .'unless the address is already allowed (add) or missing from the list (remove): the tool then answers you directly, '
+            .'simply pass its answer on to the user.';
     }
 
     public function handle(Request $request): Stringable|string
@@ -39,11 +40,11 @@ class ManageMailRecipients implements Approvable, Tool
         $email = $request->string('email')->trim()->toString();
 
         if ($action === null) {
-            return 'Action inconnue : utilise `list`, `add` ou `remove`.';
+            return 'Unknown action: use `list`, `add` or `remove`.';
         }
 
         if ($action->requiresEmail() && $email === '') {
-            return "Le paramètre `email` est obligatoire pour l'action `{$action->value}`.";
+            return "The `email` parameter is required for the `{$action->value}` action.";
         }
 
         try {
@@ -63,16 +64,16 @@ class ManageMailRecipients implements Approvable, Tool
             'action' => $schema->string()
                 ->enum(array_column(MailRecipientActionEnum::cases(), 'value'))
                 ->required()
-                ->description("L'opération à effectuer : list, add ou remove."),
+                ->description('The operation to run: list, add or remove.'),
             'email' => $schema->string()
-                ->description('Adresse du destinataire (requise pour add et remove).'),
+                ->description('Address of the recipient (required for add and remove).'),
             'name' => $schema->string()
-                ->description('Nom du destinataire (facultatif, pour add).'),
+                ->description('Name of the recipient (optional, for add).'),
         ];
     }
 
     /**
-     * Seul un ajout ou un retrait qui modifie réellement la liste demande l'autorisation : sinon le tool répond directement.
+     * Only an addition or a removal that really changes the list asks for permission: otherwise the tool answers directly.
      */
     protected function needsApproval(Request $request): Approval|bool
     {
@@ -85,9 +86,9 @@ class ManageMailRecipients implements Approvable, Tool
         return match ($request->enum('action', MailRecipientActionEnum::class)) {
             MailRecipientActionEnum::Add => $this->recipients->isAllowed($this->user, $email)
                 ? false
-                : Approval::required("Autoriser l'envoi de mails à « {$email} » ?"),
+                : Approval::required((new TranslatableMessage('ai.approvals.add_recipient', ['email' => $email]))->toJson()),
             MailRecipientActionEnum::Remove => $this->recipients->isListed($this->user, $email)
-                ? Approval::required("Retirer « {$email} » des destinataires autorisés ?")
+                ? Approval::required((new TranslatableMessage('ai.approvals.remove_recipient', ['email' => $email]))->toJson())
                 : false,
             default => false,
         };
@@ -101,23 +102,23 @@ class ManageMailRecipients implements Approvable, Tool
         $lines = $recipients->map(fn (MailRecipient $recipient): string => '- '.$recipient->email.($recipient->name ? " ({$recipient->name})" : ''));
 
         if ($sender !== null) {
-            $lines->prepend("- {$sender} (adresse d'expéditeur de l'utilisateur, toujours autorisée)");
+            $lines->prepend("- {$sender} (sender address of the user, always allowed)");
         }
 
-        return $lines->isEmpty() ? 'Aucun destinataire autorisé.' : "Destinataires autorisés :\n".$lines->implode("\n");
+        return $lines->isEmpty() ? 'No allowed recipient.' : "Allowed recipients:\n".$lines->implode("\n");
     }
 
     protected function add(string $email, string $name): string
     {
         $recipient = $this->recipients->add($this->user, $email, $name);
 
-        return "« {$recipient->email} » fait maintenant partie des destinataires autorisés.";
+        return "\"{$recipient->email}\" is now one of the allowed recipients.";
     }
 
     protected function remove(string $email): string
     {
         $this->recipients->remove($this->user, $email);
 
-        return "« {$email} » ne fait plus partie des destinataires autorisés.";
+        return "\"{$email}\" is no longer one of the allowed recipients.";
     }
 }

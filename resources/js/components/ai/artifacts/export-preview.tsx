@@ -1,10 +1,11 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { DownloadIcon } from 'lucide-react';
 import { useConversationId } from '@/components/ai/artifacts/format';
 import FileRow, { fileExtension } from '@/components/ai/file-row';
 import { Badge } from '@/components/reui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { ExportDatabaseToolUIPart, ExportFormat } from '@/types/agent';
+import type { ExportDatabaseToolUIPart } from '@/types/agent';
 import { download } from '@/wayfinder/actions/App/Http/Controllers/Chat/ToolArtifactController';
 
 type Props = {
@@ -16,12 +17,8 @@ type Props = {
     className?: string;
 };
 
-const FORMAT_LABELS: Record<ExportFormat, string> = {
-    sql: 'Dump SQL',
-    csv: 'CSV',
-};
-
 export default function ExportPreview({ part, enabled, className }: Props) {
+    const { t, tChoice } = useLaravelReactI18n();
     const conversationId = useConversationId();
 
     if (!part.output?.success) {
@@ -46,16 +43,16 @@ export default function ExportPreview({ part, enabled, className }: Props) {
                 badges={
                     <>
                         <Badge variant="outline" size="sm">
-                            {FORMAT_LABELS[format]}
+                            {t(`exports.short_formats.${format}`)}
                         </Badge>
                         {tables === 'query' && (
                             <Badge variant="success-light" size="sm">
-                                {rows ?? 0} {rows === 1 ? 'ligne' : 'lignes'}
+                                {tChoice('tables.counts.rows', rows ?? 0)}
                             </Badge>
                         )}
                         {tables === 'all' && (
                             <Badge variant="success-light" size="sm">
-                                Toutes les tables
+                                {t('exports.all_tables')}
                             </Badge>
                         )}
                         {Array.isArray(tables) &&
@@ -84,12 +81,12 @@ export default function ExportPreview({ part, enabled, className }: Props) {
                             download={fileName}
                         >
                             <DownloadIcon />
-                            Télécharger
+                            {t('common.download')}
                         </a>
                     ) : (
                         <Button variant="outline" size="sm" disabled>
                             <DownloadIcon />
-                            Télécharger
+                            {t('common.download')}
                         </Button>
                     )
                 }

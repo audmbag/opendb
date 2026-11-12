@@ -1,11 +1,13 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { memo, useCallback, useEffect, useRef } from 'react';
 import Alert from '@/components/alert';
 import DatabaseIconHelper from '@/components/database-icon-helper';
+import { Spinner } from '@/components/spinner';
 import { Field, FieldContent, FieldLabel, FieldTitle } from '@/components/ui/field';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Spinner } from '@/components/ui/spinner';
 import { useDriverConfig } from '@/hooks/use-driver-config';
-import { DefaultDrivers, Driver } from '@/types/databases';
+import type { Driver } from '@/types/databases';
+import { DefaultDrivers } from '@/types/databases';
 
 type Props = {
     selectedDriver?: string;
@@ -15,6 +17,7 @@ type Props = {
 };
 
 const DatabaseDriverSelector = memo(({ exists, defaultSelected, selectedDriver, onDriverChange }: Props) => {
+    const { t } = useLaravelReactI18n();
 
     const { drivers, loadDrivers, loadDriversRequest } = useDriverConfig();
 
@@ -46,8 +49,8 @@ const DatabaseDriverSelector = memo(({ exists, defaultSelected, selectedDriver, 
                     {exists && (
                         <Alert
                             variant="warning"
-                            title="Attention"
-                            message="La modification d'une base de données déjà utilisée par l'agent peut entrainer la confusion, préférez créer un nouveau projet avec une nouvelle base de donnés."
+                            title={t('common.warning')}
+                            message={t('projects.form.change_database_warning')}
                         />
                     )}
                     <RadioGroup

@@ -6,6 +6,7 @@ namespace App\Services\QueryPlan;
 
 use App\Services\QueryPlan\Data\Plan;
 use App\Services\QueryPlan\Data\PlanNode;
+use App\Support\TranslatableMessage;
 
 /**
  * Les phrases d'explication et les lignes du panneau de détail de chaque étape, écrites à partir de modèles
@@ -24,59 +25,73 @@ final class PlanExplainer
         }
     }
 
-    private function explanation(Plan $plan, PlanNode $node): string
+    /**
+     * @return list<TranslatableMessage>
+     */
+    private function explanation(Plan $plan, PlanNode $node): array
     {
         $engine = $plan->engine;
-        $covering = ($node->facts['covering'] ?? false) ? " L'index contient toutes les colonnes nécessaires : la table elle-même n'est jamais lue." : '';
         $key = $node->facts['key'] ?? null;
         $inputRows = $plan->inputRows($node) ?? $node->estimatedRows;
         $parent = $plan->parent($node);
+        $index = $node->index ?? '';
+        $message = fn (string $key, array $params = []): TranslatableMessage => new TranslatableMessage("query_plan.explanations.{$key}", ['engine' => $engine, ...$params]);
+        $keyParam = fn (string $fallback): string|TranslatableMessage => $key ?? new TranslatableMessage("query_plan.explanations.{$fallback}");
 
         $sentence = match ($node->operation) {
             PlanOperation::Result => $plan->totals()['alerts']['danger'] + $plan->totals()['alerts']['warn'] > 0
-                ? 'Les lignes produites par les étapes ci-dessous sont renvoyées. Les étapes signalées sont celles à améliorer en priorité.'
-                : 'Les lignes produites par les étapes ci-dessous sont renvoyées. Aucune étape coûteuse n\'a été détectée.',
+                ? $message('result_with_alerts')
+                : $message('result'),
             PlanOperation::FullScan => match (true) {
-                $this->hasAlert($node, 'JOIN_WITHOUT_INDEX') => "Pour chaque ligne de l'étape précédente, {$engine} relit toute la table {$node->table} : aucun index ne permet d'aller directement aux lignes qui correspondent à la jointure.",
-                $this->hasAlert($node, 'FULL_SCAN') => "{$engine} lit ".($node->rowsExamined === null ? 'toutes les' : 'les '.PlanFormat::rows($node->rowsExamined)).' lignes de la table une par une, puis garde celles qui respectent le filtre. Aucun index ne permet d\'aller directement aux lignes utiles.',
-                $parent?->operation === PlanOperation::Hash => 'Lecture complète normale : toute la table sert à construire la table de hachage. Aucun filtre n\'est appliqué, donc rien n\'est lu pour rien.',
-                default => 'Lecture complète normale : toute la table est nécessaire à l\'étape suivante.',
+                $this->hasAlert($node, 'JOIN_WITHOUT_INDEX') => $message('full_scan_join', ['table' => (string) $node->table]),
+                $this->hasAlert($node, 'FULL_SCAN') => $node->rowsExamined === null
+                    ? $message('full_scan_filter_all')
+                    : $message('full_scan_filter', ['rows' => TranslatableMessage::number($node->rowsExamined, 'rows')]),
+                $parent?->operation === PlanOperation::Hash => $message('full_scan_hash'),
+                default => $message('full_scan'),
             },
-            PlanOperation::IndexFullScan => "{$engine} parcourt tout l'index ".($node->index ?? '').' au lieu de la table : c\'est plus léger qu\'un parcours complet, mais toutes ses entrées sont lues.'.$covering,
-            PlanOperation::RangeScan => "{$engine} descend dans l'index ".($node->index ?? '')." jusqu'au début de l'intervalle et ne lit que les lignes utiles.".$covering,
-            PlanOperation::IndexLookup => "{$engine} utilise l'index ".($node->index ?? '').' pour aller directement aux lignes qui ont la valeur cherchée.'.$covering,
-            PlanOperation::UniqueLookup => "{$engine} trouve au plus une ligne grâce à l'index unique ".($node->index ?? '').'.',
-            PlanOperation::NestedLoop => "Pour chaque ligne de la première entrée, {$engine} cherche les lignes correspondantes dans la seconde.",
-            PlanOperation::HashJoin => "{$engine} construit une table de hachage avec une des entrées, puis y associe chaque ligne de l'autre.",
-            PlanOperation::MergeJoin => 'Les deux entrées, triées sur la clé de jointure, sont parcourues ensemble.',
-            PlanOperation::Hash => 'Les lignes '.($node->table === null ? '' : "de {$node->table} ").'sont chargées en mémoire, indexées par la clé de jointure.',
+            PlanOperation::IndexFullScan => $message('index_full_scan', ['index' => $index]),
+            PlanOperation::RangeScan => $message('range_scan', ['index' => $index]),
+            PlanOperation::IndexLookup => $message('index_lookup', ['index' => $index]),
+            PlanOperation::UniqueLookup => $message('unique_lookup', ['index' => $index]),
+            PlanOperation::NestedLoop => $message('nested_loop'),
+            PlanOperation::HashJoin => $message('hash_join'),
+            PlanOperation::MergeJoin => $message('merge_join'),
+            PlanOperation::Hash => $node->table === null ? $message('hash') : $message('hash_table', ['table' => $node->table]),
             PlanOperation::Group => match (true) {
-                $node->facts['temporary'] ?? false => "Les lignes arrivent sans ordre particulier. {$engine} les range dans une table temporaire pour regrouper par ".($key ?? 'la clé de regroupement').'.',
-                ($node->facts['strategy'] ?? null) === 'Hashed' => "{$engine} regroupe les lignes par ".($key ?? 'la clé').' dans une table de hachage en mémoire.',
-                $key === null => "{$engine} calcule les agrégats sur l'ensemble des lignes.",
-                default => "Les lignes arrivent déjà dans l'ordre de {$key} : {$engine} les regroupe au fil de la lecture.",
+                $node->facts['temporary'] ?? false => $message('group_temporary', ['key' => $keyParam('group_key')]),
+                ($node->facts['strategy'] ?? null) === 'Hashed' => $message('group_hashed', ['key' => $keyParam('key')]),
+                $key === null => $message('group_all'),
+                default => $message('group_ordered', ['key' => $key]),
             },
-            PlanOperation::Sort => ($inputRows === null ? 'Les lignes' : 'Les '.PlanFormat::rows($inputRows).' lignes').' sont triées par '.($key ?? 'la clé de tri').' avant d\'être renvoyées. Un index qui commence par les colonnes du filtre puis '.($key ?? 'la clé de tri').' fournirait les lignes déjà dans l\'ordre.',
-            PlanOperation::Distinct => "{$engine} élimine les lignes en double".(($node->facts['temporary'] ?? false) ? ' à l\'aide d\'une table temporaire.' : '.'),
-            PlanOperation::Limit => "{$engine} s'arrête après les ".($node->facts['limit'] ?? $node->estimatedRows ?? '').' premières lignes.',
-            PlanOperation::Subquery => ($node->facts['dependent'] ?? false)
-                ? "Cette sous-requête dépend de la ligne en cours : {$engine} la recalcule pour chaque ligne de la requête principale."
-                : 'Cette sous-requête est calculée une fois, puis son résultat est réutilisé.',
-            PlanOperation::Materialize => 'Le résultat de cette étape est calculé une fois et stocké temporairement pour être relu.',
-            PlanOperation::Union => 'Les résultats de plusieurs requêtes sont mis bout à bout.',
-            PlanOperation::Other => "Étape « {$node->label} » du moteur, sans équivalent dans les catégories connues.",
+            PlanOperation::Sort => $inputRows === null
+                ? $message('sort', ['key' => $keyParam('sort_key')])
+                : $message('sort_rows', ['rows' => TranslatableMessage::number($inputRows, 'rows'), 'key' => $keyParam('sort_key')]),
+            PlanOperation::Distinct => ($node->facts['temporary'] ?? false) ? $message('distinct_temporary') : $message('distinct'),
+            PlanOperation::Limit => $message('limit', ['limit' => (string) ($node->facts['limit'] ?? $node->estimatedRows ?? '')]),
+            PlanOperation::Subquery => ($node->facts['dependent'] ?? false) ? $message('dependent_subquery') : $message('subquery'),
+            PlanOperation::Materialize => $message('materialize'),
+            PlanOperation::Union => $message('union'),
+            PlanOperation::Other => $message('other', ['label' => $node->label]),
         };
 
-        return $sentence.$this->comparisonSentence($plan, $node);
+        $covering = in_array($node->operation, [PlanOperation::IndexFullScan, PlanOperation::RangeScan, PlanOperation::IndexLookup], true)
+            && ($node->facts['covering'] ?? false);
+
+        return array_values(array_filter([
+            $sentence,
+            $covering ? $message('covering') : null,
+            $this->comparisonSentence($plan, $node),
+        ]));
     }
 
     /**
      * En comparaison, ce qui a changé pour cette étape : une alerte qui reste avec moins de lignes, ou des lignes lues en moins.
      */
-    private function comparisonSentence(Plan $plan, PlanNode $node): string
+    private function comparisonSentence(Plan $plan, PlanNode $node): ?TranslatableMessage
     {
         if ($node->before === null) {
-            return '';
+            return null;
         }
 
         $remaining = array_find($node->alerts, fn (array $alert): bool => ($alert['status'] ?? null) === 'remaining');
@@ -84,23 +99,31 @@ final class PlanExplainer
         $inputBefore = $node->before['inputRows'];
 
         if ($remaining !== null && $inputRows !== null && $inputBefore !== null && $inputRows !== $inputBefore) {
-            return ' L\'alerte reste, mais l\'étape ne reçoit plus que '.PlanFormat::rows($inputRows).' lignes au lieu de '.PlanFormat::rows($inputBefore).'.';
+            return new TranslatableMessage('query_plan.explanations.remaining_alert', [
+                'rows' => TranslatableMessage::number($inputRows, 'rows'),
+                'before' => TranslatableMessage::number($inputBefore, 'rows'),
+            ]);
         }
 
         if ($node->operation->isRead() && $node->rowsExamined !== null && $node->before['rowsExamined'] !== null && $node->rowsExamined !== $node->before['rowsExamined']) {
-            return ' Avant : '.PlanFormat::rows((int) $node->before['rowsExamined']).' lignes lues ('.mb_strtolower($node->before['label']).').';
+            return new TranslatableMessage('query_plan.explanations.rows_before', [
+                'rows' => TranslatableMessage::number((int) $node->before['rowsExamined'], 'rows'),
+                'step' => TranslatableMessage::from($node->before['label']),
+            ]);
         }
 
-        return '';
+        return null;
     }
 
     /**
      * @param  array<string, mixed>  $bindings
-     * @return list<array{label: string, value: string, mono?: bool, tone?: string}>
+     * @return list<array{label: TranslatableMessage, value: string|TranslatableMessage, mono?: bool, tone?: string}>
      */
     private function details(Plan $plan, PlanNode $node, array $bindings): array
     {
         $before = $node->before;
+        $label = fn (string $key): TranslatableMessage => new TranslatableMessage("query_plan.details.{$key}");
+        $none = new TranslatableMessage('query_plan.details.none');
 
         if ($node->operation === PlanOperation::Result) {
             $totals = $plan->totals();
@@ -108,12 +131,12 @@ final class PlanExplainer
             $improved = $before !== null && $before['cost'] !== null && $node->cost !== null && $node->cost < $before['cost'];
 
             return array_values(array_filter([
-                $node->cost === null ? null : ['label' => 'Coût total', 'value' => PlanFormat::cost($node->cost), ...($improved ? ['tone' => 'good'] : [])],
-                $before === null || $before['cost'] === null ? null : ['label' => 'Avant', 'value' => PlanFormat::cost((float) $before['cost'])],
-                ['label' => 'Étapes', 'value' => (string) count($plan->nodes)],
-                ['label' => 'Alertes', 'value' => (string) $alerts],
+                $node->cost === null ? null : ['label' => $label('total_cost'), 'value' => $this->number($node->cost, 'decimal'), ...($improved ? ['tone' => 'good'] : [])],
+                $before === null || $before['cost'] === null ? null : ['label' => $label('before'), 'value' => $this->number((float) $before['cost'], 'decimal')],
+                ['label' => $label('steps'), 'value' => (string) count($plan->nodes)],
+                ['label' => $label('alerts'), 'value' => (string) $alerts],
                 ...array_map(
-                    fn (string $name, mixed $value): array => ['label' => 'Paramètre', 'value' => ':'.$name.' = '.(is_scalar($value) || $value === null ? var_export($value, true) : json_encode($value)), 'mono' => true],
+                    fn (string $name, mixed $value): array => ['label' => $label('parameter'), 'value' => ':'.$name.' = '.(is_scalar($value) || $value === null ? var_export($value, true) : json_encode($value)), 'mono' => true],
                     array_keys($bindings),
                     $bindings,
                 ),
@@ -126,34 +149,41 @@ final class PlanExplainer
             $alert = $node->hasAlert('danger');
 
             return array_values(array_filter([
-                isset($node->facts['accessType']) ? ['label' => 'Accès', 'value' => (string) $node->facts['accessType'], 'mono' => true, ...($alert ? ['tone' => 'danger'] : [])] : null,
-                $possibleKeys === null ? null : ['label' => 'Index possibles', 'value' => $possibleKeys === [] ? 'aucun' : implode(', ', $possibleKeys), 'mono' => $possibleKeys !== []],
-                ['label' => 'Index utilisé', 'value' => $node->index ?? 'aucun', 'mono' => $node->index !== null],
-                $node->rowsExamined === null ? null : ['label' => 'Lignes examinées', 'value' => PlanFormat::rows($node->rowsExamined).$this->rowsBefore($before['rowsExamined'] ?? null)],
-                $node->estimatedRows === null || $node->estimatedRows === $node->rowsExamined ? null : ['label' => 'Lignes conservées', 'value' => PlanFormat::rows($node->estimatedRows).(is_float($filtered) ? ' ('.number_format($filtered, 2, ',', ' ').' %)' : '')],
+                isset($node->facts['accessType']) ? ['label' => $label('access'), 'value' => (string) $node->facts['accessType'], 'mono' => true, ...($alert ? ['tone' => 'danger'] : [])] : null,
+                $possibleKeys === null ? null : ['label' => $label('possible_keys'), 'value' => $possibleKeys === [] ? $none : implode(', ', $possibleKeys), 'mono' => $possibleKeys !== []],
+                ['label' => $label('used_index'), 'value' => $node->index ?? $none, 'mono' => $node->index !== null],
+                $node->rowsExamined === null ? null : ['label' => $label('rows_examined'), 'value' => $this->rowsWithBefore($node->rowsExamined, $before['rowsExamined'] ?? null)],
+                $node->estimatedRows === null || $node->estimatedRows === $node->rowsExamined ? null : ['label' => $label('rows_kept'), 'value' => is_float($filtered)
+                    ? new TranslatableMessage('query_plan.details.rows_filtered', ['rows' => TranslatableMessage::number($node->estimatedRows, 'rows'), 'share' => TranslatableMessage::number($filtered, 'decimal')])
+                    : $this->number($node->estimatedRows, 'rows')],
                 ...$this->costDetails($node),
             ]));
         }
 
         $inputRows = $plan->inputRows($node);
+        $yesNo = fn (bool $value): TranslatableMessage => new TranslatableMessage($value ? 'common.yes' : 'common.no');
 
         return array_values(array_filter([
-            isset($node->facts['temporary']) ? ['label' => 'Table temporaire', 'value' => $node->facts['temporary'] ? 'oui' : 'non'] : null,
-            isset($node->facts['filesort']) && in_array($plan->driver, ['mysql', 'mariadb'], true) ? ['label' => 'Tri à part (filesort)', 'value' => $node->facts['filesort'] ? 'oui' : 'non'] : null,
-            isset($node->facts['joinType']) ? ['label' => 'Type', 'value' => (string) $node->facts['joinType']] : null,
-            $inputRows === null ? null : ['label' => 'Lignes en entrée', 'value' => PlanFormat::rows($inputRows).$this->rowsBefore($before['inputRows'] ?? null)],
-            $node->estimatedRows === null ? null : ['label' => 'Lignes produites', 'value' => PlanFormat::rows($node->estimatedRows)],
+            isset($node->facts['temporary']) ? ['label' => $label('temporary_table'), 'value' => $yesNo((bool) $node->facts['temporary'])] : null,
+            isset($node->facts['filesort']) && in_array($plan->driver, ['mysql', 'mariadb'], true) ? ['label' => $label('filesort'), 'value' => $yesNo((bool) $node->facts['filesort'])] : null,
+            isset($node->facts['joinType']) ? ['label' => $label('type'), 'value' => (string) $node->facts['joinType']] : null,
+            $inputRows === null ? null : ['label' => $label('input_rows'), 'value' => $this->rowsWithBefore($inputRows, $before['inputRows'] ?? null)],
+            $node->estimatedRows === null ? null : ['label' => $label('output_rows'), 'value' => $this->number($node->estimatedRows, 'rows')],
             ...$this->costDetails($node),
         ]));
     }
 
     /**
-     * @return list<array{label: string, value: string, tone?: string}>
+     * @return list<array{label: TranslatableMessage, value: TranslatableMessage, tone?: string}>
      */
     private function costDetails(PlanNode $node): array
     {
+        $label = new TranslatableMessage('query_plan.details.self_cost');
+
         if ($node->selfCost === null) {
-            return $node->operation->isRead() || $node->operation === PlanOperation::Result ? [] : [['label' => 'Coût', 'value' => 'inclus dans les étapes du dessous']];
+            return $node->operation->isRead() || $node->operation === PlanOperation::Result
+                ? []
+                : [['label' => new TranslatableMessage('query_plan.details.cost'), 'value' => new TranslatableMessage('query_plan.details.cost_included')]];
         }
 
         if ($node->selfCost <= 0 && ! $node->operation->isRead()) {
@@ -161,18 +191,35 @@ final class PlanExplainer
         }
 
         $beforeCost = $node->before['selfCost'] ?? null;
-        $value = PlanFormat::cost($node->selfCost).($node->costShare === null ? '' : ' ('.PlanFormat::share($node->costShare).')');
+        $cost = TranslatableMessage::number($node->selfCost, 'decimal');
+        $value = $node->costShare === null
+            ? $this->number($node->selfCost, 'decimal')
+            : new TranslatableMessage('query_plan.details.cost_share', ['cost' => $cost, 'share' => TranslatableMessage::number($node->costShare, 'percent')]);
 
         if ($beforeCost === null || abs($beforeCost - $node->selfCost) < 0.01) {
-            return [['label' => 'Coût propre', 'value' => $value]];
+            return [['label' => $label, 'value' => $value]];
         }
 
-        return [['label' => 'Coût propre', 'value' => $value.' (avant '.PlanFormat::cost((float) $beforeCost).')', 'tone' => $node->selfCost < $beforeCost ? 'good' : 'danger']];
+        return [[
+            'label' => $label,
+            'value' => new TranslatableMessage('query_plan.details.with_before', ['value' => $value, 'before' => TranslatableMessage::number((float) $beforeCost, 'decimal')]),
+            'tone' => $node->selfCost < $beforeCost ? 'good' : 'danger',
+        ]];
     }
 
-    private function rowsBefore(?int $rows): string
+    private function rowsWithBefore(int $rows, ?int $before): TranslatableMessage
     {
-        return $rows === null ? '' : ' (avant '.PlanFormat::rows($rows).')';
+        return $before === null
+            ? $this->number($rows, 'rows')
+            : new TranslatableMessage('query_plan.details.with_before', ['value' => $this->number($rows, 'rows'), 'before' => TranslatableMessage::number($before, 'rows')]);
+    }
+
+    /**
+     * A number alone, written by the reader in its language.
+     */
+    private function number(int|float $number, string $format): TranslatableMessage
+    {
+        return new TranslatableMessage('query_plan.details.number', ['number' => TranslatableMessage::number($number, $format)]);
     }
 
     private function hasAlert(PlanNode $node, string $code): bool

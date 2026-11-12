@@ -1,9 +1,11 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { ArrowDownIcon, CopyIcon, SettingsIcon } from 'lucide-react';
 import React, { useMemo } from 'react';
 import CardFrame from '@/components/card-frame';
 import { CLONING_SWITCH_OPTIONS } from '@/components/cloning/cloning-configuration';
 import { useCloningStore } from '@/components/cloning/cloning-store';
 import type { CloningPayload } from '@/components/cloning/cloning.types';
+import { useCloningLabels } from '@/components/cloning/use-cloning-labels';
 import { DatabaseStatusBar } from '@/components/database-status-bar';
 import Button from '@/components/form/button';
 import Modal from '@/components/modals/modal';
@@ -30,16 +32,19 @@ const SummaryRow = ({ label, children }: { label: string; children: React.ReactN
 };
 
 const BooleanBadge = ({ value }: { value: boolean }) => {
+    const { t } = useLaravelReactI18n();
+
     return (
         <Badge variant={value ? 'success-light' : 'secondary'}>
-            {value ? 'Oui' : 'Non'}
+            {value ? t('common.yes') : t('common.no')}
         </Badge>
     );
 };
 
 export default function CloningConfirmationModal({ open, onOpenChange, source, payload, onConfirm }: Props) {
+    const { t } = useLaravelReactI18n();
     const drivers = useDriverStore((state) => state.drivers);
-    const strategyLabels = useCloningStore((state) => state.labels.strategies);
+    const cloningLabels = useCloningLabels();
     const cloningTables = useCloningStore((state) => state.originalPayload?.tables);
 
     const destination = useMemo(() => {
@@ -84,8 +89,8 @@ export default function CloningConfirmationModal({ open, onOpenChange, source, p
             className="h-auto"
             open={open}
             onOpenChange={onOpenChange}
-            title="Confirmer le clonage"
-            description="Vérifiez les détails du clonage avant de le lancer"
+            title={t('cloning.ui.confirm')}
+            description={t('cloning.ui.confirm_description')}
             icon={CopyIcon}
         >
             <div className="flex flex-col">
@@ -96,32 +101,32 @@ export default function CloningConfirmationModal({ open, onOpenChange, source, p
                         <DatabaseStatusBar driver_config={destination} showLabels={false} buttons={['copy', 'reconnect']} />
                     </div>
 
-                    <CardFrame title="Tables et anonymisation" innerPadding={false}>
-                        <SummaryRow label="Tables à cloner">
-                            <Badge variant="primary-light">{`${summary.cloned} sur ${summary.total}`}</Badge>
+                    <CardFrame title={t('cloning.ui.tables_and_anonymisation')} innerPadding={false}>
+                        <SummaryRow label={t('cloning.ui.tables_to_clone')}>
+                            <Badge variant="primary-light">{t('cloning.ui.count_of', { count: summary.cloned, total: summary.total })}</Badge>
                         </SummaryRow>
-                        <SummaryRow label="Tables ignorées au clonage">
+                        <SummaryRow label={t('cloning.ui.skipped_tables')}>
                             <Badge variant="secondary">{summary.ignored}</Badge>
                         </SummaryRow>
-                        <SummaryRow label="Tables accessibles à l'agent IA">
-                            <Badge variant="secondary">{`${summary.agentAccessible} sur ${summary.cloned}`}</Badge>
+                        <SummaryRow label={t('cloning.ui.agent_tables')}>
+                            <Badge variant="secondary">{t('cloning.ui.count_of', { count: summary.agentAccessible, total: summary.cloned })}</Badge>
                         </SummaryRow>
-                        <SummaryRow label="Colonnes anonymisées">
+                        <SummaryRow label={t('cloning.ui.anonymised_columns')}>
                             {summary.strategies.map(([strategy, count]) => (
                                 <Badge key={strategy} variant="outline">
-                                    {`${strategyLabels[strategy] ?? strategy} : ${count}`}
+                                    {t('cloning.ui.strategy_count', { strategy: cloningLabels.strategy(strategy), count })}
                                 </Badge>
                             ))}
                             <Badge variant="secondary">{summary.anonymisedColumns}</Badge>
                         </SummaryRow>
                     </CardFrame>
 
-                    <CardFrame title="Options de configuration" innerPadding={false}>
-                        <SummaryRow label="Créer la base de données si elle n'existe pas">
+                    <CardFrame title={t('cloning.ui.configuration_options')} innerPadding={false}>
+                        <SummaryRow label={t('projects.form.create_database')}>
                             <BooleanBadge value={!!payload.cloningDriverConfig.create_database_if_not_exists} />
                         </SummaryRow>
                         {CLONING_SWITCH_OPTIONS.map(({ name, label }) => (
-                            <SummaryRow key={name} label={label}>
+                            <SummaryRow key={name} label={t(label)}>
                                 <BooleanBadge value={payload.options[name]} />
                             </SummaryRow>
                         ))}
@@ -134,14 +139,14 @@ export default function CloningConfirmationModal({ open, onOpenChange, source, p
                         icon={SettingsIcon}
                         onClick={() => onOpenChange?.(false)}
                     >
-                        Modifier la configuration
+                        {t('cloning.ui.edit_configuration')}
                     </Button>
                     <Button
                         icon={CopyIcon}
                         className="flex-row-reverse"
                         onClick={onConfirm}
                     >
-                        Confirmer le clonage
+                        {t('cloning.ui.confirm')}
                     </Button>
                 </div>
             </div>

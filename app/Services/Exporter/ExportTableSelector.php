@@ -42,7 +42,7 @@ class ExportTableSelector
         $unknownTables = array_filter(array_keys($onlyTables), fn (string|int $table): bool => ! $schema->hasTable((string) $table));
 
         if ($unknownTables !== []) {
-            throw new RuntimeException('Ces tables n\'existent pas dans la base de données : '.implode(', ', $unknownTables).'. Utilise le tool `ListTables` pour vérifier les noms exacts des tables disponibles.');
+            throw new RuntimeException(__('exports.errors.unknown_tables', ['tables' => implode(', ', $unknownTables)]));
         }
 
         $tables = $this->dependencyResolver->sort($schema, array_map('strval', array_keys($onlyTables)))
@@ -53,7 +53,7 @@ class ExportTableSelector
             ), $names));
 
         if (! array_any($tables, fn (TableExport $table): bool => $table->schema || $table->data)) {
-            throw new RuntimeException('Rien à exporter : chaque table demandée exclut à la fois son schéma et ses données.');
+            throw new RuntimeException(__('exports.errors.nothing_selected'));
         }
 
         return $tables;

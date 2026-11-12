@@ -31,7 +31,7 @@ class LogAgentActivity
         }
 
         return $next($step)->then(function (StepResponse $response) use ($step) {
-            Log::channel('agent-logs')->info('Réponse agent', [
+            Log::channel('agent-logs')->info('Agent answer', [
                 'mode' => $this->accessMode->value,
                 'step' => $step->number,
                 'text' => $response->text,

@@ -1,5 +1,6 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { VirtualItem } from '@tanstack/react-virtual';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     ArrowDownIcon,
     ArrowUpIcon,
@@ -55,13 +56,26 @@ type Props = {
     widths: number[];
     sorts: Sort[];
     canEditSavedRows: boolean;
+    /**
+     * Whether a saved row may be deleted, which needs DELETE rather than UPDATE: like changing it by default.
+     */
+    canDeleteSavedRows?: boolean;
     loading: boolean;
     empty: React.ReactNode;
     onSort: (column: string, additive: boolean) => void;
     onResize: (column: string, width: number, persist: boolean) => void;
     onEdit: (row: GridRow, column: TableColumn, value: CellValue) => void;
     actions: GridActions;
+    /**
+     * Called as the last rows come into view, to load the next ones, like the result of a query beyond its first page.
+     */
+    onEndReached?: () => void;
 };
+
+/**
+ * How close to the last row the next ones are asked for, so that they arrive before the user reaches the end.
+ */
+export const END_REACHED_THRESHOLD = 50;
 
 /**
  * Whether the user may change the value of the cell: never a primary key of a saved row, a generated or binary column,
@@ -96,6 +110,7 @@ function HeaderCell({
     onSort: Props['onSort'];
     onResize: Props['onResize'];
 }) {
+    const { t } = useLaravelReactI18n();
     const startResize = (event: React.PointerEvent<HTMLDivElement>) => {
         event.preventDefault();
         event.stopPropagation();
@@ -143,7 +158,7 @@ function HeaderCell({
             <button
                 type="button"
                 onClick={(event) => onSort(column.name, event.shiftKey)}
-                title={`${column.name}, ${column.db_type}${column.nullable ? ', peut être NULL' : ''}\nCliquer pour trier, Maj+clic pour ajouter un tri`}
+                title={`${column.name}, ${column.db_type}${column.nullable ? `, ${t('tables.grid.nullable')}` : ''}\n${t('tables.grid.sort_hint')}`}
                 className={cn(
                     'flex min-w-0 flex-1 items-center gap-1.5 px-2 text-left transition-colors hover:bg-muted',
                     isNumeric(column) && 'flex-row-reverse text-right',
@@ -152,13 +167,13 @@ function HeaderCell({
                 {column.primary && (
                     <KeyRoundIcon
                         className="size-3.5 shrink-0 text-warning"
-                        aria-label="Clé primaire"
+                        aria-label={t('tables.designer.columns.primary_key')}
                     />
                 )}
                 {!column.primary && column.references && (
                     <LinkIcon
                         className="size-3.5 shrink-0 text-muted-foreground"
-                        aria-label="Clé étrangère"
+                        aria-label={t('tables.list.foreign_key')}
                     />
                 )}
                 <span className="flex min-w-0 flex-col leading-tight">
@@ -268,6 +283,7 @@ const GridCell = memo(function GridCell({
         move: EditorMove,
     ) => void;
 }) {
+    const { t } = useLaravelReactI18n();
     // One number per cell, so that moving the selection renders only the cells it leaves and reaches: 0 idle, 1 selected, 2 edited.
     const status = useTableGridStore((state) =>
         state.active?.row === rowIndex && state.active.column === columnIndex
@@ -338,8 +354,8 @@ const GridCell = memo(function GridCell({
                             event.stopPropagation();
                             onFollow(row, column);
                         }}
-                        title={`Ouvrir la ligne de ${column.references!.table} (Ctrl+clic)`}
-                        aria-label={`Ouvrir la ligne de ${column.references!.table}`}
+                        title={`${t('tables.grid.open_row_of', { table: column.references!.table })} (Ctrl+${t('shortcuts.keys.click')})`}
+                        aria-label={t('tables.grid.open_row_of', { table: column.references!.table })}
                         className={cn(
                             'flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
                             isNumeric(column) ? 'ml-1' : 'ml-auto',
@@ -353,17 +369,17 @@ const GridCell = memo(function GridCell({
                     className="text-xs text-muted-foreground/70"
                     title={
                         column.default !== null
-                            ? `Valeur par défaut : ${column.default}`
+                            ? t('tables.grid.default_value', { value: column.default })
                             : undefined
                     }
                 >
                     {column.auto_increment
                         ? 'auto'
                         : column.default !== null
-                          ? 'défaut'
+                          ? t('tables.grid.default')
                           : column.nullable
                             ? 'NULL'
-                            : 'à remplir'}
+                            : t('tables.grid.to_fill')}
                 </span>
             ) : (
                 <CellContent column={column} value={value} />
@@ -414,6 +430,7 @@ function Gutter({
     onOpen: () => void;
     onToggle: (shiftKey: boolean) => void;
 }) {
+    const { t } = useLaravelReactI18n();
     const rowError = row.errors[''];
     const selected = useTableGridStore((state) => row.id in state.selected);
 
@@ -435,7 +452,7 @@ function Gutter({
                         event.preventDefault();
                         onToggle(event.shiftKey);
                     }}
-                    aria-label={`Sélectionner la ligne ${row.number ?? ''}`}
+                    aria-label={t('tables.grid.select_row', { number: row.number ?? '' })}
                     className="size-3.5"
                 />
             </span>
@@ -445,8 +462,8 @@ function Gutter({
                 title={
                     rowError ??
                     (row.state === 'inserted'
-                        ? 'Ligne ajoutée, pas encore enregistrée'
-                        : 'Voir le détail de la ligne')
+                        ? t('tables.grid.added_row')
+                        : t('tables.grid.row_detail'))
                 }
                 className={cn(
                     'flex h-full min-w-0 flex-1 items-center justify-end gap-1.5 pr-2 text-xs text-muted-foreground tabular-nums transition-colors hover:text-foreground',
@@ -462,7 +479,7 @@ function Gutter({
                 {row.state === 'saved' && row.changed.length > 0 && (
                     <span
                         className="size-1.5 rounded-full bg-warning"
-                        aria-label="Ligne modifiée"
+                        aria-label={t('tables.grid.changed_row')}
                     />
                 )}
                 {row.number ?? ''}
@@ -547,15 +564,19 @@ export default function DataGrid({
     widths,
     sorts,
     canEditSavedRows,
+    canDeleteSavedRows,
     loading,
     empty,
     onSort,
     onResize,
     onEdit,
     actions,
+    onEndReached,
 }: Props) {
     // The virtualizers keep their state in a mutable instance that the compiler would memoize away.
     'use no memo';
+
+    const { t } = useLaravelReactI18n();
 
     const scrollRef = useRef<HTMLDivElement>(null);
     const active = useTableGridStore((state) => state.active);
@@ -622,6 +643,17 @@ export default function DataGrid({
     const virtualRows = rowVirtualizer.getVirtualItems();
     const virtualColumns = columnVirtualizer.getVirtualItems();
     const totalWidth = columnVirtualizer.getTotalSize();
+    const lastShownRow = virtualRows.at(-1)?.index ?? -1;
+
+    useEffect(() => {
+        if (
+            onEndReached &&
+            rows.length > 0 &&
+            lastShownRow >= rows.length - END_REACHED_THRESHOLD
+        ) {
+            onEndReached();
+        }
+    }, [onEndReached, lastShownRow, rows.length]);
 
     const focusGrid = () => scrollRef.current?.focus({ preventScroll: true });
 
@@ -910,8 +942,8 @@ export default function DataGrid({
                                             }}
                                             aria-label={
                                                 selectedCount > 0
-                                                    ? 'Désélectionner les lignes'
-                                                    : 'Sélectionner les lignes de la page'
+                                                    ? t('tables.grid.unselect_rows')
+                                                    : t('tables.grid.select_page')
                                             }
                                             className="size-3.5"
                                         />
@@ -993,6 +1025,7 @@ export default function DataGrid({
                         canEditSavedRows,
                     )}
                     canEditSavedRows={canEditSavedRows}
+                    canDeleteSavedRows={canDeleteSavedRows}
                     actions={actions}
                     onEdit={() => {
                         startEditing();

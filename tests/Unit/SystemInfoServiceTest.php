@@ -136,6 +136,15 @@ it('falls back to the default locale when the machine locale is unknown', functi
     'garbage' => [['LANG' => '???']],
 ]);
 
+it('gives the language of the machine among the supported ones, or else the default one', function (array $environment, string $expected) {
+    expect(systemInfo(OperatingSystemEnum::LINUX, $environment)->language(['fr', 'en']))->toBe($expected);
+})->with([
+    'supported language' => [['LANG' => 'fr_FR.UTF-8'], 'fr'],
+    'supported language of another country' => [['LANG' => 'en_GB.UTF-8'], 'en'],
+    'unsupported language' => [['LANG' => 'de_DE.UTF-8'], 'en'],
+    'unknown language' => [['LANG' => 'C'], 'en'],
+]);
+
 it('detects the locale of the current machine', function () {
     expect((new SystemInfoService)->locale())->toMatch('/^[a-z]{2,3}(_([A-Z]{2}|\\d{3}))?$/');
 });

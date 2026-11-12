@@ -1,5 +1,6 @@
 import { useHttp } from '@inertiajs/react';
 import type { ToolUIPart } from 'ai';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { FilePlus2Icon, Table2Icon, TriangleAlertIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import CardFrame from '@/components/card-frame';
@@ -10,6 +11,7 @@ import RecordFormFields, {
 import type { RecordValue } from '@/components/record-form-fields';
 import { Badge } from '@/components/reui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { trans } from '@/lib/i18n';
 import type { RecordForm, RecordFormField } from '@/types/databases';
 import TableRecordController from '@/wayfinder/actions/App/Http/Controllers/Chat/TableRecordController';
 
@@ -37,6 +39,7 @@ export default function ApprovalFormRenderer({
     conversationId,
     onApprovalResponded,
 }: Props) {
+    const { t } = useLaravelReactI18n();
     const input = (part.input ?? {}) as CreateRecordInput;
     const table = input.table ?? '';
 
@@ -63,15 +66,13 @@ export default function ApprovalFormRenderer({
                     },
                     onHttpException: () => {
                         setLoadingError(
-                            `Impossible de charger la structure de la table « ${table} ».`,
+                            trans('tables.records.structure_failed', { table }),
                         );
 
                         return false;
                     },
                     onNetworkError: () => {
-                        setLoadingError(
-                            'Le serveur est injoignable, réessayez dans un instant.',
-                        );
+                        setLoadingError(trans('common.server_unreachable'));
 
                         return false;
                     },
@@ -98,9 +99,7 @@ export default function ApprovalFormRenderer({
                 {
                     onSuccess: () => respond(true),
                     onHttpException: () => {
-                        setSubmitError(
-                            "Cette demande n'attend plus de saisie : l'enregistrement n'a pas été soumis.",
-                        );
+                        setSubmitError(trans('ai.approvals.form_expired'));
 
                         return false;
                     },
@@ -114,7 +113,7 @@ export default function ApprovalFormRenderer({
             <form onSubmit={submit} className="flex flex-col gap-4">
                 <div className="flex items-center gap-2 text-sm font-medium">
                     <FilePlus2Icon className="size-4 text-green-500" />
-                    Nouvel enregistrement
+                    {t('ai.approvals.new_record')}
                     <Badge variant="secondary" size="xl">
                         <Table2Icon className="size-4 text-muted-foreground" />
                         {table}
@@ -157,14 +156,14 @@ export default function ApprovalFormRenderer({
                         onClick={() => respond(false)}
                         disabled={submitRequest.processing}
                     >
-                        Annuler
+                        {t('common.cancel')}
                     </Button>
                     <Button
                         type="submit"
                         processing={submitRequest.processing}
                         disabled={!fields}
                     >
-                        Enregistrer
+                        {t('common.save')}
                     </Button>
                 </div>
             </form>

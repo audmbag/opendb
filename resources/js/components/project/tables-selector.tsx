@@ -1,4 +1,5 @@
 import { usePage } from '@inertiajs/react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     CopyIcon,
     SparklesIcon,
@@ -35,7 +36,6 @@ export type TablesSelectorFormRef = ProjectPartFromRef<
 >;
 
 const NO_TABLES: Table[] = [];
-const plural = (count: number) => (count > 1 ? 's' : '');
 
 type TableItemProps = {
     table: Table;
@@ -50,6 +50,8 @@ const TableItem = memo(function TableItem({
     onToggleCloningIncluding,
     showHiddenSwitch = false,
 }: TableItemProps) {
+    const { t, tChoice } = useLaravelReactI18n();
+
     return (
         <div className="flex flex-wrap items-center justify-between border-b border-border p-2 last:border-b-0">
             <div className="flex items-center gap-2">
@@ -59,14 +61,14 @@ const TableItem = memo(function TableItem({
                 </div>
                 <Separator orientation="vertical" />
                 <Badge variant="secondary">
-                    {`${table.columns} colonne${plural(table.columns)}`}
+                    {tChoice('tables.counts.columns', table.columns)}
                 </Badge>
             </div>
             <div className="flex items-center gap-2">
                 {showHiddenSwitch && (
                     <div className="flex items-center">
                         <span
-                            title={`Table ${table.name} sera ${table.cloningIncludingEnabled ? 'cloné' : 'ignoré au clonage'}`}
+                            title={table.cloningIncludingEnabled ? t('projects.tables.will_be_cloned', { table: table.name }) : t('projects.tables.will_be_skipped', { table: table.name })}
                         >
                             <CopyIcon
                                 className={cn(
@@ -80,7 +82,7 @@ const TableItem = memo(function TableItem({
                         <Switch
                             className="w-auto"
                             orientation="horizontal"
-                            aria-label={`Rendre la table ${table.name} accessible`}
+                            aria-label={t('projects.tables.clone_table', { table: table.name })}
                             checked={table.cloningIncludingEnabled}
                             onCheckedChange={(checked) =>
                                 onToggleCloningIncluding(table.name, checked)
@@ -93,7 +95,7 @@ const TableItem = memo(function TableItem({
                         <Separator orientation="vertical" />
                         <div className="flex items-center">
                             <span
-                                title={`Table ${table.name} sera ${table.agentAccessEnabled ? 'accessible' : 'inaccessible'}`}
+                                title={table.agentAccessEnabled ? t('projects.tables.will_be_accessible', { table: table.name }) : t('projects.tables.will_be_inaccessible', { table: table.name })}
                             >
                                 <SparklesIcon
                                     className={cn(
@@ -107,7 +109,7 @@ const TableItem = memo(function TableItem({
                             <Switch
                                 className="w-auto"
                                 orientation="horizontal"
-                                aria-label={`Rendre la table ${table.name} accessible`}
+                                aria-label={t('projects.tables.make_accessible', { table: table.name })}
                                 checked={table.agentAccessEnabled}
                                 onCheckedChange={(checked) =>
                                     onToggleAgentAccess(table.name, checked)
@@ -122,6 +124,7 @@ const TableItem = memo(function TableItem({
 });
 
 const TablesSelector = ({ ref, showHiddenSwitch = false }: { ref?: Ref<TablesSelectorFormRef>, showHiddenSwitch?: boolean }) => {
+    const { t: translate, tChoice } = useLaravelReactI18n();
     const [search, setSearch] = useState('');
     const project = usePage<{ project?: Project }>().props.project;
 
@@ -190,22 +193,22 @@ const TablesSelector = ({ ref, showHiddenSwitch = false }: { ref?: Ref<TablesSel
         <div className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center justify-between gap-4">
                 <Input
-                    placeholder="Rechercher une table..."
+                    placeholder={translate('tables.search_table')}
                     className="w-full max-w-xs"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                 />
                 <div className="flex items-center gap-2">
-                    <Muted>{`${tables.length} table${plural(tables.length)}`}</Muted>
+                    <Muted>{tChoice('tables.counts.tables', tables.length)}</Muted>
                     <Separator orientation="vertical" />
                     <Muted>
-                        {`${agentEnabledCount} accessible${plural(agentEnabledCount)}`}
+                        {tChoice('projects.tables.accessible_count', agentEnabledCount)}
                     </Muted>
                     {showHiddenSwitch && (
                         <>
                             <Separator orientation="vertical" />
                             <Muted>
-                                {`${cloningEnabledCount} clonable${plural(cloningEnabledCount)}`}
+                                {tChoice('projects.tables.clonable_count', cloningEnabledCount)}
                             </Muted>
                         </>
                     )}
@@ -224,12 +227,12 @@ const TablesSelector = ({ ref, showHiddenSwitch = false }: { ref?: Ref<TablesSel
                     ))}
                     {filteredTables.length === 0 && (
                         <EmptyState
-                            title="Aucune table trouvée"
+                            title={translate('tables.no_table_found')}
                             icon={Table2Icon}
                             description={
                                 query
-                                    ? 'Aucune table ne correspond à votre recherche.'
-                                    : "Aucune table n'est disponible dans la base de données."
+                                    ? translate('tables.no_table_match')
+                                    : translate('tables.no_table_available')
                             }
                         />
                     )}

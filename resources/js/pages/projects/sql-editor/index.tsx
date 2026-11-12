@@ -1,26 +1,40 @@
+import { snippet } from '@codemirror/autocomplete';
 import { Head, router } from '@inertiajs/react';
 import type { EditorView } from '@uiw/react-codemirror';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     FileCodeIcon,
+    LockIcon,
     FilePlusIcon,
     LoaderCircleIcon,
     Trash2Icon,
 } from 'lucide-react';
-import { Activity, useEffect, useRef, useState } from 'react';
+import { Activity, useEffect, useMemo, useRef, useState } from 'react';
 import { useDefaultLayout } from 'react-resizable-panels';
 import { toast } from 'sonner';
 import AlertDialog from '@/components/alert-dialog';
 import { EmptyState } from '@/components/empty-state';
+import {
+    encodePath,
+    filePaths,
+    movedPath,
+    parentPath,
+} from '@/components/sql-editor/file-tree';
 import FilesPanel from '@/components/sql-editor/files-panel';
 import HistoryPanel from '@/components/sql-editor/history-panel';
+import SnippetsPanel from '@/components/sql-editor/snippets-panel';
 import SqlFileTab from '@/components/sql-editor/sql-file-tab';
-import type {
-    SaveStatus,
-    SqlFile,
-    SqlFileSummary,
-} from '@/components/sql-editor/types';
+import type { SaveStatus, SqlFile } from '@/components/sql-editor/types';
 import type { TableRequestError } from '@/components/tables/api';
 import { requestTableData } from '@/components/tables/api';
+import {
+    activeSnippets,
+    plainTemplate,
+} from '@/components/tables/console/sql-snippets';
+import type {
+    Snippet,
+    SnippetConfig,
+} from '@/components/tables/console/sql-snippets';
 import TableList from '@/components/tables/table-list';
 import TableTabs from '@/components/tables/table-tabs';
 import type { TableSummary } from '@/components/tables/types';
@@ -29,10 +43,16 @@ import {
     ResizablePanel,
     ResizablePanelGroup,
 } from '@/components/ui/resizable';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { plainIdentifier } from '@/lib/sql';
+import type { FileNode } from '@/hooks/use-file-tree';
+import { usePrivileges } from '@/hooks/use-privileges';
+import { trans, transChoice } from '@/lib/i18n';
+import { latestRowsQuery, plainIdentifier } from '@/lib/sql';
 import { cn } from '@/lib/utils';
 import type { Project } from '@/types/models/project';
+import SnippetController from '@/wayfinder/actions/App/Http/Controllers/SqlEditor/SnippetController';
 import SqlEditorQueryController from '@/wayfinder/actions/App/Http/Controllers/SqlEditor/SqlEditorQueryController';
 import SqlFileController from '@/wayfinder/actions/App/Http/Controllers/SqlEditor/SqlFileController';
 import TableAssistantController from '@/wayfinder/actions/App/Http/Controllers/Tables/TableAssistantController';
@@ -40,15 +60,27 @@ import TableAssistantController from '@/wayfinder/actions/App/Http/Controllers/T
 type Props = {
     project: Project;
     tables: TableSummary[];
-    files: SqlFileSummary[];
+    /**
+     * The folders and the .sql files of .opendb/sql, as a tree whose ids are their paths.
+     */
+    files: FileNode[];
     /**
      * The columns of each table, deferred: the editor completes only the tables until they arrive.
      */
     completion?: Record<string, string[]>;
+    /**
+     * Only reads run in the editor of the project, and their results cannot be changed.
+     */
+    readOnly: boolean;
+    /**
+     * The snippets of the project, kept in its .opendb/snippets.json.
+     */
+    snippets: SnippetConfig;
 };
 
 /**
- * A tab keeps its id when its file is renamed, so that the console keeps its results.
+ * A tab keeps its id when its file is renamed or moved, so that the console keeps its results. Its name is the path
+ * of the file in .opendb/sql.
  */
 type OpenTab = {
     id: string;
@@ -59,9 +91,9 @@ type OpenTab = {
     initial?: SqlFile;
 };
 
-type Explorer = 'files' | 'tables' | 'history';
+type Explorer = 'files' | 'tables' | 'history' | 'snippets';
 
-const EXPLORERS: Explorer[] = ['files', 'tables', 'history'];
+const EXPLORERS: Explorer[] = ['files', 'tables', 'history', 'snippets'];
 
 /**
  * Without a remembered list, the first files are opened: a project with many scripts does not read them all.
@@ -69,6 +101,11 @@ const EXPLORERS: Explorer[] = ['files', 'tables', 'history'];
 const OPENED_BY_DEFAULT = 5;
 
 const tabsKey = (projectId: string) => `opendb:sql-editor-tabs:${projectId}`;
+
+/**
+ * The file another tab of the project asks to show, like the query of a table opened from the diagram.
+ */
+const OPEN_PARAMETER = 'open';
 const explorerKey = 'opendb:sql-editor-explorer';
 
 let tabCount = 0;
@@ -83,9 +120,9 @@ const newTab = (name: string, initial?: SqlFile): OpenTab => ({
  */
 function restoreTabs(
     projectId: string,
-    files: SqlFileSummary[],
+    files: string[],
 ): { tabs: OpenTab[]; active: string | null } {
-    const names = new Set(files.map((file) => file.name));
+    const names = new Set(files);
 
     try {
         const stored = JSON.parse(
@@ -107,12 +144,14 @@ function restoreTabs(
         // Nothing remembered, or the browser refuses the storage: the first files are opened.
     }
 
-    const open = files.slice(0, OPENED_BY_DEFAULT).map((file) => file.name);
+    const open = files.slice(0, OPENED_BY_DEFAULT);
 
     return { tabs: open.map((name) => newTab(name)), active: open[0] ?? null };
 }
 
 function SaveIndicator({ status }: { status: SaveStatus | undefined }) {
+    const { t } = useLaravelReactI18n();
+
     if (status === 'saving' || status === 'pending') {
         return (
             <LoaderCircleIcon
@@ -123,8 +162,8 @@ function SaveIndicator({ status }: { status: SaveStatus | undefined }) {
                 )}
                 aria-label={
                     status === 'saving'
-                        ? 'Enregistrement…'
-                        : 'Modifications non enregistrées'
+                        ? t('sql_editor.saving')
+                        : t('sql_editor.unsaved_changes')
                 }
             />
         );
@@ -134,7 +173,7 @@ function SaveIndicator({ status }: { status: SaveStatus | undefined }) {
         return (
             <span
                 className="size-1.5 shrink-0 rounded-full bg-destructive"
-                aria-label="Non enregistré"
+                aria-label={t('sql_editor.not_saved')}
             />
         );
     }
@@ -151,10 +190,36 @@ export default function SqlEditorIndex({
     tables,
     files: initialFiles,
     completion,
+    readOnly: initialReadOnly,
+    snippets: initialSnippets,
 }: Props) {
+    const { t } = useLaravelReactI18n();
+    const [snippetConfig, setSnippetConfig] = useState(initialSnippets);
+    const [readOnly, setReadOnly] = useState(initialReadOnly);
+    const [switchingReadOnly, setSwitchingReadOnly] = useState(false);
+    // Only who manages the project may lock it or unlock it.
+    const canManageProject = usePrivileges().canOnProject('manage_project');
     const [files, setFiles] = useState(initialFiles);
+    const paths = useMemo(() => filePaths(files), [files]);
     const [{ tabs, activeId }, setOpen] = useState(() => {
-        const restored = restoreTabs(project.id, initialFiles);
+        const initialPaths = filePaths(initialFiles);
+        const restored = restoreTabs(project.id, initialPaths);
+        const requested = new URLSearchParams(window.location.search).get(
+            OPEN_PARAMETER,
+        );
+
+        if (requested && initialPaths.includes(requested)) {
+            const tab =
+                restored.tabs.find((item) => item.name === requested) ??
+                newTab(requested);
+
+            return {
+                tabs: restored.tabs.includes(tab)
+                    ? restored.tabs
+                    : [...restored.tabs, tab],
+                activeId: tab.id,
+            };
+        }
 
         return {
             tabs: restored.tabs,
@@ -163,6 +228,16 @@ export default function SqlEditorIndex({
                 null,
         };
     });
+
+    // The requested file is opened once: reloading the page gives back the remembered tabs.
+    useEffect(() => {
+        const url = new URL(window.location.href);
+
+        if (url.searchParams.has(OPEN_PARAMETER)) {
+            url.searchParams.delete(OPEN_PARAMETER);
+            window.history.replaceState(window.history.state, '', url);
+        }
+    }, []);
     const [statuses, setStatuses] = useState<Record<string, SaveStatus>>({});
     const [renaming, setRenaming] = useState<string | null>(null);
     const [creating, setCreating] = useState(false);
@@ -185,16 +260,38 @@ export default function SqlEditorIndex({
         project.driver_config?.driver?.id ??
         '';
     const tableNames = tables.map((item) => item.name);
-    const runUrl = SqlEditorQueryController.run.url({ project: project.id });
-    const exportUrl = SqlEditorQueryController.exportMethod.url({
-        project: project.id,
-    });
-    const explainUrl = SqlEditorQueryController.explain.url({
-        project: project.id,
-    });
-    const reviewUrl = TableAssistantController.reviewQuery.url({
-        project: project.id,
-    });
+    const args = { project: project.id };
+    const editor = {
+        runUrl: SqlEditorQueryController.run.url(args),
+        rowsUrl: SqlEditorQueryController.rows.url(args),
+        cancelUrl: SqlEditorQueryController.cancel.url(args),
+        exportUrl: SqlEditorQueryController.exportMethod.url(args),
+        explainUrl: SqlEditorQueryController.explain.url(args),
+        reviewUrl: TableAssistantController.reviewQuery.url(args),
+        // SQLite runs in the server itself: a query cannot be interrupted from another request.
+        canCancel: driver !== 'sqlite',
+        readOnly,
+        onRan: () => setHistoryVersion((version) => version + 1),
+    };
+
+    const changeReadOnly = async (next: boolean) => {
+        setSwitchingReadOnly(true);
+
+        try {
+            await requestTableData(
+                'put',
+                SqlEditorQueryController.readOnly.url(args),
+                { data: { readOnly: next } },
+            );
+            setReadOnly(next);
+        } catch (exception) {
+            toast.error(trans('sql_editor.read_only_failed'), {
+                description: (exception as TableRequestError).first(),
+            });
+        } finally {
+            setSwitchingReadOnly(false);
+        }
+    };
     const activeTab = tabs.find((tab) => tab.id === activeId) ?? null;
 
     const setTabs = (update: (current: OpenTab[]) => OpenTab[]) =>
@@ -294,9 +391,25 @@ export default function SqlEditorIndex({
     };
 
     /**
-     * A new untitled file, empty or holding the given query, opened in a tab.
+     * The tree of the files read again after a change: the server sorts it as the disk holds it.
      */
-    const createFile = async (sql = '') => {
+    const reloadFiles = async () => {
+        try {
+            setFiles(
+                await requestTableData<FileNode[]>(
+                    'get',
+                    SqlFileController.index.url(args),
+                ),
+            );
+        } catch {
+            // The tree shown stays as it was: the next change lists it again.
+        }
+    };
+
+    /**
+     * A new untitled file in the given folder, empty or holding the given query, opened in a tab.
+     */
+    const createFile = async (sql = '', folder: string | null = null) => {
         if (creating) {
             return;
         }
@@ -306,25 +419,14 @@ export default function SqlEditorIndex({
         try {
             const file = await requestTableData<SqlFile>(
                 'post',
-                SqlFileController.store.url({ project: project.id }),
-                { data: { sql } },
+                SqlFileController.store.url(args),
+                { data: { sql, folder } },
             );
 
-            setFiles((current) =>
-                [
-                    ...current,
-                    {
-                        name: file.name,
-                        size: new Blob([file.sql]).size,
-                        modifiedAt: Date.now() / 1000,
-                    },
-                ].sort((a, b) =>
-                    a.name.localeCompare(b.name, undefined, { numeric: true }),
-                ),
-            );
             openFile(file.name, file);
+            void reloadFiles();
         } catch (exception) {
-            toast.error("Le fichier n'a pas été créé", {
+            toast.error(trans('sql_editor.create_failed'), {
                 description: (exception as TableRequestError).first(),
             });
         } finally {
@@ -332,50 +434,104 @@ export default function SqlEditorIndex({
         }
     };
 
-    const renameFile = async (name: string, newName: string) => {
-        const tab = tabs.find((item) => item.name === name);
-
+    /**
+     * A new folder in the given folder, whose name is edited at once.
+     */
+    const createFolder = async (parent: string | null) => {
         try {
-            // What was typed under the old name is written before the file moves.
-            if (tab) {
-                await flushers.current.get(tab.id)?.();
-            }
-
-            await requestTableData(
+            const folder = await requestTableData<{ name: string }>(
                 'post',
-                SqlFileController.rename.url({
-                    project: project.id,
-                    file: encodeURIComponent(name),
-                }),
-                { data: { name: newName } },
+                SqlFileController.storeFolder.url(args),
+                { data: { parent } },
             );
 
-            setFiles((current) =>
-                current.map((file) =>
-                    file.name === name ? { ...file, name: newName } : file,
-                ),
-            );
-            setTabs((current) =>
-                current.map((item) =>
-                    item.name === name ? { ...item, name: newName } : item,
-                ),
-            );
+            await reloadFiles();
+            changeExplorer('files');
+            setRenaming(folder.name);
         } catch (exception) {
-            toast.error(`${name} n'a pas été renommé`, {
+            toast.error(trans('sql_editor.create_folder_failed'), {
                 description: (exception as TableRequestError).first(),
             });
         }
     };
 
-    const deleteFile = async (name: string) => {
+    /**
+     * Rename a file or a folder, or move it to another folder: the tabs of the files it holds follow it.
+     */
+    const moveEntry = async (node: FileNode, newPath: string) => {
+        const moved = tabs.filter((tab) =>
+            node.type === 'file'
+                ? tab.name === node.id
+                : movedPath(tab.name, node.id, newPath) !== tab.name,
+        );
+
+        try {
+            // What was typed under the old path is written before the file moves.
+            await Promise.all(
+                moved.map((tab) => flushers.current.get(tab.id)?.()),
+            );
+
+            await requestTableData(
+                'post',
+                node.type === 'file'
+                    ? SqlFileController.rename.url({
+                          project: project.id,
+                          file: encodePath(node.id),
+                      })
+                    : SqlFileController.renameFolder.url({
+                          project: project.id,
+                          folder: encodePath(node.id),
+                      }),
+                { data: { name: newPath } },
+            );
+
+            setTabs((current) =>
+                current.map((tab) => ({
+                    ...tab,
+                    name: movedPath(tab.name, node.id, newPath),
+                })),
+            );
+        } catch (exception) {
+            toast.error(
+                trans(
+                    parentPath(node.id) === parentPath(newPath)
+                        ? 'sql_editor.rename_failed'
+                        : 'sql_editor.move_failed',
+                    { name: node.name },
+                ),
+                { description: (exception as TableRequestError).first() },
+            );
+        } finally {
+            void reloadFiles();
+        }
+    };
+
+    /**
+     * Delete a file, or a folder with everything it holds, once the user agrees to it: their tabs close.
+     */
+    const deleteEntry = async (node: FileNode) => {
+        const isFolder = node.type === 'folder';
         const confirmed = await AlertDialog.call({
-            title: `Supprimer ${name} ?`,
-            description:
-                'Le fichier est supprimé du dossier .opendb/sql du projet. Cela ne peut pas être annulé.',
+            title: trans(
+                isFolder
+                    ? 'sql_editor.delete_folder_title'
+                    : 'sql_editor.delete_title',
+                { name: node.name },
+            ),
+            description: isFolder
+                ? transChoice(
+                      'sql_editor.delete_folder_description',
+                      filePaths(node.children ?? []).length,
+                  )
+                : trans('sql_editor.delete_description'),
             icon: Trash2Icon,
             variant: 'destructive',
-            confirmText: 'Supprimer le fichier',
-            cancelText: 'Annuler',
+            confirmText: trans(
+                isFolder
+                    ? 'sql_editor.delete_folder_confirm'
+                    : 'sql_editor.delete_confirm',
+            ),
+            cancelText: trans('common.cancel'),
         });
 
         if (!confirmed) {
@@ -385,34 +541,42 @@ export default function SqlEditorIndex({
         try {
             await requestTableData(
                 'delete',
-                SqlFileController.destroy.url({
-                    project: project.id,
-                    file: encodeURIComponent(name),
-                }),
+                isFolder
+                    ? SqlFileController.destroyFolder.url({
+                          project: project.id,
+                          folder: encodePath(node.id),
+                      })
+                    : SqlFileController.destroy.url({
+                          project: project.id,
+                          file: encodePath(node.id),
+                      }),
             );
 
             closeTabs(
-                tabs.filter((tab) => tab.name === name).map((tab) => tab.id),
+                tabs
+                    .filter((tab) =>
+                        isFolder
+                            ? tab.name.startsWith(`${node.id}/`)
+                            : tab.name === node.id,
+                    )
+                    .map((tab) => tab.id),
             );
-            setFiles((current) => current.filter((file) => file.name !== name));
+            void reloadFiles();
         } catch (exception) {
-            toast.error(`${name} n'a pas été supprimé`, {
-                description: (exception as TableRequestError).first(),
-            });
+            toast.error(
+                trans('sql_editor.delete_failed', { name: node.name }),
+                {
+                    description: (exception as TableRequestError).first(),
+                },
+            );
         }
     };
 
     /**
-     * The query a table opens with when no tab is shown: its latest rows, by id or creation date when it has one.
+     * The query a table opens with when no tab is shown.
      */
-    const tableQuery = (table: string) => {
-        const columns = completion?.[table] ?? [];
-        const order = ['id', 'created_at'].find((column) =>
-            columns.includes(column),
-        );
-
-        return `SELECT * FROM ${plainIdentifier(table, driver)}${order ? ` ORDER BY ${order} DESC` : ''} LIMIT 100;`;
-    };
+    const tableQuery = (table: string) =>
+        latestRowsQuery(table, completion?.[table] ?? [], driver);
 
     /**
      * Insert a name of the explorer at the cursor of the shown tab.
@@ -431,6 +595,56 @@ export default function SqlEditorIndex({
     /**
      * A script of the history, inserted on its own lines at the cursor of the shown tab.
      */
+    const snippets = useMemo(
+        () => activeSnippets(driver, snippetConfig),
+        [driver, snippetConfig],
+    );
+
+    /**
+     * Save every snippet of the project. Resolves with the message of the error, or null once saved.
+     */
+    const saveSnippets = async (
+        config: SnippetConfig,
+    ): Promise<string | null> => {
+        try {
+            setSnippetConfig(
+                await requestTableData<SnippetConfig>(
+                    'put',
+                    SnippetController.update.url(args),
+                    {
+                        data: {
+                            snippets: config.snippets,
+                            hidden: config.hidden,
+                        },
+                    },
+                ),
+            );
+
+            return null;
+        } catch (exception) {
+            return (exception as TableRequestError).first();
+        }
+    };
+
+    /**
+     * A snippet inserted at the cursor of the shown tab, its fields ready to be filled in with Tab, or the first
+     * content of a new file when no tab is open.
+     */
+    const insertSnippet = (item: Snippet) => {
+        const view = activeId ? views.current.get(activeId) : undefined;
+
+        if (!view) {
+            void createFile(plainTemplate(item.template));
+
+            return;
+        }
+
+        const { from, to } = view.state.selection.main;
+
+        snippet(item.template)(view, null, from, to);
+        view.focus();
+    };
+
     const insertScript = (sql: string) => {
         const view = activeId ? views.current.get(activeId) : undefined;
 
@@ -453,7 +667,7 @@ export default function SqlEditorIndex({
 
     return (
         <>
-            <Head title={activeTab?.name ?? 'Éditeur SQL'} />
+            <Head title={activeTab?.name ?? t('projects.menu.sql_editor')} />
 
             <ResizablePanelGroup
                 orientation="horizontal"
@@ -468,37 +682,56 @@ export default function SqlEditorIndex({
                     maxSize="460px"
                     className="flex flex-col overflow-hidden rounded-lg border bg-sidebar"
                 >
-                    <Tabs
-                        value={explorer}
-                        onValueChange={(value) =>
-                            changeExplorer(value as Explorer)
-                        }
-                        className="shrink-0 border-b px-2"
-                    >
-                        <TabsList variant="line">
-                            <TabsTrigger value="files">Fichiers</TabsTrigger>
-                            <TabsTrigger value="tables">Tables</TabsTrigger>
-                            <TabsTrigger value="history">
-                                Historique
-                            </TabsTrigger>
-                        </TabsList>
-                    </Tabs>
+                    <ScrollArea className="w-full shrink-0 border-b [&>[data-orientation=vertical]]:hidden">
+                        <Tabs
+                            value={explorer}
+                            onValueChange={(value) =>
+                                changeExplorer(value as Explorer)
+                            }
+                            className="w-max min-w-full px-2 pb-1"
+                        >
+                            <TabsList variant="line">
+                                <TabsTrigger value="files">
+                                    {t('sql_editor.explorer.files')}
+                                </TabsTrigger>
+                                <TabsTrigger value="tables">
+                                    {t('sql_editor.explorer.tables')}
+                                </TabsTrigger>
+                                <TabsTrigger value="history">
+                                    {t('sql_editor.explorer.history')}
+                                </TabsTrigger>
+                                <TabsTrigger value="snippets">
+                                    {t('sql_editor.explorer.snippets')}
+                                </TabsTrigger>
+                            </TabsList>
+                        </Tabs>
+                        <ScrollBar
+                            orientation="horizontal"
+                            className="h-2 border-t-0"
+                        />
+                    </ScrollArea>
                     <div className="min-h-0 flex-1">
                         <Activity
                             mode={explorer === 'files' ? 'visible' : 'hidden'}
                         >
                             <FilesPanel
+                                projectId={project.id}
                                 files={files}
                                 current={activeTab?.name ?? null}
                                 openFiles={tabs.map((tab) => tab.name)}
                                 renaming={renaming}
                                 onRenamingChange={setRenaming}
                                 onOpen={openFile}
-                                onCreate={() => void createFile()}
-                                onRename={(name, newName) =>
-                                    void renameFile(name, newName)
+                                onCreateFile={(folder) =>
+                                    void createFile('', folder)
                                 }
-                                onDelete={(name) => void deleteFile(name)}
+                                onCreateFolder={(parent) =>
+                                    void createFolder(parent)
+                                }
+                                onMove={(node, newPath) =>
+                                    void moveEntry(node, newPath)
+                                }
+                                onDelete={(node) => void deleteEntry(node)}
                                 creating={creating}
                             />
                         </Activity>
@@ -542,6 +775,18 @@ export default function SqlEditorIndex({
                                 }
                             />
                         </Activity>
+                        <Activity
+                            mode={
+                                explorer === 'snippets' ? 'visible' : 'hidden'
+                            }
+                        >
+                            <SnippetsPanel
+                                driver={driver}
+                                config={snippetConfig}
+                                onSave={saveSnippets}
+                                onInsert={insertSnippet}
+                            />
+                        </Activity>
                     </div>
                 </ResizablePanel>
                 <ResizableHandle
@@ -552,37 +797,62 @@ export default function SqlEditorIndex({
                     id="sql-editor-workspace"
                     className="flex min-w-0 flex-col"
                 >
-                    <TableTabs
-                        label="Fichiers ouverts"
-                        tabs={tabs.map((tab) => ({
-                            id: tab.id,
-                            kind: 'file' as const,
-                            title: tab.name,
-                            changes: null,
-                            indicator: (
-                                <SaveIndicator status={statuses[tab.id]} />
-                            ),
-                        }))}
-                        activeId={activeId}
-                        onSelect={setActiveId}
-                        onClose={(id) => closeTabs([id])}
-                        onCloseOthers={(id) =>
-                            closeTabs(
-                                tabs
-                                    .filter((tab) => tab.id !== id)
-                                    .map((tab) => tab.id),
-                            )
-                        }
-                        onCloseAll={() => closeTabs(tabs.map((tab) => tab.id))}
-                        onRename={(id) => {
-                            const tab = tabs.find((item) => item.id === id);
+                    <div className="flex min-w-0 items-end gap-3">
+                        <div className="min-w-0 flex-1">
+                            <TableTabs
+                                label={t('sql_editor.open_files')}
+                                tabs={tabs.map((tab) => ({
+                                    id: tab.id,
+                                    kind: 'file' as const,
+                                    title: tab.name,
+                                    changes: null,
+                                    indicator: (
+                                        <SaveIndicator
+                                            status={statuses[tab.id]}
+                                        />
+                                    ),
+                                }))}
+                                activeId={activeId}
+                                onSelect={setActiveId}
+                                onClose={(id) => closeTabs([id])}
+                                onCloseOthers={(id) =>
+                                    closeTabs(
+                                        tabs
+                                            .filter((tab) => tab.id !== id)
+                                            .map((tab) => tab.id),
+                                    )
+                                }
+                                onCloseAll={() =>
+                                    closeTabs(tabs.map((tab) => tab.id))
+                                }
+                                onRename={(id) => {
+                                    const tab = tabs.find(
+                                        (item) => item.id === id,
+                                    );
 
-                            if (tab) {
-                                changeExplorer('files');
-                                setRenaming(tab.name);
-                            }
-                        }}
-                    />
+                                    if (tab) {
+                                        changeExplorer('files');
+                                        setRenaming(tab.name);
+                                    }
+                                }}
+                            />
+                        </div>
+                        <label
+                            className="mb-1.5 flex shrink-0 items-center gap-2 pr-3 text-xs text-muted-foreground"
+                            title={t('sql_editor.read_only_description')}
+                        >
+                            <LockIcon className="size-3.5" />
+                            {t('ai.access_modes.read-only')}
+                            <Switch
+                                size="sm"
+                                checked={readOnly}
+                                disabled={switchingReadOnly || !canManageProject}
+                                onCheckedChange={(checked) =>
+                                    void changeReadOnly(checked)
+                                }
+                            />
+                        </label>
+                    </div>
 
                     {tabs.map((tab) => (
                         <Activity
@@ -597,16 +867,9 @@ export default function SqlEditorIndex({
                                     driver={driver}
                                     tables={tableNames}
                                     completion={completion}
+                                    snippets={snippets}
                                     onSchemaChanged={reloadTables}
-                                    runUrl={runUrl}
-                                    exportUrl={exportUrl}
-                                    explainUrl={explainUrl}
-                                    reviewUrl={reviewUrl}
-                                    onRan={() =>
-                                        setHistoryVersion(
-                                            (version) => version + 1,
-                                        )
-                                    }
+                                    editor={editor}
                                     onStatusChange={(status) =>
                                         setStatuses((current) => ({
                                             ...current,
@@ -619,15 +882,6 @@ export default function SqlEditorIndex({
                                     onFlushReady={(flush) =>
                                         flushers.current.set(tab.id, flush)
                                     }
-                                    onSaved={(size) =>
-                                        setFiles((current) =>
-                                            current.map((file) =>
-                                                file.name === tab.name
-                                                    ? { ...file, size }
-                                                    : file,
-                                            ),
-                                        )
-                                    }
                                 />
                             </div>
                         </Activity>
@@ -638,14 +892,16 @@ export default function SqlEditorIndex({
                             <EmptyState
                                 icon={FileCodeIcon}
                                 title={
-                                    files.length
-                                        ? 'Choisissez un fichier'
-                                        : 'Aucun fichier SQL'
+                                    paths.length
+                                        ? t('sql_editor.choose_file')
+                                        : t('sql_editor.no_file')
                                 }
-                                description="Chaque onglet est un fichier .sql du dossier .opendb/sql du projet, enregistré pendant que vous écrivez."
+                                description={t(
+                                    'sql_editor.no_file_description',
+                                )}
                                 actions={[
                                     {
-                                        label: 'Nouveau fichier',
+                                        label: t('sql_editor.new_file'),
                                         icon: FilePlusIcon,
                                         onClick: () => void createFile(),
                                         processing: creating,

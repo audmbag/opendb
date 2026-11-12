@@ -1,6 +1,9 @@
 <?php
 
 use App\Database\AdminStatementGuard;
+use Tests\TestCase;
+
+pest()->extend(TestCase::class);
 
 it('rejects an operation reserved to a database administrator', function (string $sql) {
     AdminStatementGuard::assertNotAdministrative($sql);

@@ -6,10 +6,12 @@ import type {
     UIMessage,
 } from 'ai';
 import type {DynamicToolUIPart} from 'ai';
-import { CheckIcon, CopyIcon } from 'lucide-react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
+import { CheckIcon, CircleStopIcon, CopyIcon, RefreshCcwIcon } from 'lucide-react';
 import { memo, useCallback, useState } from 'react';
 import ArtifactPreviewButton from '@/components/ai/artifact-preview-button';
 import AttachmentItem from '@/components/ai/attachment-item';
+import { markdownTableComponents } from '@/components/ai/markdown-table';
 import { Attachments } from '@/components/ai-elements/attachments';
 import {
     Message, MessageAction,
@@ -38,9 +40,26 @@ type Props = {
     }) => void;
     approvalRequestPart?: DynamicToolUIPart;
     artifactables?: CustomOutputToolUIPart[];
+    /**
+     * Whether the user stopped this answer before its end.
+     */
+    isCancelled?: boolean;
+    /**
+     * Answer the last message of the user again, given on the last messages of the conversation only.
+     */
+    onRetry?: () => void;
+    /**
+     * Whether the actions follow this text, false for a text the answer goes on after, so they show once at its end.
+     */
+    hasActions?: boolean;
+    /**
+     * The text the copy action copies, the whole answer when it is written in several parts.
+     */
+    copyText?: string;
 };
 
 const CopyAction = memo(({ content }: { content: string }) => {
+    const { t } = useLaravelReactI18n();
     const [copied, setCopied] = useState(false);
 
     const handleClick = useCallback(async () => {
@@ -55,9 +74,9 @@ const CopyAction = memo(({ content }: { content: string }) => {
 
     return (
         <MessageAction
-            label="Copy"
+            label={t('common.copy')}
             onClick={handleClick}
-            tooltip="Copier le message"
+            tooltip={t('ai.messages.copy')}
         >
             {copied ? (
                 <CheckIcon className="size-4 text-muted-foreground" />
@@ -78,7 +97,12 @@ const UIMessage = ({
     fromModel,
     artifactables,
     messageIndex,
+    isCancelled = false,
+    onRetry,
+    hasActions = true,
+    copyText,
 }: Props) => {
+    const { t } = useLaravelReactI18n();
     const { definition: syntaxTheme } = useSyntaxTheme();
 
     return (
@@ -106,6 +130,7 @@ const UIMessage = ({
                 <MessageResponse
                     key={syntaxTheme.value}
                     shikiTheme={[syntaxTheme.light, syntaxTheme.dark]}
+                    components={markdownTableComponents}
                 >
                     {uppercaseSqlBlocks((part as TextUIPart).text)}
                 </MessageResponse>
@@ -118,17 +143,32 @@ const UIMessage = ({
                 />
             )}
 
-            {(part.type === 'text' || part.type.startsWith('data-')) &&
+            {hasActions && (part.type === 'text' || part.type.startsWith('data-')) &&
                 ((isLast && status === 'ready') || !isLast) && (
                     <MessageActions
                         className={cn({
                             'justify-end': message.role === 'user',
                         })}
                     >
-                        <CopyAction content={(part as TextUIPart).text} />
+                        <CopyAction content={copyText ?? (part as TextUIPart).text} />
+                        {onRetry && (
+                            <MessageAction
+                                label={t('common.retry')}
+                                onClick={onRetry}
+                                tooltip={message.role === 'user' ? t('ai.messages.resend') : t('ai.messages.regenerate')}
+                            >
+                                <RefreshCcwIcon className="size-4 text-muted-foreground" />
+                            </MessageAction>
+                        )}
                         <span className="text-sm text-muted-foreground">
                             {fromModel.map((info) => info.data).join('/')}
                         </span>
+                        {isCancelled && (
+                            <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                                <CircleStopIcon className="size-3.5" />
+                                {t('ai.messages.interrupted')}
+                            </span>
+                        )}
                     </MessageActions>
                 )}
         </Message>

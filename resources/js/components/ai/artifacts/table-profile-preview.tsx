@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { CircleAlertIcon } from 'lucide-react';
 import { useConversationId } from '@/components/ai/artifacts/format';
 import TableProfile from '@/components/ai/artifacts/table-profile/table-profile';
@@ -14,6 +15,7 @@ type Props = {
 };
 
 export default function TableProfilePreview({ part, enabled }: Props) {
+    const { t } = useLaravelReactI18n();
     const conversationId = useConversationId();
 
     const { ref, data, error } = useToolArtifact<TableProfileData>(
@@ -27,7 +29,7 @@ export default function TableProfilePreview({ part, enabled }: Props) {
                 <Alert variant="destructive" className="border-destructive/30">
                     <CircleAlertIcon />
                     <AlertTitle>
-                        Impossible de profiler la table <span className="font-mono">{part.output.table}</span>
+                        {t('ai.profile.failed')} <span className="font-mono">{part.output.table}</span>
                     </AlertTitle>
                     <AlertDescription className="text-[13px] text-muted-foreground!">{error}</AlertDescription>
                 </Alert>

@@ -7,6 +7,7 @@ namespace App\Services\QueryPlan\Parsers;
 use App\Services\QueryPlan\Data\PlanNode;
 use App\Services\QueryPlan\PlanOperation;
 use App\Services\QueryPlan\SqlClauses;
+use App\Support\TranslatableMessage;
 
 /**
  * Ce que les parsers de chaque moteur ont en commun : la racine du plan et la lecture des nombres.
@@ -29,7 +30,7 @@ abstract class BasePlanParser implements QueryPlanParser
             subtitle: $columns === null ? null : 'SELECT '.$columns,
             cost: $cost,
             selfCost: $cost === null ? null : 0.0,
-            condition: $columns === null ? null : ['label' => 'Colonnes renvoyées', 'value' => $columns],
+            condition: $columns === null ? null : ['label' => new TranslatableMessage('query_plan.conditions.returned_columns'), 'value' => $columns],
             children: $children,
         );
     }
@@ -71,23 +72,23 @@ abstract class BasePlanParser implements QueryPlanParser
      *
      * @param  ?list<string>  $possibleKeys
      */
-    protected function readBadge(PlanOperation $operation, bool $covering, ?array $possibleKeys = null): ?string
+    protected function readBadge(PlanOperation $operation, bool $covering, ?array $possibleKeys = null): ?TranslatableMessage
     {
         return match (true) {
-            $covering => 'index couvrant',
-            $operation === PlanOperation::FullScan && $possibleKeys !== null && $possibleKeys !== [] => 'aucun index utilisable',
-            $operation === PlanOperation::FullScan => 'aucun index',
+            $covering => new TranslatableMessage('query_plan.badges.covering_index'),
+            $operation === PlanOperation::FullScan && $possibleKeys !== null && $possibleKeys !== [] => new TranslatableMessage('query_plan.badges.no_usable_index'),
+            $operation === PlanOperation::FullScan => new TranslatableMessage('query_plan.badges.no_index'),
             default => null,
         };
     }
 
     /**
-     * La condition affichée pour une clé de tri ou de regroupement.
+     * La condition affichée pour une clé de tri ou de regroupement, nommée par sa clé de traduction.
      *
-     * @return ?array{label: string, value: string}
+     * @return ?array{label: TranslatableMessage, value: string}
      */
     protected function keyCondition(string $label, ?string $key): ?array
     {
-        return $key === null || $key === '' ? null : ['label' => $label, 'value' => $key];
+        return $key === null || $key === '' ? null : ['label' => new TranslatableMessage($label), 'value' => $key];
     }
 }

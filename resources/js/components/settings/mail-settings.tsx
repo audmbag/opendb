@@ -1,4 +1,5 @@
 import { useHttp } from '@inertiajs/react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     LoaderIcon,
     PlugZapIcon,
@@ -36,13 +37,13 @@ type MessageResponse = {
     message: string;
 };
 
-const encryptionItems = [
-    { label: 'STARTTLS (port 587)', value: 'tls' },
-    { label: 'SSL/TLS (port 465)', value: 'ssl' },
-    { label: 'Aucun', value: 'none' },
-];
-
 const SmtpSettings = () => {
+    const { t } = useLaravelReactI18n();
+    const encryptionItems = [
+        { label: 'STARTTLS (port 587)', value: 'tls' },
+        { label: 'SSL/TLS (port 465)', value: 'ssl' },
+        { label: t('settings.mail.no_encryption'), value: 'none' },
+    ];
     const [hasPassword, setHasPassword] = useState(false);
     const [action, setAction] = useState<'save' | 'test' | null>(null);
 
@@ -115,8 +116,8 @@ const SmtpSettings = () => {
             onSuccess: (response) => {
                 toast[response.success ? 'success' : 'error'](
                     response.success
-                        ? 'Connexion réussie'
-                        : 'Échec de la connexion',
+                        ? t('settings.mail.connection_succeeded')
+                        : t('settings.mail.connection_failed'),
                     { description: response.message, duration: 10000 },
                 );
             },
@@ -126,8 +127,8 @@ const SmtpSettings = () => {
 
     return (
         <CardFrame
-            title="Serveur SMTP"
-            description="Les identifiants utilisés par l'agent pour envoyer des mails en votre nom. Ils sont chiffrés et ne sont jamais transmis au modèle."
+            title={t('settings.mail.smtp_server')}
+            description={t('settings.mail.smtp_server_description')}
         >
             {loader.processing ? (
                 <div className="flex justify-center py-4">
@@ -137,7 +138,7 @@ const SmtpSettings = () => {
                 <form className="flex flex-col gap-4" onSubmit={save}>
                     <div className="grid gap-4 sm:grid-cols-[1fr_8rem]">
                         <Input
-                            label="Hôte"
+                            label={t('settings.mail.host')}
                             name="host"
                             placeholder="smtp.gmail.com"
                             value={form.data.host}
@@ -147,7 +148,7 @@ const SmtpSettings = () => {
                             error={form.errors.host}
                         />
                         <Input
-                            label="Port"
+                            label={t('settings.mail.port')}
                             name="port"
                             type="number"
                             value={form.data.port}
@@ -158,7 +159,7 @@ const SmtpSettings = () => {
                         />
                     </div>
                     <Select
-                        label="Chiffrement"
+                        label={t('settings.mail.encryption')}
                         name="encryption"
                         value={form.data.encryption}
                         onValueChange={(value) =>
@@ -172,7 +173,7 @@ const SmtpSettings = () => {
                     />
                     <div className="grid gap-4 sm:grid-cols-2">
                         <Input
-                            label="Nom d'utilisateur"
+                            label={t('settings.mail.username')}
                             name="username"
                             autoComplete="off"
                             value={form.data.username}
@@ -182,11 +183,11 @@ const SmtpSettings = () => {
                             error={form.errors.username}
                         />
                         <Input
-                            label="Mot de passe"
+                            label={t('settings.mail.password')}
                             name="password"
                             type="password"
                             autoComplete="new-password"
-                            placeholder={hasPassword ? 'Inchangé' : undefined}
+                            placeholder={hasPassword ? t('settings.mail.unchanged') : undefined}
                             value={form.data.password}
                             onChange={(event) =>
                                 setData('password', event.target.value)
@@ -196,10 +197,10 @@ const SmtpSettings = () => {
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2">
                         <Input
-                            label="Adresse d'expéditeur"
+                            label={t('settings.mail.from_address')}
                             name="from_address"
                             type="email"
-                            placeholder="vous@exemple.com"
+                            placeholder={t('settings.mail.from_address_placeholder')}
                             value={form.data.from_address}
                             onChange={(event) =>
                                 setData('from_address', event.target.value)
@@ -207,7 +208,7 @@ const SmtpSettings = () => {
                             error={form.errors.from_address}
                         />
                         <Input
-                            label="Nom d'expéditeur"
+                            label={t('settings.mail.from_name')}
                             name="from_name"
                             value={form.data.from_name}
                             onChange={(event) =>
@@ -224,7 +225,7 @@ const SmtpSettings = () => {
                             processing={action === 'test'}
                             disabled={action !== null}
                         >
-                            Tester la connexion
+                            {t('settings.mail.test_connection')}
                         </Button>
                         <Button
                             type="submit"
@@ -232,7 +233,7 @@ const SmtpSettings = () => {
                             processing={action === 'save'}
                             disabled={action !== null}
                         >
-                            Enregistrer
+                            {t('common.save')}
                         </Button>
                     </div>
                 </form>
@@ -242,6 +243,7 @@ const SmtpSettings = () => {
 };
 
 const MailRecipients = () => {
+    const { t } = useLaravelReactI18n();
     const [recipients, setRecipients] = useState<MailRecipient[]>([]);
     const [deletingId, setDeletingId] = useState<number | undefined>();
 
@@ -291,15 +293,15 @@ const MailRecipients = () => {
 
     return (
         <CardFrame
-            title="Destinataires autorisés"
-            description="L'agent ne peut envoyer de mails qu'à ces adresses. Il peut aussi en ajouter ou en retirer, toujours avec votre autorisation."
+            title={t('settings.mail.recipients')}
+            description={t('settings.mail.recipients_description')}
             innerPadding={false}
         >
             <form className="flex items-start gap-2 p-3" onSubmit={add}>
                 <Input
                     name="email"
                     type="email"
-                    placeholder="adresse@exemple.com"
+                    placeholder={t('settings.mail.recipient_email_placeholder')}
                     value={form.data.email}
                     onChange={(event) =>
                         form.setData('email', event.target.value)
@@ -308,7 +310,7 @@ const MailRecipients = () => {
                 />
                 <Input
                     name="name"
-                    placeholder="Nom (facultatif)"
+                    placeholder={t('settings.mail.recipient_name_placeholder')}
                     value={form.data.name}
                     onChange={(event) =>
                         form.setData('name', event.target.value)
@@ -320,7 +322,7 @@ const MailRecipients = () => {
                     icon={PlusIcon}
                     processing={form.processing}
                 >
-                    Ajouter
+                    {t('common.add')}
                 </Button>
             </form>
             <Separator />
@@ -331,8 +333,8 @@ const MailRecipients = () => {
             ) : recipients.length === 0 ? (
                 <EmptyState
                     icon={UsersIcon}
-                    title="Aucun destinataire autorisé"
-                    description="Ajoutez les adresses auxquelles l'agent peut envoyer des mails."
+                    title={t('settings.mail.no_recipients')}
+                    description={t('settings.mail.no_recipients_description')}
                 />
             ) : (
                 recipients.map((recipient, index) => (
@@ -352,13 +354,12 @@ const MailRecipients = () => {
                                 size="sm"
                                 variant="ghost"
                                 icon={Trash2Icon}
-                                tooltip="Retirer"
+                                tooltip={t('settings.mail.remove')}
                                 onClick={() => remove(recipient)}
                                 processing={deletingId === recipient.id}
                                 confirmation={{
-                                    title: `Retirer ${recipient.email}`,
-                                    description:
-                                        "L'agent ne pourra plus envoyer de mails à cette adresse.",
+                                    title: t('settings.mail.remove_recipient', { email: recipient.email }),
+                                    description: t('settings.mail.remove_recipient_description'),
                                     icon: Trash2Icon,
                                 }}
                             />

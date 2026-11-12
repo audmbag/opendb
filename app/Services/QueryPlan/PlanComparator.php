@@ -6,6 +6,7 @@ namespace App\Services\QueryPlan;
 
 use App\Services\QueryPlan\Data\Plan;
 use App\Services\QueryPlan\Data\PlanNode;
+use App\Support\TranslatableMessage;
 
 /**
  * Compare un plan au précédent plan de la même requête dans la conversation : chaque étape reçoit l'étape correspondante
@@ -28,7 +29,9 @@ final class PlanComparator
             foreach ($node->alerts as $index => $alert) {
                 $remaining = isset($previousAlerts[$this->alertKey($alert)]);
                 $node->alerts[$index]['status'] = $remaining ? 'remaining' : 'new';
-                $node->alerts[$index]['message'] = $remaining ? $alert['message'].', toujours présente' : $alert['message'];
+                $node->alerts[$index]['message'] = $remaining
+                    ? new TranslatableMessage('query_plan.alerts.still_present', ['alert' => TranslatableMessage::from($alert['message'])])
+                    : $alert['message'];
             }
         }
 
@@ -68,7 +71,7 @@ final class PlanComparator
             $children = array_filter($previousNodes, fn (array $candidate): bool => $candidate['parentId'] === $match['id']);
 
             $node->before = [
-                'label' => (string) $match['label'],
+                'label' => TranslatableMessage::from($match['label']),
                 'rowsExamined' => $match['rowsExamined'],
                 'estimatedRows' => $match['estimatedRows'],
                 'inputRows' => $children === [] || array_any($children, fn (array $child): bool => $child['estimatedRows'] === null)

@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import React, { useCallback } from 'react';
 import { Suggestion, Suggestions } from '@/components/ai-elements/suggestion';
 import { shuffle } from '@/lib/utils';
@@ -5,45 +6,46 @@ import { shuffle } from '@/lib/utils';
 const suggestions = shuffle([
     {
         icon: '🗺️',
-        prompt: "Donne-moi une vue d'ensemble de la base : tables, tailles et relations.",
+        prompt: 'ai.suggestions.overview',
     },
     {
         icon: '🐢',
-        prompt: 'Quelles sont les requêtes les plus lentes en ce moment ?',
+        prompt: 'ai.suggestions.slow_queries',
     },
     {
         icon: '⚡',
-        prompt: 'Quels index manquent pour améliorer les performances ?',
+        prompt: 'ai.suggestions.missing_indexes',
     },
     {
         icon: '🔗',
-        prompt: 'Y a-t-il des clés étrangères sans contrainte déclarée ?',
+        prompt: 'ai.suggestions.undeclared_foreign_keys',
     },
     {
         icon: '🚨',
-        prompt: 'Détecte les anomalies dans les données (doublons, NULL suspects, incohérences).',
+        prompt: 'ai.suggestions.anomalies',
     },
-    { icon: '🗂️', prompt: 'Génère le diagramme ERD complet de la base.' },
+    { icon: '🗂️', prompt: 'ai.suggestions.erd' },
     {
         icon: '🧹',
-        prompt: 'Quelles colonnes semblent inutilisées et peuvent être supprimées ?',
+        prompt: 'ai.suggestions.unused_columns',
     },
     {
         icon: '🌱',
-        prompt: 'Génère des données de test réalistes pour les tables principales.',
+        prompt: 'ai.suggestions.test_data',
     },
     {
         icon: '♻️',
-        prompt: 'Y a-t-il des index redondants que je peux supprimer sans risque ?',
+        prompt: 'ai.suggestions.redundant_indexes',
     },
-    { icon: '📝', prompt: 'Documente le schéma de la base en Markdown.' },
+    { icon: '📝', prompt: 'ai.suggestions.documentation' },
     {
         icon: '📊',
-        prompt: 'Montre-moi les statistiques de taille et de fragmentation par table.',
+        prompt: 'ai.suggestions.fragmentation',
     },
 ]);
 
 export default function PromptSuggestions({ onClick } : { onClick?: (value: string) => void }) {
+    const { t } = useLaravelReactI18n();
 
     const handleClick = useCallback((prompt: string) => {
         onClick?.(prompt);
@@ -54,12 +56,12 @@ export default function PromptSuggestions({ onClick } : { onClick?: (value: stri
             {suggestions.map((suggestion) => (
                 <Suggestion
                     key={suggestion.prompt}
-                    onClick={() => handleClick(suggestion.prompt)}
-                    suggestion={suggestion.prompt}
+                    onClick={() => handleClick(t(suggestion.prompt))}
+                    suggestion={t(suggestion.prompt)}
                     className="gap-2 rounded-lg"
                 >
                     <span>{suggestion.icon}</span>
-                    <span>{suggestion.prompt}</span>
+                    <span>{t(suggestion.prompt)}</span>
                 </Suggestion>
             ))}
         </Suggestions>

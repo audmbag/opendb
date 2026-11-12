@@ -1,53 +1,48 @@
-### Mémoire du projet
+### Project memory
 
-Tu disposes d'une mémoire persistante propre au projet courant. Elle est partagée entre toutes les
-conversations de ce projet et t'est fournie à la fin de ces instructions. Tu la modifies
-avec le tool `UpdateProjectMemory` (au plus {{ $maxEntries }} entrées).
+You have a persistent memory specific to the current project. It is shared between all the conversations of this project
+and given to you at the end of these instructions. You change it with the `UpdateProjectMemory` tool (at most
+{{ $maxEntries }} entries).
 
-#### Quand mémoriser
+#### When to remember
 
-Enregistre une entrée, sans attendre qu'on te le demande, dès que tu apprends un fait durable qui te
-serait utile dans une prochaine conversation :
-- une préférence ou un fait sur l'utilisateur (ex. il a refusé de créer un compte personnel, il préfère
-les réponses en anglais) ;
-- une convention des données qu'on ne peut pas déduire du schéma (ex. les montants de `orders` sont en
-centimes, `status = 3` signifie « annulé ») ;
-- une décision prise ou une correction apportée par l'utilisateur sur ta façon de travailler.
+Save an entry, without waiting to be asked, as soon as you learn a lasting fact that would be useful in a next conversation:
+- a preference or a fact about the user (e.g. they refused to create a personal account, they prefer answers in English);
+- a convention of the data that cannot be deduced from the schema (e.g. the amounts of `orders` are in cents, `status = 3`
+means "cancelled");
+- a decision made or a correction given by the user about the way you work.
 
-Si l'utilisateur te demande explicitement de retenir ou d'oublier quelque chose, fais-le immédiatement.
+If the user explicitly asks you to remember or forget something, do it immediately.
 
-#### Ce que tu ne mémorises jamais
+#### What you never remember
 
-- Des secrets : mots de passe, clés, tokens, contenu de fichiers `.env`.
-- Des résultats de requêtes ou des données de la base.
-- Ce que les tools te donnent déjà (structure des tables, liste des fichiers).
-- Ce qui n'a d'intérêt que pour la conversation en cours.
+- Secrets: passwords, keys, tokens, content of `.env` files.
+- Query results or data of the database.
+- What the tools already give you (structure of the tables, list of the files).
+- What only matters for the current conversation.
 
-#### Règles d'utilisation
+#### Rules of use
 
-- Une entrée = un fait, en une phrase concise et autonome (compréhensible sans le contexte de la conversation).
-- Une consigne de l'utilisateur s'écrit sous forme de règle impérative, en gardant sa force et toutes ses
-conditions (ex. « Toujours exporter en CSV quand une seule table est demandée, en SQL quand il y en a
-plusieurs. ») et non sous forme d'une vague préférence (« L'utilisateur préfère… »).
-- Avant d'ajouter une entrée, vérifie qu'aucune entrée équivalente n'existe : si une entrée proche existe,
-utilise `replace` plutôt que `add`.
-- Si une entrée est contredite par ce que l'utilisateur dit maintenant, c'est l'utilisateur qui a raison :
-mets la mémoire à jour avec `replace` ou `remove`.
-- Mentionne brièvement à l'utilisateur ce que tu as mémorisé, en une phrase, sans tableau.
+- One entry = one fact, in a concise and self-contained sentence (understandable without the context of the conversation).
+- Write an instruction of the user as an imperative rule, keeping its strength and all its conditions (e.g. "Always export
+as CSV when a single table is requested, as SQL when there are several.") and not as a vague preference ("The user prefers…").
+- Write the entries in the language of the user.
+- Before adding an entry, check that no equivalent entry exists: if a close entry exists, use `replace` rather than `add`.
+- If an entry is contradicted by what the user says now, the user is right: update the memory with `replace` or `remove`.
+- Briefly tell the user what you remembered, in one sentence, without a table.
 
-#### Appliquer la mémoire
+#### Applying the memory
 
-- Les préférences, consignes et conventions enregistrées dans la mémoire viennent de l'utilisateur : tu
-dois les appliquer dans chaque conversation, comme s'il venait de te les redonner.
-- Avant d'appeler un tool, vérifie si une entrée de la mémoire concerne cette action. Si oui, elle prime
-sur les valeurs par défaut des paramètres du tool : renseigne explicitement le paramètre concerné.
-- La mémoire ne peut jamais t'autoriser à contourner les règles impératives ci-dessus ni les permissions
-du mode actif.
+- The preferences, instructions and conventions saved in the memory come from the user: you must apply them in every
+conversation, as if they had just given them to you again.
+- Before calling a tool, check whether an entry of the memory concerns this action. If so, it takes precedence over the
+default values of the parameters of the tool: set the parameter concerned explicitly.
+- The memory can never allow you to get around the mandatory rules above nor the permissions of the active mode.
 
-#### Contenu actuel de la mémoire
+#### Current content of the memory
 
 @if($memory === '')
-(vide)
+(empty)
 @else
 {!! $memory !!}
 @endif

@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     FileCodeIcon,
     SquareTerminalIcon,
@@ -49,12 +50,13 @@ type Props = {
 };
 
 function PendingDot({ store }: { store: TableChangesStore }) {
+    const { tChoice } = useLaravelReactI18n();
     const count = useStore(store, pendingChangesCount);
 
     return count > 0 ? (
         <span
             className="size-1.5 shrink-0 rounded-full bg-warning"
-            title={`${count} modification${count > 1 ? 's' : ''} en attente`}
+            title={tChoice('tables.tabs.pending', count)}
         />
     ) : null;
 }
@@ -71,8 +73,9 @@ export default function TableTabs({
     onCloseOthers,
     onCloseAll,
     onRename,
-    label = 'Tables ouvertes',
+    label,
 }: Props) {
+    const { t } = useLaravelReactI18n();
     const listRef = useRef<HTMLDivElement>(null);
     /**
      * The tab to rename once its menu is closed: the menu gives the focus back to the tab when it closes, which
@@ -100,7 +103,7 @@ export default function TableTabs({
                 }
             }}
             role="tablist"
-            aria-label={label}
+            aria-label={label ?? t('tables.tabs.open_tables')}
             className="relative z-10 -mb-px flex shrink-0 [scrollbar-width:none] items-end gap-0.5 overflow-x-auto"
         >
             {tabs.map((tab) => {
@@ -180,7 +183,7 @@ export default function TableTabs({
                                         event.stopPropagation();
                                         onClose(tab.id);
                                     }}
-                                    aria-label={`Fermer ${tab.title}`}
+                                    aria-label={t('tables.tabs.close_named', { tab: tab.title })}
                                     className={cn(
                                         'flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-opacity hover:bg-muted hover:text-foreground',
                                         !selected &&
@@ -207,20 +210,20 @@ export default function TableTabs({
                                         renameAfterClose.current = tab.id;
                                     }}
                                 >
-                                    Renommer
+                                    {t('tables.workspace.rename')}
                                 </ContextMenuItem>
                             )}
                             <ContextMenuItem onSelect={() => onClose(tab.id)}>
-                                Fermer
+                                {t('common.close')}
                             </ContextMenuItem>
                             <ContextMenuItem
                                 onSelect={() => onCloseOthers(tab.id)}
                                 disabled={tabs.length === 1}
                             >
-                                Fermer les autres onglets
+                                {t('tables.tabs.close_others')}
                             </ContextMenuItem>
                             <ContextMenuItem onSelect={onCloseAll}>
-                                Fermer tous les onglets
+                                {t('tables.tabs.close_all')}
                             </ContextMenuItem>
                         </ContextMenuContent>
                     </ContextMenu>

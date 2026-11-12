@@ -4,6 +4,11 @@ export type AgentAccessModeSetting = 'read-only' | 'read-write';
 
 export type AgentEffortSetting = 'default' | 'high';
 
+/**
+ * When the changes of structure asked by the assistant of the diagram run.
+ */
+export type SchemaApplyModeSetting = 'draft' | 'additions' | 'auto';
+
 export type ExportFormatSetting = 'sql' | 'csv';
 
 export type ExportCompressionSetting = 'none' | 'zip' | 'gzip' | 'tar';
@@ -17,6 +22,7 @@ export interface UserSettings {
         effort: AgentEffortSetting;
         maxSteps: number;
         maxRows: number;
+        schemaApplyMode: SchemaApplyModeSetting;
     };
     export: {
         format: ExportFormatSetting;

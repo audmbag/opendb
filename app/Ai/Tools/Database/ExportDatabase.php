@@ -3,11 +3,12 @@
 namespace App\Ai\Tools\Database;
 
 use App\Database\Contracts\DriverContract;
-use App\Models\Project;
+use App\Database\QueryBindings;
 use App\Services\Exporter\ExportCompression;
 use App\Services\Exporter\ExporterManager;
 use App\Services\Exporter\ExportFormat;
 use App\Services\Settings\UserSettings;
+use App\Services\Workspace\ProjectWorkspace;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Tools\Request;
@@ -24,14 +25,6 @@ class ExportDatabase extends BaseTool implements Tool
     const array OUTPUTS = [ExportCompression::Zip->value, ExportCompression::Tar->value, ExportCompression::Gzip->value, ExportCompression::None->value];
 
     /**
-     * Dossier des exports, relatif au dossier du projet.
-     */
-    /**
-     * Relative to the project directory, in the folder of opendb: the exports stay out of the files of the user.
-     */
-    const string EXPORT_DIRECTORY = Project::WORKSPACE_DIRECTORY.'/exports';
-
-    /**
      * Valeur de `tables` dans la sortie du tool quand l'export vient d'une requête.
      */
     const string QUERY_EXPORT = 'query';
@@ -39,19 +32,19 @@ class ExportDatabase extends BaseTool implements Tool
     public function __construct(
         public DriverContract $driver,
         protected ExporterManager $exporterManager,
-        protected string $projectPath,
+        protected ProjectWorkspace $workspace,
         protected UserSettings $settings = new UserSettings,
     ) {}
 
     public function description(): Stringable|string
     {
-        return 'Exporte la base de données du projet dans un fichier compressé (zip, tar ou gzip). '
-            .'Tu peux choisir d\'exporter uniquement certaines tables, avec ou sans leurs schémas '
-            .'et/ou leurs données. Le format d\'exportation peut être SQL (dump) ou CSV (un fichier par table). '
-            .'Ce tool te renvoie uniquement le chemin du fichier exporté, relatif au dossier du projet (dossier `'.self::EXPORT_DIRECTORY.'`), pas son contenu. '
-            .'Utilise-le quand l\'utilisateur demande un export de la base de données ou de certaines tables. '
-            .'Pour n\'exporter qu\'une sélection de lignes (ex. "les 40 dernières commandes"), passe `query` et `bindings` : '
-            .'le résultat de la requête est exporté dans un seul fichier CSV et le tool te renvoie le nombre de lignes exportées.';
+        return 'Exports the database of the project to a compressed file (zip, tar or gzip). '
+            .'You can export only some tables, with or without their schemas '
+            .'and/or their data. The export format can be SQL (dump) or CSV (one file per table). '
+            .'This tool only returns the path of the exported file to you, relative to the project folder (folder `'.$this->workspace->relativePath(ProjectWorkspace::EXPORTS).'`), not its content. '
+            .'Use it when the user asks for an export of the database or of some tables. '
+            .'To export only a selection of rows (e.g. "the last 40 orders"), pass `query` and `bindings`: '
+            .'the result of the query is exported to a single CSV file and the tool returns the number of exported rows to you.';
     }
 
     public function handle(Request $request): Stringable|string
@@ -93,17 +86,17 @@ class ExportDatabase extends BaseTool implements Tool
     protected function exportQuery(Request $request, string $output): array
     {
         if (filled($request['onlyTables'] ?? null)) {
-            throw new RuntimeException('`query` et `onlyTables` ne peuvent pas être combinés : passe l\'un ou l\'autre.');
+            throw new RuntimeException('`query` and `onlyTables` cannot be combined: pass one or the other.');
         }
 
         if (($request['format'] ?? ExportFormat::Csv->value) !== ExportFormat::Csv->value) {
-            throw new RuntimeException('Le résultat d\'une requête ne peut être exporté qu\'en CSV : rappelle ce tool avec le format csv, ou sans `query` pour exporter des tables en SQL.');
+            throw new RuntimeException('The result of a query can only be exported as CSV: call this tool again with the csv format, or without `query` to export tables as SQL.');
         }
 
         $export = $this->exporterManager->exportQuery(
             $this->driver,
             (string) $request['query'],
-            $request['bindings'] ?? [],
+            QueryBindings::from($request['bindings'] ?? null),
             $output,
             $this->exportDirectory(),
         );
@@ -128,7 +121,7 @@ class ExportDatabase extends BaseTool implements Tool
         $this->exporterManager->ignoreInVersionControl(dirname($path));
 
         return [
-            'path' => self::EXPORT_DIRECTORY.'/'.basename($path),
+            'path' => $this->workspace->relativePath(ProjectWorkspace::EXPORTS.'/'.basename($path)),
             'bytes' => filesize($path) ?: 0,
             'modified_at' => date(DATE_ATOM, (int) filemtime($path)),
         ];
@@ -136,41 +129,41 @@ class ExportDatabase extends BaseTool implements Tool
 
     protected function exportDirectory(): string
     {
-        return $this->projectPath.DIRECTORY_SEPARATOR.self::EXPORT_DIRECTORY;
+        return $this->workspace->path(ProjectWorkspace::EXPORTS);
     }
 
     public function schema(JsonSchema $schema): array
     {
         return [
             'query' => $schema->string()
-                ->description('Requête SQL SELECT (ou WITH … SELECT) unique, préparée avec bindings nommés, dont le résultat est exporté en CSV. Ne la combine pas avec `onlyTables`. Laisse-la vide pour exporter des tables entières.')
+                ->description('A single SQL SELECT (or WITH … SELECT) query, prepared with named bindings, whose result is exported as CSV. Do not combine it with `onlyTables`. Leave it empty to export whole tables.')
                 ->nullable(),
             'bindings' => $schema->object()
-                ->description('Objet clé-valeur contenant les paramètres de `query` (ex: {"id": 1, "status": "active"}).')
+                ->description('Key-value object holding the parameters of `query` (e.g. {"id": 1, "status": "active"}).')
                 ->nullable(),
             'onlyTables' => $schema->array()
-                ->description('Liste des tables à exporter. Si vide ou absent, et sans `query`, toutes les tables sont exportées avec leur schéma et leurs données.')
+                ->description('List of the tables to export. When empty or missing, and without `query`, every table is exported with its schema and its data.')
                 ->items($schema->object(fn ($schema) => [
                     'table' => $schema->string()
-                        ->description('Nom exact de la table, tel que renvoyé par `ListTables`.')
+                        ->description('Exact name of the table, as returned by `ListTables`.')
                         ->required(),
                     'schema' => $schema->boolean()
-                        ->description('Inclure le schéma de la table dans l\'exportation.')
+                        ->description('Include the schema of the table in the export.')
                         ->required(),
                     'data' => $schema->boolean()
-                        ->description('Inclure les données de la table dans l\'exportation.')
+                        ->description('Include the data of the table in the export.')
                         ->required(),
                 ]))
                 ->nullable(),
             'format' => $schema->string()
-                ->description('Format d\'exportation : '.collect(self::FORMATS)->join(', ', ' ou ').'. '
-                    .'Respecte d\'abord le format demandé par l\'utilisateur ou indiqué dans la mémoire du projet ; '
-                    .'à défaut : '.$this->settings->exportFormat->value.'. En CSV, le schéma des tables est exporté dans un fichier schema.sql. Avec `query`, seul csv est possible.')
+                ->description('Export format: '.collect(self::FORMATS)->join(', ', ' or ').'. '
+                    .'First follow the format asked by the user or given in the project memory; '
+                    .'otherwise: '.$this->settings->exportFormat->value.'. In CSV, the schema of the tables is exported to a schema.sql file. With `query`, only csv is possible.')
                 ->enum(self::FORMATS)
                 ->nullable(),
             'output' => $schema->string()
-                ->description('Format de compression du fichier exporté : '.collect(self::OUTPUTS)->join(', ', ' ou ').' (none : le fichier tel quel, ou un zip s\'il y en a plusieurs). '
-                    .'Respecte d\'abord la compression demandée par l\'utilisateur ; à défaut : '.$this->settings->exportCompression->value.'.')
+                ->description('Compression format of the exported file: '.collect(self::OUTPUTS)->join(', ', ' or ').' (none: the file as it is, or a zip when there are several). '
+                    .'First follow the compression asked by the user; otherwise: '.$this->settings->exportCompression->value.'.')
                 ->enum(self::OUTPUTS)
                 ->default($this->settings->exportCompression->value)
                 ->nullable(),

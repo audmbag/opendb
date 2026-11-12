@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { XIcon } from 'lucide-react';
 import { useState } from 'react';
 import QueryPlanCard, {
@@ -17,13 +18,14 @@ type Props = {
  * diagram is heavy and only needed once a plan is asked for.
  */
 export default function QueryPlanView({ plan, onClose }: Props) {
+    const { t } = useLaravelReactI18n();
     const [version, setVersion] = useState<PlanVersion>('after');
 
     return (
         <div className="flex min-h-0 flex-1 flex-col">
             <div className="flex flex-wrap items-center gap-2 px-3 py-1.5">
                 <span className="text-xs font-medium">
-                    Plan d'exécution · {plan.driverLabel}
+                    {t('query_plan.title')} · {plan.driverLabel}
                 </span>
                 <div className="ml-auto flex items-center gap-2">
                     <QueryPlanSummary plan={plan} version={version} />
@@ -31,8 +33,8 @@ export default function QueryPlanView({ plan, onClose }: Props) {
                         variant="ghost"
                         size="icon-sm"
                         onClick={onClose}
-                        aria-label="Fermer le plan"
-                        tooltip="Revenir aux résultats"
+                        aria-label={t('tables.plan.close')}
+                        tooltip={t('tables.plan.back')}
                     >
                         <XIcon />
                     </Button>

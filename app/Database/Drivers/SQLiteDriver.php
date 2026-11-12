@@ -37,7 +37,7 @@ class SQLiteDriver extends BaseDriver implements DriverContract
         $directory = dirname($path);
 
         if (! is_dir($directory) || ! is_writable($directory)) {
-            throw DatabaseCheckException::cannotCreate($path, "le dossier [{$directory}] n'est pas accessible en écriture");
+            throw DatabaseCheckException::cannotCreate($path, __('database.errors.directory_not_writable', ['directory' => $directory]));
         }
     }
 

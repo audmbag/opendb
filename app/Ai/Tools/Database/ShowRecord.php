@@ -17,13 +17,13 @@ class ShowRecord extends BaseTool implements Tool
 
     public function description(): Stringable|string
     {
-        return 'Affiche dans l\'interface, sous forme d\'artefact, la fiche d\'un enregistrement : toutes ses colonnes, '
-            .'les enregistrements qu\'il référence (clés étrangères sortantes, navigables) et le nombre '
-            .'d\'enregistrements qui le référencent (clés étrangères entrantes). Ce tool ne te renvoie pas les valeurs : '
-            .'il sert uniquement au rendu. Utilise-le quand l\'utilisateur veut VOIR un enregistrement précis '
-            .'(ex. "affiche la fiche du client 42", "montre-moi la commande CMD-001"). '
-            .'`tableName` est le nom exact de la table ; `key` est un objet `colonne => valeur` identifiant '
-            .'l\'enregistrement, de préférence sa clé primaire (ex. {"id": 42}), sinon une colonne unique (ex. {"reference": "CMD-001"}).';
+        return 'Displays in the interface, as an artifact, the card of a record: all its columns, the records it '
+            .'references (outgoing foreign keys, browsable) and the number of records referencing it (incoming '
+            .'foreign keys). This tool does not return the values to you: it is only for the rendering. Use it '
+            .'when the user wants to SEE a precise record (e.g. "show the card of customer 42", "show me order '
+            .'CMD-001"). `tableName` is the exact name of the table; `key` is a `column => value` object '
+            .'identifying the record, preferably its primary key (e.g. {"id": 42}), otherwise a unique column '
+            .'(e.g. {"reference": "CMD-001"}).';
     }
 
     public function handle(Request $request): Stringable|string
@@ -44,10 +44,10 @@ class ShowRecord extends BaseTool implements Tool
         return [
             'tableName' => $schema->string()
                 ->required()
-                ->description('Le nom exact de la table de l\'enregistrement.'),
+                ->description('The exact name of the table of the record.'),
             'key' => $schema->object()
                 ->required()
-                ->description('Objet `colonne => valeur` identifiant l\'enregistrement, de préférence sa clé primaire (ex. {"id": 42}).'),
+                ->description('A `column => value` object identifying the record, preferably its primary key (e.g. {"id": 42}).'),
         ];
     }
 }

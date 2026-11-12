@@ -9,6 +9,7 @@ use App\Services\QueryPlan\Data\Plan;
 use App\Services\QueryPlan\Data\PlanNode;
 use App\Services\QueryPlan\PlanOperation;
 use App\Services\QueryPlan\SqlClauses;
+use App\Support\TranslatableMessage;
 
 /**
  * Le plan de MySQL renvoyé par EXPLAIN FORMAT=JSON dans sa première version (query_block, nested_loop, table…).
@@ -144,7 +145,7 @@ class MySQLPlanParser extends BasePlanParser
             estimatedRows: $rows,
             cost: $selfCost === null ? null : $selfCost + array_sum(array_map(fn (PlanNode $child): float => (float) $child->cost, $children)),
             selfCost: $selfCost,
-            condition: $this->keyCondition('Clé de tri', $key),
+            condition: $this->keyCondition('query_plan.conditions.sort_key', $key),
             facts: [...$facts, 'key' => $key],
             children: $children,
         );
@@ -172,8 +173,8 @@ class MySQLPlanParser extends BasePlanParser
         return new PlanNode(
             operation: PlanOperation::Group,
             subtitle: $key === null ? null : 'GROUP BY '.$key,
-            outputLabel: $key === null ? 'une ligne par groupe' : '1 ligne par '.$key,
-            condition: $this->keyCondition('Clé de regroupement', $key),
+            outputLabel: $key === null ? new TranslatableMessage('query_plan.output.one_row_per_group') : new TranslatableMessage('query_plan.output.one_row_per', ['key' => $key]),
+            condition: $this->keyCondition('query_plan.conditions.group_key', $key),
             facts: [...$facts, 'key' => $key],
             children: $children,
         );
@@ -187,7 +188,7 @@ class MySQLPlanParser extends BasePlanParser
         return new PlanNode(
             operation: PlanOperation::Distinct,
             subtitle: $topLevel && $this->clauses->isDistinct() ? 'SELECT DISTINCT' : null,
-            outputLabel: 'lignes distinctes',
+            outputLabel: new TranslatableMessage('query_plan.output.distinct_rows'),
             facts: ['temporary' => (bool) ($value['using_temporary_table'] ?? false)],
             children: $this->content($value),
         );
@@ -275,7 +276,7 @@ class MySQLPlanParser extends BasePlanParser
             estimatedRows: $last?->estimatedRows,
             cost: $last?->cost,
             selfCost: $last?->cost === null ? null : 0.0,
-            condition: $condition === null ? null : ['label' => 'Condition de jointure', 'value' => $condition],
+            condition: $condition === null ? null : ['label' => new TranslatableMessage('query_plan.conditions.join_condition'), 'value' => $condition],
             children: $children,
         );
     }
@@ -316,8 +317,8 @@ class MySQLPlanParser extends BasePlanParser
             cost: $cost,
             selfCost: $cost === null ? null : round(max(0.0, $cost - $previousCost), 2),
             condition: match (true) {
-                $filter !== null => ['label' => 'Filtre appliqué', 'value' => $filter],
-                isset($table['index_condition']) => ['label' => "Condition d'index", 'value' => SqlClauses::readable((string) $table['index_condition'])],
+                $filter !== null => ['label' => new TranslatableMessage('query_plan.conditions.filter'), 'value' => $filter],
+                isset($table['index_condition']) => ['label' => new TranslatableMessage('query_plan.conditions.index_condition'), 'value' => SqlClauses::readable((string) $table['index_condition'])],
                 default => null,
             },
             facts: [

@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { FolderIcon } from 'lucide-react';
 import React, { useCallback, useState } from 'react';
 import Input from '@/components/form/input';
@@ -20,6 +21,7 @@ export default function InputFile({
   placeholder,
   ...props
 }: Props) {
+    const { t } = useLaravelReactI18n();
     const [isControlled] = useState(() => controlledValue !== undefined);
     const [internalValue, setInternalValue] = useState(defaultValue ?? '');
 
@@ -49,17 +51,19 @@ export default function InputFile({
         updateValue(e.target.value);
     };
 
+    const selectLabel = onlyFolders ? t('files.select_folder') : t('files.select_file');
+
     return (
         <Input
             {...props}
-            label={`Sélectionner un ${onlyFolders ? 'dossier' : 'fichier'}`}
-            placeholder={placeholder || `Sélectionner un ${onlyFolders ? 'dossier' : 'fichier'}`}
+            label={selectLabel}
+            placeholder={placeholder || selectLabel}
             value={value}
             onChange={handleChange}
             button={{
                 variant: 'outline',
                 icon: FolderIcon,
-                tooltip: `Sélectionner un ${onlyFolders ? 'dossier' : 'fichier'}`,
+                tooltip: selectLabel,
                 onClick: selectFile,
             }}
         />

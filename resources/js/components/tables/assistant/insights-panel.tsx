@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     InfoIcon,
     MessageSquareTextIcon,
@@ -31,6 +32,7 @@ export default function InsightsPanel({
     disabledReason,
     onAskChat,
 }: Props) {
+    const { t } = useLaravelReactI18n();
     const routeArgs = { project: projectId, table: encodeURIComponent(table) };
     const [profile, setProfile] = useState<{
         table: string;
@@ -82,11 +84,10 @@ export default function InsightsPanel({
                 <div className="flex items-start justify-between gap-3">
                     <div className="flex flex-col gap-0.5">
                         <h3 className="text-sm font-medium">
-                            Lecture de l'assistant
+                            {t('tables.assistant.reading')}
                         </h3>
                         <p className="text-sm text-muted-foreground">
-                            Ce que contient la table, et ce qui mérite
-                            l'attention dans ses données.
+                            {t('tables.assistant.insights_description')}
                         </p>
                     </div>
                     <Button
@@ -97,27 +98,27 @@ export default function InsightsPanel({
                         tooltip={disabledReason ?? undefined}
                         processing={processing}
                     >
-                        {result ? 'Relancer' : 'Expliquer la table'}
+                        {result ? t('tables.assistant.rerun') : t('tables.assistant.explain_table')}
                     </Button>
                 </div>
 
                 {disabledReason && (
                     <Alert
                         variant="warning"
-                        title="Assistant indisponible"
+                        title={t('tables.assistant.unavailable')}
                         message={disabledReason}
                     />
                 )}
                 {error && (
                     <Alert
                         variant="destructive"
-                        title="L'assistant n'a pas répondu"
+                        title={t('tables.assistant.no_answer')}
                         message={error}
                     />
                 )}
                 {processing && !result && (
                     <p className="text-sm text-muted-foreground">
-                        L'assistant lit la structure et le profil des colonnes…
+                        {t('tables.assistant.reading_profile')}
                     </p>
                 )}
 
@@ -135,12 +136,12 @@ export default function InsightsPanel({
                                         {anomaly.severity === 'warning' ? (
                                             <TriangleAlertIcon
                                                 className="mt-0.5 size-4 shrink-0 text-warning"
-                                                aria-label="À vérifier"
+                                                aria-label={t('tables.assistant.to_check')}
                                             />
                                         ) : (
                                             <InfoIcon
                                                 className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-                                                aria-label="Remarque"
+                                                aria-label={t('tables.assistant.note')}
                                             />
                                         )}
                                         <span>
@@ -172,7 +173,7 @@ export default function InsightsPanel({
                         {result.questions.length > 0 && (
                             <div className="flex flex-col gap-1.5">
                                 <span className="text-xs text-muted-foreground">
-                                    À creuser dans le chat
+                                    {t('tables.assistant.to_dig')}
                                 </span>
                                 {result.questions.map((question) => (
                                     <button
@@ -194,7 +195,7 @@ export default function InsightsPanel({
             {profileError ? (
                 <Alert
                     variant="destructive"
-                    title="Le profil des colonnes n'a pas pu être calculé"
+                    title={t('tables.assistant.profile_failed')}
                     message={profileError}
                 />
             ) : profile?.table === table ? (

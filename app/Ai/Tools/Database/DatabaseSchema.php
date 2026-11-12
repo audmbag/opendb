@@ -16,13 +16,13 @@ class DatabaseSchema extends BaseTool implements Tool
 
     public function description(): Stringable|string
     {
-        return 'Décrit la structure complète de la base de données : toutes les tables, leurs colonnes '
-            .'et leurs relations, en un seul appel. Ce tool est coûteux en contexte et ne doit '
-            .'JAMAIS être utilisé comme point de départ d\'une exploration. '
-            .'Réserve-le aux demandes explicites de vue d\'ensemble complète ou de documentation '
-            .'globale de la base (ex. "montre-moi toute la structure de la base", "documente le '
-            .'schéma complet"). Pour toute demande portant sur une ou plusieurs tables précises, '
-            .'utilise ListTables puis FocusTable.';
+        return 'Describes the complete structure of the database: every table, its columns '
+            .'and its relations, in a single call. This tool is costly in context and must '
+            .'NEVER be used as the starting point of an exploration. '
+            .'Keep it for explicit requests of a complete overview or of a global documentation '
+            .'of the database (e.g. "show me the whole structure of the database", "document the '
+            .'complete schema"). For any request about one or several precise tables, '
+            .'use ListTables then FocusTable.';
     }
 
     public function handle(Request $request): Stringable|string

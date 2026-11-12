@@ -3,6 +3,7 @@
 namespace App\Ai\Tools\Database;
 
 use App\Ai\Enums\AgentAccessModeEnum;
+use App\Ai\Tools\ToolError;
 use App\Database\Contracts\DriverContract;
 use App\Database\HiddenTableGuard;
 use Closure;
@@ -16,6 +17,14 @@ class BaseTool
     protected function formatQueryError(QueryException $e): string
     {
         return $e->getPrevious()?->getMessage() ?? $e->getMessage();
+    }
+
+    /**
+     * The answer of a call that failed: plain text for the agent, an error for the MCP clients.
+     */
+    protected function error(string $message): ToolError
+    {
+        return new ToolError($message);
     }
 
     protected function toJson(array $data): string
@@ -48,10 +57,10 @@ class BaseTool
     {
         return [
             'query' => $schema->string()
-                ->description('Requête SQL SELECT (ou WITH … SELECT) unique, préparée avec bindings nommés, sans point-virgule multiple.')
+                ->description('A single SELECT (or WITH … SELECT) SQL query, prepared with named bindings, without several semicolons.')
                 ->required(),
             'bindings' => $schema->object()
-                ->description('Objet clé-valeur contenant les paramètres (ex: {"id": 1, "status": "active"}). Objet vide si aucun paramètre.')
+                ->description('Key-value object holding the parameters (e.g. {"id": 1, "status": "active"}). Empty object if there is no parameter.')
                 ->required(),
         ];
     }
@@ -66,7 +75,7 @@ class BaseTool
         $listTables = $driver->listTables(false);
 
         if (! in_array($tableName, $listTables)) {
-            throw new RuntimeException("La table spécifiée dans `focusedTable.tableName` n'existe pas dans la base de données. Utilise le tool `ListTables` pour vérifier les noms exacts des tables disponibles.");
+            throw new RuntimeException(__('database.errors.focused_table_missing'));
         }
 
         return $listTables;
@@ -74,20 +83,20 @@ class BaseTool
 
     public function getSchemaForQueryByAccessMode(AgentAccessModeEnum $mode, JsonSchema $schema): array
     {
-        $description = 'de modification (INSERT, UPDATE, DELETE, CREATE, ALTER, TRUNCATE).';
+        $description = 'that changes data (INSERT, UPDATE, DELETE, CREATE, ALTER, TRUNCATE).';
 
         if ($mode === AgentAccessModeEnum::ReadOnly) {
-            $description = 'en lecture seule (SELECT, WITH, EXPLAIN, SHOW ou DESCRIBE).';
+            $description = 'that only reads (SELECT, WITH, EXPLAIN, SHOW or DESCRIBE).';
         }
 
-        $description = 'Requête SQL préparée avec bindings nommés '.$description;
+        $description = 'SQL query prepared with named bindings, '.$description;
 
         return [
             'query' => $schema->string()
                 ->description($description)
                 ->required(),
             'bindings' => $schema->object()
-                ->description('Objet clé-valeur contenant les paramètres (ex: {"id": 1, "status": "active"})')
+                ->description('Key-value object holding the parameters (e.g. {"id": 1, "status": "active"})')
                 ->required(),
         ];
     }

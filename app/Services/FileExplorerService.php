@@ -58,7 +58,7 @@ class FileExplorerService
         $realPath = realpath($path);
 
         if ($realPath === false || ! is_dir($realPath)) {
-            throw new RuntimeException("Le dossier [{$path}] n'existe pas ou n'est pas accessible.");
+            throw new RuntimeException(__('files.errors.missing_folder', ['path' => $path]));
         }
 
         $os = $this->systemInfo->os();
@@ -73,7 +73,7 @@ class FileExplorerService
 
         // L'Explorateur Windows renvoie un code de sortie non nul même quand il s'ouvre correctement.
         if ($result->failed() && $os !== OperatingSystemEnum::WINDOWS) {
-            throw new RuntimeException("Impossible d'ouvrir le dossier [{$realPath}] : ".trim($result->errorOutput()));
+            throw new RuntimeException(__('files.errors.open_folder', ['path' => $realPath, 'error' => trim($result->errorOutput())]));
         }
     }
 
@@ -82,7 +82,7 @@ class FileExplorerService
         $realPath = realpath($path);
 
         if ($realPath === false || ! is_dir($realPath)) {
-            throw new RuntimeException("Le dossier [{$path}] n'existe pas ou n'est pas accessible.");
+            throw new RuntimeException(__('files.errors.missing_folder', ['path' => $path]));
         }
 
         if ($this->allowedBasePaths !== null) {
@@ -92,7 +92,7 @@ class FileExplorerService
                 ->contains(fn ($base) => str_starts_with($realPath.DIRECTORY_SEPARATOR, rtrim($base, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR));
 
             if (! $isAllowed) {
-                throw new RuntimeException("Accès refusé au dossier [{$path}].");
+                throw new RuntimeException(__('files.errors.access_denied', ['path' => $path]));
             }
         }
 
@@ -161,8 +161,8 @@ class FileExplorerService
             }
         }
 
-        usort($folders, fn ($a, $b) => strcasecmp($a['name'], $b['name']));
-        usort($files, fn ($a, $b) => strcasecmp($a['name'], $b['name']));
+        usort($folders, fn ($a, $b) => strnatcasecmp($a['name'], $b['name']));
+        usort($files, fn ($a, $b) => strnatcasecmp($a['name'], $b['name']));
 
         return [...$folders, ...$files];
     }

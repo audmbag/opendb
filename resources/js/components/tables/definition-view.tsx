@@ -1,11 +1,12 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { useEffect, useState } from 'react';
+import Alert from '@/components/alert';
 import {
     CodeBlockActions,
     CodeBlockCopyButton,
     CodeBlockHeader,
     CodeBlockTitle,
 } from '@/components/code-block';
-import Alert from '@/components/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import TableBrowserController from '@/wayfinder/actions/App/Http/Controllers/Tables/TableBrowserController';
 import type { TableRequestError } from './api';
@@ -22,6 +23,7 @@ export default function DefinitionView({
     projectId: string;
     table: string;
 }) {
+    const { t } = useLaravelReactI18n();
     const [definition, setDefinition] = useState<{
         table: string;
         sql: string;
@@ -52,7 +54,7 @@ export default function DefinitionView({
         return (
             <Alert
                 variant="destructive"
-                title="Le DDL n'a pas pu être lu"
+                title={t('tables.definition.failed')}
                 message={error}
                 className="m-4 w-auto"
             />

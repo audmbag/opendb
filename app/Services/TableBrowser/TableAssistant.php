@@ -47,7 +47,7 @@ class TableAssistant
 
         $filters = array_map(function (array $condition): TableFilter {
             $operator = FilterOperator::tryFrom((string) ($condition['operator'] ?? ''))
-                ?? throw new RuntimeException("L'assistant a proposé un opérateur inconnu : {$condition['operator']}.");
+                ?? throw new RuntimeException(__('tables.errors.unknown_operator', ['operator' => $condition['operator']]));
 
             return new TableFilter((string) ($condition['column'] ?? ''), $operator, $operator->needsValue() ? $condition['value'] ?? '' : null);
         }, array_values((array) ($response['conditions'] ?? [])));

@@ -1,4 +1,5 @@
 import { usePage } from '@inertiajs/react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { WorkflowIcon } from 'lucide-react';
 import ArtifactFrame from '@/components/ai/artifacts/artifact-frame';
 import { formatNumber } from '@/components/ai/artifacts/format';
@@ -14,6 +15,7 @@ type Props = {
 };
 
 export default function SchemaDiagramPreview({ part }: Props) {
+    const { t, tChoice } = useLaravelReactI18n();
     const { props: { project } } = usePage<{ project: Project }>();
     const { focusedTable, withRelatedTables } = part.output;
 
@@ -32,8 +34,8 @@ export default function SchemaDiagramPreview({ part }: Props) {
         <ArtifactFrame
             ref={ref}
             icon={WorkflowIcon}
-            title={focusedTable ? `Schéma de la table ${focusedTable}` : 'Schéma de la base de données'}
-            description={tablesCount ? `${formatNumber(tablesCount)} table${tablesCount > 1 ? 's' : ''}` : undefined}
+            title={focusedTable ? t('ai.artifacts.table_schema', { table: focusedTable }) : t('flow.database_schema')}
+            description={tablesCount ? tChoice('tables.counts.tables', tablesCount, { count: formatNumber(tablesCount) }) : undefined}
             data={data}
             error={error}
             processing={processing}

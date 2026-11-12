@@ -1,9 +1,11 @@
 import { router, useHttp, usePage } from '@inertiajs/react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { MessageSquareTextIcon, SearchXIcon } from 'lucide-react';
 import React, { Fragment, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { EmptyState } from '@/components/empty-state';
 import { Frame, FramePanel } from '@/components/reui/frame';
+import { Spinner } from '@/components/spinner';
 import {
     Command,
     CommandDialog,
@@ -13,7 +15,7 @@ import {
     CommandItem,
     CommandList,
 } from '@/components/ui/command';
-import { Spinner } from '@/components/ui/spinner';
+import { trans } from '@/lib/i18n';
 import { useConversationStore } from '@/store/use-conversation-store';
 import type { APIData } from '@/types/global';
 import type { ConversationSearchResult } from '@/types/models/conversation';
@@ -68,6 +70,7 @@ const Highlight = ({ text, search }: { text: string; search: string }) => {
 const SearchConversationContent = ({
     onOpenChange,
 }: Pick<Props, 'onOpenChange'>) => {
+    const { t } = useLaravelReactI18n();
     const {
         props: { project },
     } = usePage<{ project: Project }>();
@@ -114,7 +117,7 @@ const SearchConversationContent = ({
                                 search: trimmedSearch,
                                 conversations: [],
                             });
-                            toast.error('La recherche a échoué, réessayez.');
+                            toast.error(trans('conversations.search_failed'));
                         }
                     },
                 },
@@ -155,7 +158,7 @@ const SearchConversationContent = ({
             <Frame className="w-full">
                 <FramePanel className="p-0">
                     <CommandInput
-                        placeholder="Rechercher une conversation..."
+                        placeholder={t('conversations.search_placeholder')}
                         value={search}
                         onValueChange={setSearch}
                     />
@@ -174,8 +177,8 @@ const SearchConversationContent = ({
                                     }
                                     description={
                                         trimmedSearch
-                                            ? 'Aucune conversation ne correspond à votre recherche'
-                                            : "Vos historiques de conversations s'afficheront ici"
+                                            ? t('conversations.no_match')
+                                            : t('conversations.empty_history')
                                     }
                                     className="py-8"
                                 />
@@ -184,7 +187,7 @@ const SearchConversationContent = ({
                         {conversations.length > 0 && (
                             <CommandGroup
                                 heading={
-                                    trimmedSearch ? 'Résultats' : 'Récents'
+                                    trimmedSearch ? t('conversations.results') : t('conversations.recent')
                                 }
                             >
                                 {conversations.map((conversation) => (
@@ -230,12 +233,14 @@ const SearchConversationContent = ({
 };
 
 export default function SearchConversationModal({ open, onOpenChange }: Props) {
+    const { t } = useLaravelReactI18n();
+
     return (
         <CommandDialog
             open={open}
             onOpenChange={onOpenChange}
-            title="Rechercher une conversation"
-            description="Recherchez dans les titres et les messages de vos conversations"
+            title={t('conversations.search')}
+            description={t('conversations.search_description')}
             className="sm:max-w-xl"
         >
             <SearchConversationContent onOpenChange={onOpenChange} />

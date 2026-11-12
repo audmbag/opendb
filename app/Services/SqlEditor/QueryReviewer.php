@@ -28,16 +28,16 @@ class QueryReviewer
     {
         $response = new QueryReviewerAgent($driver, $mode, $sql, $error, $mode === 'optimize' ? $this->plan($driver, $projectId, $sql) : null)
             ->prompt(match ($mode) {
-                'fix' => 'Corrige cette instruction.',
-                'explain' => 'Explique cette instruction.',
-                'optimize' => 'Optimise cette instruction.',
+                'fix' => 'Fix this statement.',
+                'explain' => 'Explain this statement.',
+                'optimize' => 'Optimize this statement.',
             }, provider: $provider, model: $model);
 
         $explanation = trim((string) ($response['explanation'] ?? ''));
         $rewritten = trim((string) ($response['sql'] ?? ''));
 
         if ($explanation === '') {
-            throw new RuntimeException("L'assistant n'a pas répondu. Réessayez.");
+            throw new RuntimeException(__('tables.console.errors.no_answer'));
         }
 
         return ['explanation' => $explanation, 'sql' => $rewritten === '' ? null : $rewritten];

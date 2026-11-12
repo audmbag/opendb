@@ -1,5 +1,6 @@
 import type { DataUIPart, DynamicToolUIPart, FileUIPart, ToolUIPart, UIMessage as AiUIMessage } from 'ai';
-import { RefreshCcwIcon, } from 'lucide-react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
+import { CircleStopIcon, RefreshCcwIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import ApprovalFormRenderer from '@/components/ai/approval-form-renderer';
@@ -59,6 +60,7 @@ const messageArtifactables = (message: AiUIMessage): CustomOutputToolUIPart[] =>
 };
 
 const Conversation = () => {
+    const { t } = useLaravelReactI18n();
 
     const { project, conversation, initialMessages } = useConversation();
 
@@ -73,8 +75,12 @@ const Conversation = () => {
         error,
         streamErrorMessage,
         regenerate,
+        cancel,
+        cancelledMessageIds,
         addToolApprovalResponse,
     } = useConversationMessage(conversation, initialMessages);
+
+    const lastUserMessageIndex = messages.findLastIndex((message) => message.role === 'user');
 
     const hasSelectedModel = useAgentSettingsStore((state) => state.selectedModel !== null);
 
@@ -134,6 +140,13 @@ const Conversation = () => {
                 <ConversationContent className="m-auto max-w-4xl gap-4 pb-12">
                     {messages.map((message, messageIndex) => {
                         const isLast = messageIndex === messages.length - 1;
+                        const lastTextPartIndex = message.parts.findLastIndex((part) => part.type === 'text');
+                        const answerText = message.parts
+                            .filter((part) => part.type === 'text')
+                            .map((part) => part.text)
+                            .join('\n\n');
+                        const isCancelled = cancelledMessageIds.has(message.id) || message.parts.some((part) => part.type === 'data-cancelled');
+                        const canRetry = status === 'ready' && (messageIndex === lastUserMessageIndex || (isLast && message.role === 'assistant'));
 
                         const attachments: FileUIPart[] = [];
                         const artifactables = messageArtifactables(message);
@@ -146,7 +159,7 @@ const Conversation = () => {
                                 attachments.push(part);
                             }
 
-                            if (part.type.startsWith('data-')) {
+                            if (part.type === 'data-provider' || part.type === 'data-model') {
                                 fromInfo.push(
                                     part as DataUIPart<{
                                         [key: string]: string;
@@ -155,8 +168,10 @@ const Conversation = () => {
                             }
                         });
 
-                        return message.parts.map((part, i) => {
+                        const parts = message.parts.map((part, i) => {
                             if (part.type === 'text') {
+                                const isLastText = i === lastTextPartIndex;
+
                                 return (
                                     <UIMessage
                                         key={`${message.id}-${i}`}
@@ -168,7 +183,11 @@ const Conversation = () => {
                                         isLast={isLast}
                                         partIndex={i}
                                         fromModel={fromInfo}
-                                        artifactables={artifactables}
+                                        artifactables={isLastText ? artifactables : undefined}
+                                        hasActions={isLastText}
+                                        copyText={answerText}
+                                        isCancelled={isLastText && isCancelled}
+                                        onRetry={isLastText && canRetry ? regenerate : undefined}
                                     />
                                 );
                             }
@@ -184,22 +203,33 @@ const Conversation = () => {
 
                             return null;
                         });
+
+                        // An answer stopped before writing any text still says so, and can be asked again.
+                        if (message.role === 'assistant' && isCancelled && lastTextPartIndex === -1) {
+                            parts.push(
+                                <div key={`${message.id}-cancelled`} className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                                    <CircleStopIcon className="size-4" />
+                                    {t('ai.messages.interrupted')}
+                                </div>,
+                            );
+                        }
+
+                        return parts;
                     })}
 
                     <ProcessingIndicator status={status} latestMessage={messages[messages.length - 1]} />
 
                     {(status === 'error' || error) && (
                         <Alert
-                            title="Une erreur est survenue"
+                            title={t('common.error')}
                             mode="frame"
                             variant="destructive"
                             message={
-                                streamErrorMessage ??
-                                'Une erreur est survenue lors de la génération de la réponse. Veuillez réessayer.'
+                                streamErrorMessage ?? t('ai.messages.generation_failed')
                             }
                             buttons={[
                                 {
-                                    label: 'Réessayer',
+                                    label: t('common.retry'),
                                     onClick: () => regenerate(),
                                     icon: RefreshCcwIcon,
                                 },
@@ -218,7 +248,8 @@ const Conversation = () => {
                                 suggestions={false}
                                 className="[view-transition-name:prompt-input]"
                                 onSubmit={submitPromptMessage}
-                                loading={status === 'streaming'}
+                                loading={status === 'streaming' || status === 'submitted'}
+                                onStop={cancel}
                                 variant="secondary"
                             />
                         );

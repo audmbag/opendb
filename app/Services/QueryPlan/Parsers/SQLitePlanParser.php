@@ -9,6 +9,7 @@ use App\Services\QueryPlan\Data\Plan;
 use App\Services\QueryPlan\Data\PlanNode;
 use App\Services\QueryPlan\PlanOperation;
 use App\Services\QueryPlan\SqlClauses;
+use App\Support\TranslatableMessage;
 
 /**
  * Le plan de SQLite renvoyé par EXPLAIN QUERY PLAN : des lignes id / parent / detail, sans coût ni estimation de lignes.
@@ -129,7 +130,7 @@ class SQLitePlanParser extends BasePlanParser
             $current = new PlanNode(
                 operation: PlanOperation::NestedLoop,
                 subtitle: $condition,
-                condition: $condition === null ? null : ['label' => 'Condition de jointure', 'value' => $condition],
+                condition: $condition === null ? null : ['label' => new TranslatableMessage('query_plan.conditions.join_condition'), 'value' => $condition],
                 children: [$current, $inner],
             );
         }
@@ -151,20 +152,20 @@ class SQLitePlanParser extends BasePlanParser
             $node = new PlanNode(
                 operation: PlanOperation::Group,
                 subtitle: $key === null ? null : 'GROUP BY '.$key,
-                outputLabel: $key === null ? 'une ligne par groupe' : '1 ligne par '.$key,
-                condition: $this->keyCondition('Clé de regroupement', $key),
+                outputLabel: $key === null ? new TranslatableMessage('query_plan.output.one_row_per_group') : new TranslatableMessage('query_plan.output.one_row_per', ['key' => $key]),
+                condition: $this->keyCondition('query_plan.conditions.group_key', $key),
                 facts: ['temporary' => true, 'key' => $key],
                 children: [$node],
             );
         }
 
         if ($has('DISTINCT')) {
-            $node = new PlanNode(PlanOperation::Distinct, subtitle: 'SELECT DISTINCT', outputLabel: 'lignes distinctes', facts: ['temporary' => true], children: [$node]);
+            $node = new PlanNode(PlanOperation::Distinct, subtitle: 'SELECT DISTINCT', outputLabel: new TranslatableMessage('query_plan.output.distinct_rows'), facts: ['temporary' => true], children: [$node]);
         }
 
         if ($has('ORDER BY')) {
             $key = $topLevel ? $this->clauses->orderBy() : null;
-            $node = new PlanNode(PlanOperation::Sort, subtitle: $key, condition: $this->keyCondition('Clé de tri', $key), facts: ['filesort' => true, 'key' => $key], children: [$node]);
+            $node = new PlanNode(PlanOperation::Sort, subtitle: $key, condition: $this->keyCondition('query_plan.conditions.sort_key', $key), facts: ['filesort' => true, 'key' => $key], children: [$node]);
         }
 
         return $node;
@@ -206,8 +207,8 @@ class SQLitePlanParser extends BasePlanParser
             index: $index ?? ($primaryKey ? 'PRIMARY KEY' : null),
             badge: $this->readBadge($operation, $covering, $operation === PlanOperation::FullScan && $filter !== null ? [] : null),
             condition: match (true) {
-                $filter !== null => ['label' => 'Filtre appliqué', 'value' => $filter],
-                $indexCondition !== null => ['label' => "Condition d'index", 'value' => $indexCondition],
+                $filter !== null => ['label' => new TranslatableMessage('query_plan.conditions.filter'), 'value' => $filter],
+                $indexCondition !== null => ['label' => new TranslatableMessage('query_plan.conditions.index_condition'), 'value' => $indexCondition],
                 default => null,
             },
             facts: [

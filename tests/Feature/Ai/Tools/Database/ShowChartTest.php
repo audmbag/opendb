@@ -45,6 +45,6 @@ it('names the available columns when an axis is missing from the result', functi
 
     expect(json_decode($result, true))->toBe([
         'success' => false,
-        'error' => 'Colonnes absentes du résultat de la requête : month. Colonnes disponibles : status, revenue.',
+        'error' => 'Columns missing from the query result: month. Available columns: status, revenue.',
     ]);
 });

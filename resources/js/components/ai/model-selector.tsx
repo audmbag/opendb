@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { AstroidIcon, BrainIcon, CheckIcon, SettingsIcon } from 'lucide-react';
 import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
@@ -10,7 +11,6 @@ import {
     ModelSelectorItem,
     ModelSelectorList,
     ModelSelectorName,
-    ModelSelectorTrigger,
 } from '@/components/ai-elements/model-selector';
 import { EmptyState } from '@/components/empty-state';
 import Button from '@/components/form/button';
@@ -26,28 +26,31 @@ import type { AiModel, Provider } from '@/types/models/provider';
 
 interface ModelItemProps {
     providerId: string;
+    providerIcon: string;
     model: AiModel;
     selectedModel: SelectedModel | null;
     onSelect: (value: SelectedModel) => void;
 }
 export const ModelSelectorLogo = ({
     providerId,
+    icon,
     className,
     ...props
 }: {
     providerId: string;
+    icon: string;
 } & React.ComponentProps<'img'>) => (
     <img
         {...props}
         alt={`${providerId} logo`}
         className={cn('size-4', className)}
         height={12}
-        src={`/assets/providers/${providerId}.svg`}
+        src={icon}
         width={12}
     />
 );
 
-const ModelItem = memo(({ providerId, model, selectedModel, onSelect }: ModelItemProps) => {
+const ModelItem = memo(({ providerId, providerIcon, model, selectedModel, onSelect }: ModelItemProps) => {
     const handleSelect = useCallback(
         () => onSelect({ providerId, modelId: model.id }),
         [onSelect, providerId, model.id],
@@ -59,7 +62,7 @@ const ModelItem = memo(({ providerId, model, selectedModel, onSelect }: ModelIte
             onSelect={handleSelect}
             value={model.id}
         >
-            <ModelSelectorLogo providerId={providerId} />
+            <ModelSelectorLogo providerId={providerId} icon={providerIcon} />
             <ModelSelectorName>{model.label}</ModelSelectorName>
             {selectedModel?.providerId === providerId && selectedModel.modelId === model.id ? (
                 <CheckIcon className="ml-auto size-4" />
@@ -73,6 +76,7 @@ const ModelItem = memo(({ providerId, model, selectedModel, onSelect }: ModelIte
 ModelItem.displayName = 'ModelItem';
 
 const ModelSelector = ({ size = 'default' }: { size?: ButtonProps['size'] }) => {
+    const { t } = useLaravelReactI18n();
     const [open, setOpen] = useState(false);
     const selectedModel = useAgentSettingsStore((state) => state.selectedModel);
     const setSelectedModel = useAgentSettingsStore((state) => state.setSelectedModel);
@@ -148,7 +152,7 @@ const ModelSelector = ({ size = 'default' }: { size?: ButtonProps['size'] }) => 
     return (
         <AIElementModelSelector onOpenChange={setOpen} open={open}>
             <Button
-                tooltip={['Choisir un mode', ['Ctrl', "'"]]}
+                tooltip={[t('shortcuts.model'), ['Ctrl', "'"]]}
                 variant="secondary"
                 processing={processing}
                 onClick={handleOpen}
@@ -158,23 +162,24 @@ const ModelSelector = ({ size = 'default' }: { size?: ButtonProps['size'] }) => 
                     {selectedModelData?.provider ? (
                         <ModelSelectorLogo
                             providerId={selectedModelData.provider.id}
+                            icon={selectedModelData.provider.icon}
                             className={cn({ 'size-3': size === 'xs' })}
                         />
                     ) : <AstroidIcon className={size === 'xs' ? 'size-3' : 'size-4'} />}
                     <ModelSelectorName>
-                        {selectedModelData?.model?.label || "Configurer un fournisseur"}
+                        {selectedModelData?.model?.label || t('ai.models.configure_provider')}
                     </ModelSelectorName>
                 </span>
             </Button>
-            <ModelSelectorContent showCloseButton={false}>
+            <ModelSelectorContent showCloseButton={false} title={t('ai.models.selector')}>
                 <div className="flex items-center gap-1 p-1 **:data-[slot=command-input-wrapper]:flex-1 **:data-[slot=command-input-wrapper]:p-0!">
                     <ModelSelectorInput
                         className="flex-1 p-0"
-                        placeholder="Search models..."
+                        placeholder={t('settings.models.search')}
                     />
                     <Button
                         variant="secondary"
-                        tooltip="Gérer les modèles"
+                        tooltip={t('settings.models.manage_models')}
                         icon={SettingsIcon}
                         size="icon-sm"
                         onClick={openSettingsModal}
@@ -183,7 +188,7 @@ const ModelSelector = ({ size = 'default' }: { size?: ButtonProps['size'] }) => 
                 <ModelSelectorList>
                     <ModelSelectorEmpty asChild>
                         <EmptyState
-                            title="Aucun modèle disponible"
+                            title={t('ai.models.none')}
                             icon={BrainIcon}
                         />
                     </ModelSelectorEmpty>
@@ -195,6 +200,7 @@ const ModelSelector = ({ size = 'default' }: { size?: ButtonProps['size'] }) => 
                             {provider.models.map((model) => (
                                 <ModelItem
                                     providerId={provider.id}
+                                    providerIcon={provider.icon}
                                     key={model.id}
                                     model={model}
                                     onSelect={handleModelSelect}

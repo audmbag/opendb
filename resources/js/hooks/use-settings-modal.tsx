@@ -1,14 +1,19 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     BotIcon,
+    ChartNoAxesColumnIcon,
     BrainIcon,
     FileDownIcon,
     InfoIcon,
     KeyboardIcon,
+    KeyRoundIcon,
     MailIcon,
     Settings2Icon,
+    ShieldIcon,
     UserIcon,
+    UsersIcon,
 } from 'lucide-react';
-import { Suspense, useCallback } from 'react';
+import { Suspense, useCallback, useMemo } from 'react';
 import { lazy } from 'react';
 import React, { createContext, useContext, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
@@ -16,6 +21,8 @@ import type {
     SmallSidebarNavItem,
     SmallSidebarNavItemValue,
 } from '@/components/sm-side-bar/types';
+import { usePrivileges } from '@/hooks/use-privileges';
+import type { Privilege } from '@/types/models/privilege';
 
 const GeneralSettings = lazy(
     () => import('../components/settings/general-settings'),
@@ -35,73 +42,136 @@ const ExportSettings = lazy(
 const ModelsSettings = lazy(
     () => import('../components/settings/models-settings'),
 );
+const UsageSettings = lazy(
+    () => import('../components/settings/usage-settings'),
+);
 const MailSettings = lazy(() => import('../components/settings/mail-settings'));
+const McpSettings = lazy(() => import('../components/settings/mcp-settings'));
+const UsersSettings = lazy(
+    () => import('../components/settings/users-settings'),
+);
+const RolesSettings = lazy(
+    () => import('../components/settings/roles-settings'),
+);
 const AboutSettings = lazy(
     () => import('../components/settings/about-settings'),
 );
 
-const lazyPage = (page: React.ReactNode) => (
-    <Suspense fallback="Chargement...">{page}</Suspense>
-);
+const lazyPage = (page: React.ReactNode) => <Suspense>{page}</Suspense>;
 
-export const SettingsNavItems: SmallSidebarNavItem[] = [
+/**
+ * The sections of the settings, their name and group being keys of lang/{locale}/settings.php, with the privilege on
+ * the whole instance a section needs to be shown.
+ */
+const SETTINGS_NAV_ITEMS: (SmallSidebarNavItem & { privilege?: Privilege })[] = [
     {
         value: 'general',
-        name: 'Général',
+        name: 'settings.nav.general',
         icon: Settings2Icon,
         component: lazyPage(<GeneralSettings />),
-        group: 'Bureau',
+        group: 'settings.nav.groups.desktop',
     },
     {
         value: 'shortcuts',
-        name: 'Raccourcis',
+        name: 'settings.nav.shortcuts',
         icon: KeyboardIcon,
         component: lazyPage(<ShortcutsSettings />),
-        group: 'Bureau',
+        group: 'settings.nav.groups.desktop',
     },
     {
         value: 'account',
-        name: 'Compte',
+        name: 'settings.nav.account',
         icon: UserIcon,
         component: lazyPage(<AccountSettings />),
-        group: 'Utilisateur',
+        group: 'settings.nav.groups.user',
     },
     {
         value: 'agent',
-        name: 'Agent IA',
+        name: 'settings.nav.agent',
         icon: BotIcon,
         component: lazyPage(<AgentSettings />),
-        group: 'Utilisateur',
+        group: 'settings.nav.groups.user',
     },
     {
         value: 'exports',
-        name: 'Exports',
+        name: 'settings.nav.exports',
         icon: FileDownIcon,
         component: lazyPage(<ExportSettings />),
-        group: 'Utilisateur',
+        group: 'settings.nav.groups.user',
+    },
+    {
+        value: 'mcp',
+        name: 'settings.nav.mcp',
+        icon: KeyRoundIcon,
+        component: lazyPage(<McpSettings />),
+        group: 'settings.nav.groups.user',
     },
     {
         value: 'models',
-        name: 'Modèles',
+        name: 'settings.nav.models',
         icon: BrainIcon,
         component: lazyPage(<ModelsSettings />),
-        group: 'Serveur',
+        group: 'settings.nav.groups.server',
+        privilege: 'manage_providers',
+    },
+    {
+        value: 'usage',
+        name: 'settings.nav.usage',
+        icon: ChartNoAxesColumnIcon,
+        component: lazyPage(<UsageSettings />),
+        group: 'settings.nav.groups.server',
     },
     {
         value: 'mail',
-        name: 'Messagerie',
+        name: 'settings.nav.mail',
         icon: MailIcon,
         component: lazyPage(<MailSettings />),
-        group: 'Serveur',
+        group: 'settings.nav.groups.server',
+    },
+    {
+        value: 'users',
+        name: 'settings.nav.users',
+        icon: UsersIcon,
+        component: lazyPage(<UsersSettings />),
+        group: 'settings.nav.groups.administration',
+        privilege: 'create_user',
+    },
+    {
+        value: 'roles',
+        name: 'settings.nav.roles',
+        icon: ShieldIcon,
+        component: lazyPage(<RolesSettings />),
+        group: 'settings.nav.groups.administration',
+        privilege: 'create_user',
     },
     {
         value: 'about',
-        name: 'À propos',
+        name: 'settings.nav.about',
         icon: InfoIcon,
         component: lazyPage(<AboutSettings />),
-        group: 'Application',
+        group: 'settings.nav.groups.application',
     },
 ];
+
+/**
+ * The sections of the settings the user may open, named in the language of the interface.
+ */
+export function useSettingsNavItems(): SmallSidebarNavItem[] {
+    const { t } = useLaravelReactI18n();
+    const { can } = usePrivileges();
+
+    return useMemo(
+        () =>
+            SETTINGS_NAV_ITEMS.filter((item) => !item.privilege || can(item.privilege)).map((item) => ({
+                value: item.value,
+                icon: item.icon,
+                component: item.component,
+                name: t(item.name),
+                group: item.group && t(item.group),
+            })),
+        [t, can],
+    );
+}
 
 type SettingsContextType = {
     isOpen: boolean;

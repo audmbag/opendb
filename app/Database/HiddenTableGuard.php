@@ -21,7 +21,7 @@ class HiddenTableGuard
     /**
      * The catalogs describing every table, hidden ones included.
      */
-    private const string SYSTEM_CATALOGS = '/(?<![\p{L}\p{N}_$])(?:'
+    public const string SYSTEM_CATALOGS = '/(?<![\p{L}\p{N}_$])(?:'
         .'(?:information_schema|performance_schema|pg_catalog'
         .'|pg_(?:class|attribute|attrdef|constraint|index|indexes|tables|views|matviews|statistic|stats|stats_ext|description|namespace|depend|rewrite|trigger|proc)'
         .'|pg_stat\w*|pg_statio\w*|sqlite_(?:master|schema|temp_master|temp_schema|stat\d)|pragma_\w+)(?![\p{L}\p{N}_$])'
@@ -30,7 +30,7 @@ class HiddenTableGuard
     /**
      * The statements and functions running a query written as text, or naming a table without spelling it.
      */
-    private const string DYNAMIC_SQL = '/^\s*DO\b'
+    public const string DYNAMIC_SQL = '/^\s*DO\b'
         .'|\b(?:PREPARE|EXECUTE(?!\s+(?:FUNCTION|PROCEDURE)\b)|(?:query|cursor|table|schema|database)_to_xml\w*|dblink\w*|(?:to_)?regclass'
         .'|pg_read_file|pg_read_binary_file|load_file)\b'
         .'|\bU&["\']/iu';
@@ -90,7 +90,10 @@ class HiddenTableGuard
         };
     }
 
-    private static function cites(string $sql, string $table): bool
+    /**
+     * Whether a word of the query spells the table, whatever its case.
+     */
+    public static function cites(string $sql, string $table): bool
     {
         $pattern = '/(?<!'.self::IDENTIFIER_CHARACTER.')'.preg_quote($table, '/').'(?!'.self::IDENTIFIER_CHARACTER.')/iu';
 

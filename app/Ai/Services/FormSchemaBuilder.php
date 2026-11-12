@@ -17,7 +17,7 @@ readonly class FormSchemaBuilder
             ->map(function ($col) use ($knownValues) {
                 return [
                     'name' => $col['name'],
-                    'label' => __('fields.'.$col['name'], [], null) ?? ucfirst($col['name']),
+                    'label' => ucfirst($col['name']),
                     'type' => $this->mapType($col),
                     'max' => $col['length'] ?? null,
                     'required' => ! $col['nullable'],

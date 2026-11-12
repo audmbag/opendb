@@ -25,7 +25,7 @@ class DatabaseExportController extends Controller
 
         try {
             $path = $exporter->export(
-                $project->driver_config->getDriver(),
+                $project->driver_config->driverFor($request->user()),
                 $request->tables(),
                 $request->validated('format'),
                 $request->validated('compression'),

@@ -1,4 +1,5 @@
 import { useHttp, usePage } from '@inertiajs/react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     BrainCircuitIcon,
     LoaderIcon,
@@ -19,25 +20,25 @@ import type { Table } from '@/types/databases';
 import type { Project } from '@/types/models/project';
 import ProjectSettingsController from '@/wayfinder/actions/App/Http/Controllers/Project/ProjectSettingsController';
 
-const plural = (count: number) => (count > 1 ? 's' : '');
-
 type TableRowProps = {
     table: Table;
     onToggle: (tableName: string, enabled: boolean) => void;
 };
 
 const TableRow = memo(function TableRow({ table, onToggle }: TableRowProps) {
+    const { t, tChoice } = useLaravelReactI18n();
+
     return (
         <div className="flex items-center justify-between gap-2 border-b border-border p-2 last:border-b-0">
             <div className="flex min-w-0 items-center gap-2">
                 <Table2Icon className="size-4 shrink-0" />
                 <H5 className="truncate">{table.name}</H5>
-                <Badge variant="secondary">{`${table.columns} colonne${plural(table.columns)}`}</Badge>
+                <Badge variant="secondary">{tChoice('tables.counts.columns', table.columns)}</Badge>
             </div>
             <Switch
                 className="w-auto"
                 orientation="horizontal"
-                aria-label={`Rendre la table ${table.name} accessible à l'agent`}
+                aria-label={t('projects.tables.make_accessible_to_agent', { table: table.name })}
                 checked={table.agentAccessEnabled}
                 onCheckedChange={(checked) => onToggle(table.name, checked)}
             />
@@ -49,6 +50,7 @@ const TableRow = memo(function TableRow({ table, onToggle }: TableRowProps) {
  * The tables the agent may see: a disabled table is hidden from its schema and every query citing it is rejected.
  */
 export default function AgentTablesProjectSettings() {
+    const { t, tChoice } = useLaravelReactI18n();
     const { project } = usePage<{ project: Project }>().props;
 
     const [tables, setTables] = useState<Table[]>([]);
@@ -139,7 +141,7 @@ export default function AgentTablesProjectSettings() {
         return (
             <Alert
                 variant="destructive"
-                title="Base de données injoignable"
+                title={t('projects.settings.database_unreachable')}
                 message={connectionError}
             />
         );
@@ -147,8 +149,8 @@ export default function AgentTablesProjectSettings() {
 
     return (
         <CardFrame
-            title="Accès de l'agent aux tables"
-            description="L'agent ne connaît que le nom d'une table désactivée : il ne peut ni lire sa structure ou ses données, ni la modifier."
+            title={t('projects.settings.agent_tables.title')}
+            description={t('projects.settings.agent_tables.description')}
             icon={BrainCircuitIcon}
             innerPadding={false}
             actions={
@@ -158,34 +160,34 @@ export default function AgentTablesProjectSettings() {
                     disabled={!isDirty}
                     onClick={save}
                 >
-                    Enregistrer
+                    {t('common.save')}
                 </Button>
             }
         >
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border p-2">
                 <Input
-                    placeholder="Rechercher une table..."
+                    placeholder={t('tables.search_table')}
                     className="w-full max-w-xs"
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
                 />
                 <div className="flex items-center gap-2">
                     <Muted className="text-xs">
-                        {`${tables.length - disabledTables.length} / ${tables.length} accessible${plural(tables.length - disabledTables.length)}`}
+                        {tChoice('projects.settings.agent_tables.accessible', tables.length - disabledTables.length, { total: tables.length })}
                     </Muted>
                     <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => toggleAll(true)}
                     >
-                        Tout autoriser
+                        {t('projects.settings.agent_tables.allow_all')}
                     </Button>
                     <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => toggleAll(false)}
                     >
-                        Tout désactiver
+                        {t('projects.settings.agent_tables.disable_all')}
                     </Button>
                 </div>
             </div>
@@ -199,12 +201,12 @@ export default function AgentTablesProjectSettings() {
                 ))}
                 {filteredTables.length === 0 && (
                     <EmptyState
-                        title="Aucune table trouvée"
+                        title={t('tables.no_table_found')}
                         icon={Table2Icon}
                         description={
                             search
-                                ? 'Aucune table ne correspond à votre recherche.'
-                                : "La base de données n'a aucune table."
+                                ? t('tables.no_table_match')
+                                : t('tables.database_has_no_table')
                         }
                     />
                 )}

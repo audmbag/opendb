@@ -1,4 +1,5 @@
 import { router, usePage } from '@inertiajs/react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { DatabaseIcon, SaveIcon } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -15,6 +16,7 @@ import ProjectSettingsController from '@/wayfinder/actions/App/Http/Controllers/
  * The connection to the database of the project, saved only once the database answers.
  */
 export default function DatabaseProjectSettings() {
+    const { t } = useLaravelReactI18n();
     const { project } = usePage<{ project: Project }>().props;
 
     const formRef = useRef<DriverConfigFormProps>(null);
@@ -33,26 +35,24 @@ export default function DatabaseProjectSettings() {
             const response = await formRef.current?.submit();
 
             if (response?.driverConfig) {
-                toast.success(
-                    'La connexion à la base de données a été enregistrée.',
-                );
+                toast.success(t('projects.settings.database.saved'));
                 router.reload({ only: ['project'] });
             }
         } catch {
             // The errors of the connection are displayed by the form.
         }
-    }, []);
+    }, [t]);
 
     return (
         <div className="flex flex-col gap-4">
             <Alert
                 variant="warning"
-                title="Changer de base de données"
-                message="Les conversations, la mémoire de l'agent et les tables qui lui sont désactivées sont conservées : vérifiez l'accès aux tables si la nouvelle base est différente."
+                title={t('projects.settings.database.change_title')}
+                message={t('projects.settings.database.change_message')}
             />
             <CardFrame
-                title="Connexion"
-                description="La connexion est testée avant d'être enregistrée."
+                title={t('projects.settings.database.connection')}
+                description={t('projects.settings.database.connection_description')}
                 icon={DatabaseIcon}
                 processing={processing}
             >
@@ -69,7 +69,7 @@ export default function DatabaseProjectSettings() {
                             processing={processing}
                             onClick={save}
                         >
-                            Enregistrer la connexion
+                            {t('projects.settings.database.save')}
                         </Button>
                     </div>
                 </div>

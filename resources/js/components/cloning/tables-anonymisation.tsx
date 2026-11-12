@@ -1,4 +1,5 @@
 import { useHttp } from '@inertiajs/react'
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     CircleSlashIcon,
     DatabaseBackupIcon,
@@ -29,16 +30,17 @@ import { useTempProjectStore } from '@/store/use-project-store';
 import DriverConfigController from '@/wayfinder/actions/App/Http/Controllers/API/DriverConfigController';
 
 const TablesAnonymisationContent = ({ cloningPayload, }: { cloningPayload: CloningClientPayload; }) => {
+    const { t, tChoice } = useLaravelReactI18n();
 
     const tables: SmallSidebarNavItem[] = useMemo(() => {
         return cloningPayload.tables.map((table) => ({
             name: table.name,
             value: table.name,
             icon: table.skipReason ? CircleSlashIcon : Table2Icon,
-            badge: table.skipReason ? 'Ignorée' : table.columns.length.toString(),
+            badge: table.skipReason ? t('cloning.ui.skipped') : table.columns.length.toString(),
             component: <TablesAnonymisationColumns table={table} />,
         }));
-    }, [cloningPayload.tables]);
+    }, [cloningPayload.tables, t]);
 
     const skippedTables = useMemo(() => {
         return cloningPayload.tables.filter((table) => table.skipReason).map((table) => table.name);
@@ -58,33 +60,31 @@ const TablesAnonymisationContent = ({ cloningPayload, }: { cloningPayload: Cloni
                 <div className="flex gap-2">
                     <Button
                         icon={DatabaseBackupIcon}
-                        tooltip="Conserver les données existantes dans la base de données et ne pas les anonymiser."
+                        tooltip={t('cloning.ui.keep_all_tooltip')}
                         variant="secondary"
                         onClick={keepAll}
                     >
-                        Tout conserver
+                        {t('cloning.ui.keep_all')}
                     </Button>
                     <Button
                         icon={RefreshCwIcon}
-                        tooltip="Réinitialiser les données à leur état d'origine."
+                        tooltip={t('cloning.ui.reset_all_tooltip')}
                         variant="secondary"
                         onClick={resetAll}
                     />
                 </div>
                 <div className="flex items-center gap-2">
-                    <Muted>{tables.length} tables</Muted>
+                    <Muted>{tChoice('tables.counts.tables', tables.length)}</Muted>
                     <Separator orientation="vertical" />
-                    <Muted>{columnCount} colonnes détectées.</Muted>
+                    <Muted>{tChoice('cloning.ui.detected_columns', columnCount)}</Muted>
                 </div>
             </div>
 
             {skippedTables.length > 0 && (
                 <Alert
                     variant="warning"
-                    title={skippedTables.length === 1
-                        ? '1 table sera ignorée lors du clonage'
-                        : `${skippedTables.length} tables seront ignorées lors du clonage`}
-                    message={`${skippedTables.join(', ')} : sélectionnez une table pour en voir la raison.`}
+                    title={tChoice('cloning.ui.skipped_count', skippedTables.length)}
+                    message={t('cloning.ui.skipped_hint', { tables: skippedTables.join(', ') })}
                 />
             )}
 
@@ -94,6 +94,7 @@ const TablesAnonymisationContent = ({ cloningPayload, }: { cloningPayload: Cloni
                         <div className="flex h-full w-full flex-col overflow-hidden p-0 md:flex-row">
                             <SmallSideBar
                                 searchBar
+                                searchPlaceholder={t('tables.search_table')}
                                 className="max-h-96 bg-transparent px-1 py-1"
                             />
                             <SmallSideBarContent className="max-h-96 p-0" />
@@ -114,6 +115,7 @@ type Props = {
 };
 
 const TablesAnonymisation = ({ ref } : Props) => {
+    const { t } = useLaravelReactI18n();
 
     const { get, processing } = useHttp<any, { data: CloningClientPayload }>();
 
@@ -175,7 +177,7 @@ const TablesAnonymisation = ({ ref } : Props) => {
 
             {cloningError && (
                 <Alert
-                    title={'Impossible de charger les données de clonage.'}
+                    title={t('cloning.ui.payload_failed')}
                     message={cloningError}
                     variant="destructive"
                 />

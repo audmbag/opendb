@@ -2,6 +2,9 @@
 
 namespace App\Http\Middleware;
 
+use App\Enums\PrivilegeEnum;
+use App\Models\Project;
+use App\Services\Privileges\PrivilegeManager;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -40,8 +43,33 @@ class HandleInertiaRequests extends Middleware
             'appName' => config('app.name'),
             'auth' => [
                 'user' => $request->user(),
+                'privileges' => fn (): ?array => $this->privileges($request),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+        ];
+    }
+
+    /**
+     * What the user may do, for the interface to hide what the server would refuse: the privileges on the whole
+     * instance, and those on the project of the page.
+     *
+     * @return array{root: bool, global: list<string>, project: array{project: list<string>, tables: array<string, list<string>>, unrestricted: bool, share: bool}|null}|null
+     */
+    private function privileges(Request $request): ?array
+    {
+        $user = $request->user();
+
+        if ($user === null) {
+            return null;
+        }
+
+        $privileges = app(PrivilegeManager::class)->for($user);
+        $project = $request->route('project');
+
+        return [
+            'root' => $privileges->isRoot(),
+            'global' => array_map(fn (PrivilegeEnum $privilege): string => $privilege->value, $privileges->globalPrivileges()),
+            'project' => $project instanceof Project ? [...$privileges->tablePrivileges($project)->toArray(), 'share' => $privileges->canGrantAny($project)] : null,
         ];
     }
 }

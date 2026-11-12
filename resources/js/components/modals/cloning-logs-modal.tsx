@@ -1,4 +1,5 @@
 import { useHttp } from '@inertiajs/react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import type { LucideIcon } from 'lucide-react';
 import {
     CircleCheckIcon,
@@ -15,11 +16,12 @@ import type {
     CloningResult,
 } from '@/components/cloning/cloning-result.types';
 import Modal from '@/components/modals/modal';
+import { Badge } from '@/components/reui/badge';
+import { Spinner } from '@/components/spinner';
 import { Muted } from '@/components/typograpfy/typography';
-import { Spinner } from '@/components/ui/spinner';
+import { dateFormatter, numberFormatter } from '@/lib/intl';
 import { cn } from '@/lib/utils';
 import ProjectController from '@/wayfinder/actions/App/Http/Controllers/ProjectController';
-import { Badge } from '@/components/reui/badge';
 
 type Props = {
     projectId: string;
@@ -34,8 +36,10 @@ type LogLine = {
     detail?: string | null;
 };
 
-const NOT_FOUND_ERROR = "Aucun log n'a été trouvé pour ce clonage.";
-const UNEXPECTED_ERROR = 'Impossible de charger les logs, veuillez réessayer.';
+type Translate = (key: string, replacements?: Record<string, string | number>) => string;
+
+const NOT_FOUND_ERROR = 'cloning.ui.logs_not_found';
+const UNEXPECTED_ERROR = 'cloning.ui.logs_failed';
 
 const TONE_CLASSES: Record<LogLine['tone'], string> = {
     default: 'text-muted-foreground',
@@ -44,10 +48,10 @@ const TONE_CLASSES: Record<LogLine['tone'], string> = {
     error: 'text-destructive',
 };
 
-const formatNumber = (value: number): string => value.toLocaleString('fr-FR');
+const formatNumber = (value: number): string => numberFormatter().format(value);
 
 const formatTime = (ts: string): string =>
-    new Date(ts).toLocaleTimeString('fr-FR');
+    dateFormatter({ timeStyle: 'medium' }).format(new Date(ts));
 
 const formatDuration = (seconds: number | null): string => {
     if (seconds === null) {
@@ -55,35 +59,35 @@ const formatDuration = (seconds: number | null): string => {
     }
 
     if (seconds < 60) {
-        return `${seconds.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} s`;
+        return `${numberFormatter({ maximumFractionDigits: 1 }).format(seconds)} s`;
     }
 
     return `${Math.floor(seconds / 60)} min ${Math.round(seconds % 60)} s`;
 };
 
-const describeLog = (log: CloningLog): LogLine => {
+const describeLog = (log: CloningLog, t: Translate): LogLine => {
     switch (log.event) {
         case 'run_started':
             return {
                 icon: PlayIcon,
                 tone: 'default',
-                message: `Début du clonage de « ${log.source} » vers « ${log.target} »`,
+                message: t('cloning.ui.logs.run_started', { source: log.source, target: log.target }),
             };
         case 'table_transferred':
             return {
                 icon: log.skipped > 0 ? CircleXIcon : CircleCheckIcon,
                 tone: log.skipped > 0 ? 'warning' : 'success',
-                message: `Table « ${log.table} » : ${formatNumber(log.rows)} ligne(s) copiée(s)`,
+                message: t('cloning.ui.logs.table_transferred', { table: log.table, rows: formatNumber(log.rows) }),
                 detail:
                     log.skipped > 0
-                        ? `${formatNumber(log.skipped)} ligne(s) rejetée(s) par la base cible`
+                        ? t('cloning.ui.logs.rows_rejected', { rows: formatNumber(log.skipped) })
                         : null,
             };
         case 'table_transfer_failed':
             return {
                 icon: CircleXIcon,
                 tone: 'error',
-                message: `Échec du transfert de la table « ${log.table} »`,
+                message: t('cloning.ui.logs.table_failed', { table: log.table }),
                 detail: log.reason,
             };
         case 'run_finished':
@@ -91,14 +95,14 @@ const describeLog = (log: CloningLog): LogLine => {
                 icon: FlagIcon,
                 tone: log.success ? 'success' : 'error',
                 message: log.success
-                    ? `Clonage terminé : ${formatNumber(log.rows)} ligne(s) copiée(s)`
-                    : 'Clonage terminé en échec',
+                    ? t('cloning.ui.logs.run_finished', { rows: formatNumber(log.rows) })
+                    : t('cloning.ui.logs.run_failed'),
             };
         case 'key_mapping_cleanup_completed':
             return {
                 icon: EraserIcon,
                 tone: 'default',
-                message: 'Nettoyage des correspondances de clés terminé',
+                message: t('cloning.ui.logs.key_mapping_cleanup'),
             };
     }
 };
@@ -123,6 +127,7 @@ function Stat({
 }
 
 function CloningSummary({ result }: { result: CloningResult }) {
+    const { t } = useLaravelReactI18n();
     const { stats } = result;
 
     return (
@@ -135,51 +140,51 @@ function CloningSummary({ result }: { result: CloningResult }) {
                             : 'warning'
                     }
                 >
-                    {result.status === 'success' ? 'Succès' : 'Avertissements'}
+                    {result.status === 'success' ? t('cloning.ui.success') : t('cloning.ui.warnings')}
                 </Badge>
                 {!result.complete && (
-                    <Badge variant="destructive">Clonage incomplet</Badge>
+                    <Badge variant="destructive">{t('cloning.ui.incomplete')}</Badge>
                 )}
                 {result.started_at && (
                     <Muted>
-                        {`Lancé le ${new Date(result.started_at).toLocaleString('fr-FR')}`}
+                        {t('cloning.ui.started_at', { date: dateFormatter({ dateStyle: 'medium', timeStyle: 'short' }).format(new Date(result.started_at)) })}
                     </Muted>
                 )}
             </div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                <Stat label="Durée" value={formatDuration(result.duration)} />
-                <Stat label="Lignes copiées" value={formatNumber(stats.rows)} />
+                <Stat label={t('cloning.ui.stats.duration')} value={formatDuration(result.duration)} />
+                <Stat label={t('cloning.ui.stats.rows')} value={formatNumber(stats.rows)} />
                 <Stat
-                    label="Tables transférées"
+                    label={t('cloning.ui.stats.tables_transferred')}
                     value={formatNumber(stats.tables_transferred)}
                 />
                 <Stat
-                    label="Tables en échec"
+                    label={t('cloning.ui.stats.tables_failed')}
                     value={formatNumber(stats.tables_failed)}
                     className={cn({
                         [TONE_CLASSES.error]: stats.tables_failed > 0,
                     })}
                 />
                 <Stat
-                    label="Tables ignorées"
+                    label={t('cloning.ui.stats.tables_skipped')}
                     value={formatNumber(stats.tables_skipped)}
                 />
                 <Stat
-                    label="Lignes rejetées"
+                    label={t('cloning.ui.stats.rows_skipped')}
                     value={formatNumber(stats.rows_skipped)}
                     className={cn({
                         [TONE_CLASSES.warning]: stats.rows_skipped > 0,
                     })}
                 />
                 <Stat
-                    label="Avertissements"
+                    label={t('cloning.ui.stats.warnings')}
                     value={formatNumber(stats.warnings)}
                     className={cn({
                         [TONE_CLASSES.warning]: stats.warnings > 0,
                     })}
                 />
                 <Stat
-                    label="Erreurs"
+                    label={t('cloning.ui.stats.errors')}
                     value={formatNumber(stats.errors)}
                     className={cn({ [TONE_CLASSES.error]: stats.errors > 0 })}
                 />
@@ -189,10 +194,12 @@ function CloningSummary({ result }: { result: CloningResult }) {
 }
 
 function CloningLogList({ logs }: { logs: CloningLog[] }) {
+    const { t } = useLaravelReactI18n();
+
     if (logs.length === 0) {
         return (
             <Muted className="p-6 text-center">
-                Les logs de ce clonage sont vides.
+                {t('cloning.ui.logs_empty')}
             </Muted>
         );
     }
@@ -200,7 +207,7 @@ function CloningLogList({ logs }: { logs: CloningLog[] }) {
     return (
         <ul className="max-h-80 overflow-auto rounded-md border border-border bg-muted/30 font-mono text-xs">
             {logs.map((log, index) => {
-                const { icon: Icon, tone, message, detail } = describeLog(log);
+                const { icon: Icon, tone, message, detail } = describeLog(log, t);
 
                 return (
                     <li
@@ -245,6 +252,7 @@ export default function CloningLogsModal({
     logPath,
     onClose,
 }: Props) {
+    const { t } = useLaravelReactI18n();
     const { get, processing } = useHttp<null, CloningResult>();
 
     const [result, setResult] = useState<CloningResult | null>(null);
@@ -283,7 +291,7 @@ export default function CloningLogsModal({
             showHeader
             onOpenChange={(open) => !open && onClose()}
             className="h-auto sm:max-w-2xl"
-            title="Logs du clonage"
+            title={t('cloning.ui.logs_title')}
             description={
                 result?.source && result.target
                     ? `${result.source} → ${result.target}`
@@ -295,8 +303,8 @@ export default function CloningLogsModal({
                 {failure ? (
                     <Alert
                         variant="destructive"
-                        title="Logs indisponibles"
-                        message={failure}
+                        title={t('cloning.ui.logs_unavailable')}
+                        message={t(failure)}
                     />
                 ) : processing || result === null ? (
                     <div className="flex justify-center p-6">

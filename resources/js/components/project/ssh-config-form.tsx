@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     ComputerIcon,
     EthernetPortIcon,
@@ -15,12 +16,14 @@ type Props = {
 };
 
 const SSHConfigForm = ({ data, onChange, errors }: Props) => {
+    const { t } = useLaravelReactI18n();
+
     return (
         <div className="grid grid-cols-1 gap-4 rounded-lg bg-background p-4">
             <div className="col-span-1 flex flex-col gap-4 sm:flex-row">
                 <Input
-                    label="Hôte"
-                    placeholder="Ex: ssh.example.com"
+                    label={t('projects.form.host')}
+                    placeholder={t('projects.form.ssh_host_placeholder')}
                     name="ssh.host"
                     error={errors?.['ssh.host']}
                     value={data.host}
@@ -29,8 +32,8 @@ const SSHConfigForm = ({ data, onChange, errors }: Props) => {
                     icon={ComputerIcon}
                 />
                 <Input
-                    label="Port"
-                    placeholder="Ex: 22"
+                    label={t('projects.form.port')}
+                    placeholder={t('projects.form.ssh_port_placeholder')}
                     name="ssh.port"
                     error={errors?.['ssh.port']}
                     value={data.port}
@@ -41,8 +44,8 @@ const SSHConfigForm = ({ data, onChange, errors }: Props) => {
                 />
             </div>
             <Input
-                label="Utilisateur"
-                placeholder="Ex: user"
+                label={t('projects.form.ssh_user')}
+                placeholder={t('projects.form.ssh_user_placeholder')}
                 name="ssh.user"
                 error={errors?.['ssh.user']}
                 value={data.user}
@@ -50,16 +53,13 @@ const SSHConfigForm = ({ data, onChange, errors }: Props) => {
                 icon={UserIcon}
             />
             <Input
-                label="Fichier d'identification"
-                placeholder="Ex: /home/username/.ssh/id_rsa"
+                label={t('projects.form.ssh_id_file')}
+                placeholder={t('projects.form.ssh_id_file_placeholder')}
                 name="ssh.id_file"
                 error={errors?.['ssh.id_file']}
                 value={data.id_file}
                     onChange={(e) => onChange({ id_file: e.target.value })}
-                description={
-                    "Chemin vers le fichier d'identification SSH (clé privée). " +
-                    ' La clé privée ne doit pas avoir de mot de passe.'
-                }
+                description={t('projects.form.ssh_id_file_description')}
                 icon={FileKeyIcon}
             />
         </div>

@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     CommandIcon,
     SettingsIcon,
@@ -5,20 +6,18 @@ import {
 import Button from '@/components/form/button';
 import { RecentProjects } from '@/components/recent-projects';
 import { useCommandModal } from '@/hooks/use-command-modal';
-import { ProjectModalProvider } from '@/hooks/use-project-modal';
 import { useSettingsDialog } from '@/hooks/use-settings-modal';
 
 export default function Home() {
 
+    const { t } = useLaravelReactI18n();
     const { setOpen: openCommandModal } = useCommandModal();
     const { open: openSettings } = useSettingsDialog();
 
     return (
         <div className="mx-auto flex w-full flex-col items-center gap-4">
             <div className="w-full max-w-5xl pt-4">
-                <ProjectModalProvider>
-                    <RecentProjects />
-                </ProjectModalProvider>
+                <RecentProjects />
             </div>
 
             <div className="flex justify-center gap-2 pt-4">
@@ -26,17 +25,17 @@ export default function Home() {
                     onClick={() => openCommandModal(true)}
                     variant={'outline'}
                     icon={CommandIcon}
-                    tooltip={['Ouvrir le panneau de commandes', ['Ctrl', 'K']]}
+                    tooltip={[t('shortcuts.command_palette'), ['Ctrl', 'K']]}
                 >
-                    Commandes
+                    {t('commands.button')}
                 </Button>
                 <Button
                     onClick={() => openSettings('general')}
                     variant={'outline'}
                     icon={SettingsIcon}
-                    tooltip={['Ouvrir les paramètres', ['Ctrl', ',']]}
+                    tooltip={[t('shortcuts.settings'), ['Ctrl', ',']]}
                 >
-                    Paramètres
+                    {t('settings.title')}
                 </Button>
             </div>
         </div>

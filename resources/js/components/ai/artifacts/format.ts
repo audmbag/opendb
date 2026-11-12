@@ -1,8 +1,9 @@
 import { usePage } from '@inertiajs/react';
+import { trans } from '@/lib/i18n';
+import { numberFormatter } from '@/lib/intl';
 import type { CellValue, KpiFormat } from '@/types/agent';
 import type { Conversation } from '@/types/models/conversation';
 
-const numberFormatter = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 });
 
 /**
  * The id of the conversation shown on the page, which owns the tool calls of the artifacts.
@@ -12,17 +13,17 @@ export function useConversationId(): string {
 }
 
 export function formatNumber(value: number): string {
-    return numberFormatter.format(value);
+    return numberFormatter({ maximumFractionDigits: 2 }).format(value);
 }
 
 /**
- * A size in bytes with the largest unit that keeps it above 1 (o, Ko, Mo, Go).
+ * A size in bytes with the largest unit that keeps it above 1 (o, Ko, Mo, Go in French; B, KB, MB, GB in English).
  */
 export function formatBytes(bytes: number): string {
-    const units = ['o', 'Ko', 'Mo', 'Go'];
+    const units = ['byte', 'kilobyte', 'megabyte', 'gigabyte'].map((unit) => trans(`common.units.${unit}`));
     const exponent = Math.min(units.length - 1, bytes > 0 ? Math.floor(Math.log(bytes) / Math.log(1024)) : 0);
 
-    return `${numberFormatter.format(bytes / 1024 ** exponent)} ${units[exponent]}`;
+    return `${formatNumber(bytes / 1024 ** exponent)} ${units[exponent]}`;
 }
 
 /**
@@ -41,7 +42,7 @@ export function formatCell(value: CellValue | object): string {
 }
 
 function formatDuration(seconds: number): string {
-    const units: [string, number][] = [['j', 86400], ['h', 3600], ['min', 60], ['s', 1]];
+    const units: [string, number][] = [[trans('common.units.day'), 86400], ['h', 3600], ['min', 60], ['s', 1]];
 
     const parts = units
         .map(([unit, size]) => {
@@ -61,13 +62,13 @@ function formatDuration(seconds: number): string {
  */
 function formatCurrency(amount: number, currency: string | null): string {
     if (!currency) {
-        return numberFormatter.format(amount);
+        return formatNumber(amount);
     }
 
     try {
-        return new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(amount);
+        return numberFormatter({ style: 'currency', currency }).format(amount);
     } catch {
-        return `${numberFormatter.format(amount)} ${currency}`;
+        return `${formatNumber(amount)} ${currency}`;
     }
 }
 
@@ -82,10 +83,10 @@ export function formatKpi(value: CellValue, format: KpiFormat, currency: string 
         case 'currency':
             return formatCurrency(number, currency);
         case 'percent':
-            return `${numberFormatter.format(number)} %`;
+            return numberFormatter({ style: 'percent', maximumFractionDigits: 2 }).format(number / 100);
         case 'duration':
             return formatDuration(number);
         default:
-            return numberFormatter.format(number);
+            return formatNumber(number);
     }
 }

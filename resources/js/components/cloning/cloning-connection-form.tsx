@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     BrainCircuitIcon,
     ChevronLeftIcon,
@@ -28,6 +29,7 @@ import { useProjectModal } from '@/hooks/use-project-modal';
 import { useTempProjectStore } from '@/store/use-project-store';
 
 const CloningConnectionForm = () => {
+    const { t } = useLaravelReactI18n();
 
     const { setCloningOpen, setOpen } = useProjectModal();
     const [currentStep, setCurrentStep] = useState(1);
@@ -101,8 +103,8 @@ const CloningConnectionForm = () => {
             {
                 id: 'database',
                 header: {
-                    title: 'Base de données cible',
-                    description: 'Informations de la base de données cible',
+                    title: t('cloning.ui.steps.target'),
+                    description: t('cloning.ui.steps.target_description'),
                     icon: DatabaseIcon,
                 },
                 content: (
@@ -119,8 +121,8 @@ const CloningConnectionForm = () => {
             {
                 id: 'anonymisation',
                 header: {
-                    title: 'Anonymisation',
-                    description: 'Anonymisation des colonnes de chaque table.',
+                    title: t('cloning.ui.steps.anonymisation'),
+                    description: t('cloning.ui.steps.anonymisation_description'),
                     icon: HatGlassesIcon,
                 },
                 content: <TablesAnonymisation ref={tableAnonymisationRef} />,
@@ -128,8 +130,8 @@ const CloningConnectionForm = () => {
             {
                 id: 'tables',
                 header: {
-                    title: 'Tables',
-                    description: "Accès de l'agent IA",
+                    title: t('projects.steps.tables'),
+                    description: t('projects.steps.tables_description'),
                     icon: BrainCircuitIcon,
                 },
                 content: (
@@ -142,8 +144,8 @@ const CloningConnectionForm = () => {
             {
                 id: 'options',
                 header: {
-                    title: 'Options',
-                    description: 'Options de configuration',
+                    title: t('cloning.ui.steps.options'),
+                    description: t('cloning.ui.configuration_options'),
                     icon: SettingsIcon,
                 },
                 content: (
@@ -151,7 +153,7 @@ const CloningConnectionForm = () => {
                 ),
             },
         ],
-        [tablesSelectorRef],
+        [tablesSelectorRef, t],
     );
 
     return (
@@ -182,9 +184,9 @@ const CloningConnectionForm = () => {
                             setCloningOpen(false);
                             setOpen(true, 2);
                         }}
-                        tooltip="Annuler le clonage et garder la connexion existante"
+                        tooltip={t('cloning.ui.cancel_tooltip')}
                     >
-                        Annuler le clonage
+                        {t('cloning.ui.cancel')}
                     </Button>
                 ) : (
                     <Button
@@ -193,7 +195,7 @@ const CloningConnectionForm = () => {
                         onClick={() => setCurrentStep((c) => c - 1)}
                         icon={ChevronLeftIcon}
                     >
-                        Précédent
+                        {t('common.previous')}
                     </Button>
                 )}
                 {currentStep < steps.length ? (
@@ -206,7 +208,7 @@ const CloningConnectionForm = () => {
                             icon={ChevronRightIcon}
                             className={'flex-row-reverse'}
                         >
-                            Suivant
+                            {t('common.next')}
                         </Button>
                     </div>
                 ) : (
@@ -215,7 +217,7 @@ const CloningConnectionForm = () => {
                         className="flex-row-reverse"
                         onClick={openConfirmation}
                     >
-                        Cloner et Créer le projet
+                        {t('cloning.ui.clone_and_create')}
                     </Button>
                 )}
             </div>

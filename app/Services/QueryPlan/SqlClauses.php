@@ -205,7 +205,10 @@ final class SqlClauses
         }
     }
 
-    private static function maskStrings(string $sql): string
+    /**
+     * The query whose text values are replaced by spaces, so that what they hold is never read as SQL.
+     */
+    public static function maskStrings(string $sql): string
     {
         return (string) preg_replace_callback("/'(?:[^'\\\\]|\\\\.|'')*'/s", fn (array $match): string => "'".str_repeat(' ', max(0, strlen($match[0]) - 2))."'", $sql);
     }

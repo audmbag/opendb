@@ -35,7 +35,7 @@ class MailAttachmentResolver
         $files = array_values(array_unique($files));
 
         if (array_sum(array_map(filesize(...), $files)) > self::MAX_TOTAL_BYTES) {
-            throw InvalidMailException::attachments('Les pièces jointes dépassent '.(self::MAX_TOTAL_BYTES / 1024 / 1024).' Mo au total.');
+            throw InvalidMailException::attachments(__('mail.errors.attachments_too_large', ['size' => self::MAX_TOTAL_BYTES / 1024 / 1024]));
         }
 
         return $files;
@@ -76,7 +76,7 @@ class MailAttachmentResolver
 
     protected function refusal(string $path, string $allowedDirectory): string
     {
-        return "Pièce jointe refusée : `{$path}` n'est pas un fichier du dossier `{$allowedDirectory}` du projet.";
+        return __('mail.errors.attachment_refused', ['path' => $path, 'directory' => $allowedDirectory]);
     }
 
     /**

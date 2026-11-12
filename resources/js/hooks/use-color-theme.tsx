@@ -1,17 +1,20 @@
 import { createStoredPreference } from '@/lib/stored-preference';
 import { withoutTransitions } from '@/lib/without-transitions';
 
+/**
+ * The themes of the interface, their label being a key of lang/{locale}/settings.php.
+ */
 export const COLOR_THEMES = [
-    { value: 'neutral', label: 'Neutre' },
-    { value: 'slate', label: 'Ardoise' },
-    { value: 'ocean', label: 'Océan' },
-    { value: 'forest', label: 'Forêt' },
-    { value: 'amethyst', label: 'Améthyste' },
-    { value: 'rose', label: 'Rose' },
-    { value: 'tangerine', label: 'Mandarine' },
-    { value: 'amber', label: 'Ambre' },
-    { value: 'midnight', label: 'Minuit' },
-    { value: 'paper', label: 'Papier' },
+    { value: 'neutral', label: 'settings.color_themes.neutral' },
+    { value: 'slate', label: 'settings.color_themes.slate' },
+    { value: 'ocean', label: 'settings.color_themes.ocean' },
+    { value: 'forest', label: 'settings.color_themes.forest' },
+    { value: 'amethyst', label: 'settings.color_themes.amethyst' },
+    { value: 'rose', label: 'settings.color_themes.rose' },
+    { value: 'tangerine', label: 'settings.color_themes.tangerine' },
+    { value: 'amber', label: 'settings.color_themes.amber' },
+    { value: 'midnight', label: 'settings.color_themes.midnight' },
+    { value: 'paper', label: 'settings.color_themes.paper' },
 ] as const;
 
 export type ColorTheme = (typeof COLOR_THEMES)[number]['value'];

@@ -45,13 +45,13 @@ class TableChangesValidator
 
             if ($change['type'] !== 'insert') {
                 if ($primaryKey === []) {
-                    $errors["changes.{$index}"][] = "La table [{$table}] n'a pas de clé primaire : ses lignes ne peuvent être ni modifiées ni supprimées.";
+                    $errors["changes.{$index}"][] = __('tables.errors.no_primary_key', ['table' => $table]);
 
                     continue;
                 }
 
                 if (array_diff($primaryKey, array_keys($key)) !== [] || array_diff(array_keys($key), $primaryKey) !== []) {
-                    $errors["changes.{$index}"][] = 'La ligne doit être désignée par sa clé primaire : '.implode(', ', $primaryKey).'.';
+                    $errors["changes.{$index}"][] = __('tables.errors.key_required', ['columns' => implode(', ', $primaryKey)]);
 
                     continue;
                 }
@@ -68,8 +68,8 @@ class TableChangesValidator
 
             foreach ($refused as $column) {
                 $errors["changes.{$index}.values.{$column}"][] = isset($columns[$column])
-                    ? "La colonne [{$column}] ne peut pas être modifiée."
-                    : "La colonne [{$column}] n'existe pas dans la table [{$table}].";
+                    ? __('tables.errors.column_not_editable', ['column' => $column])
+                    : __('tables.errors.unknown_column', ['column' => $column, 'table' => $table]);
             }
 
             if ($refused !== []) {
@@ -77,7 +77,7 @@ class TableChangesValidator
             }
 
             if ($change['type'] === 'update' && $values === []) {
-                $errors["changes.{$index}"][] = 'La modification ne change aucune colonne.';
+                $errors["changes.{$index}"][] = __('tables.errors.empty_change');
 
                 continue;
             }

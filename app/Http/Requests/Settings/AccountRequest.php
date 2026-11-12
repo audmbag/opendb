@@ -39,9 +39,9 @@ class AccountRequest extends FormRequest
     public function attributes(): array
     {
         return [
-            'name' => "nom d'utilisateur",
-            'current_password' => 'mot de passe actuel',
-            'password' => 'nouveau mot de passe',
+            'name' => __('attributes.username'),
+            'current_password' => __('attributes.current_password'),
+            'password' => __('attributes.new_password'),
         ];
     }
 }

@@ -4,6 +4,7 @@ namespace App\Ai\Tools\Database;
 
 use App\Ai\Enums\AgentAccessModeEnum;
 use App\Database\Contracts\DriverContract;
+use App\Database\QueryBindings;
 use App\Database\ReadOnlyQueryGuard;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Database\QueryException;
@@ -21,27 +22,26 @@ class ReadQuery extends BaseTool implements Tool
 
     public function description(): Stringable|string
     {
-        return 'Exécute une requête SQL en lecture seule (SELECT, WITH, EXPLAIN, SHOW ou DESCRIBE) '
-            .'sur la base de données courante et retourne les lignes obtenues '
-            ."si une requête SELECT est demandée, ajoute toujours une LIMITe de {$this->maxRows} et précise très "
-            .'bien à l\'utilisateur que la requête est tronquée si le nombre de lignes retournées est égal à cette limite.';
+        return 'Runs a read-only SQL query (SELECT, WITH, EXPLAIN, SHOW or DESCRIBE) '
+            .'on the current database and returns the rows obtained. '
+            ."For a SELECT query, always add a LIMIT of {$this->maxRows} and tell the user clearly "
+            .'that the result is truncated when the number of returned rows equals this limit.';
     }
 
     public function handle(Request $request): Stringable|string
     {
         $sql = trim((string) $request['query']);
-        $bindings = $request['bindings'] ?? [];
 
         try {
             ReadOnlyQueryGuard::assertReadOnly($sql);
 
-            $rows = $this->driver->executeReadOnly($sql, $bindings);
+            $rows = $this->driver->executeReadOnly($sql, QueryBindings::from($request['bindings'] ?? null));
 
             $rows = array_slice($rows, 0, $this->maxRows);
         } catch (QueryException $e) {
-            return $this->formatQueryError($e);
+            return $this->error($this->formatQueryError($e));
         } catch (RuntimeException $e) {
-            return $e->getMessage();
+            return $this->error($e->getMessage());
         }
 
         if (empty($rows)) {
@@ -51,7 +51,7 @@ class ReadQuery extends BaseTool implements Tool
         $json = $this->toJson($rows);
 
         return count($rows) === $this->maxRows
-            ? $json."\n\n(Résultat tronqué à {$this->maxRows} lignes.)"
+            ? $json."\n\n(Result truncated to {$this->maxRows} rows.)"
             : $json;
     }
 

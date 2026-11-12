@@ -10,6 +10,16 @@ use Throwable;
 
 class PostgresSQLDriver extends BaseDriver implements DriverContract
 {
+    public function connectionId(): ?string
+    {
+        return (string) $this->connection->selectOne('SELECT pg_backend_pid() AS id')->id;
+    }
+
+    public function cancel(string $connectionId): bool
+    {
+        return (bool) $this->connection->selectOne('SELECT pg_cancel_backend(?) AS cancelled', [(int) $connectionId])->cancelled;
+    }
+
     public function label(): string
     {
         return 'pgsql';

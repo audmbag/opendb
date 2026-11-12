@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import type { LucideIcon } from 'lucide-react';
 import { CircleFadingPlusIcon } from 'lucide-react';
 
@@ -26,6 +27,7 @@ export type AlertDialogProps = {
 } & React.ComponentProps<typeof UiAlertDialog>;
 
 const AlertDialog = createCallable<AlertDialogProps, boolean>(({ title, description, icon: Icon, confirmText, cancelText, call, variant, ...props }) => {
+    const { t } = useLaravelReactI18n();
 
     const variantClasses = useMemo(() => {
         switch (variant) {
@@ -60,13 +62,13 @@ const AlertDialog = createCallable<AlertDialogProps, boolean>(({ title, descript
                 </AlertDialogHeader>
                 <AlertDialogFooter className="bg-muted p-4">
                     <AlertDialogCancel onClick={() => call.end(false)}>
-                        {cancelText || 'Annuler'}
+                        {cancelText || t('common.cancel')}
                     </AlertDialogCancel>
                     <AlertDialogAction
                         variant={variant}
                         onClick={() => call.end(true)}
                     >
-                        {confirmText || 'Confirmer'}
+                        {confirmText || t('common.confirm')}
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>

@@ -1,3 +1,4 @@
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { ChevronDownIcon, TriangleAlertIcon } from 'lucide-react';
 import React, { useState } from 'react';
 import CardFrame from '@/components/card-frame';
@@ -5,6 +6,7 @@ import { columnKey, useCloningStore } from '@/components/cloning/cloning-store';
 import type { AvailableStrategy } from '@/components/cloning/cloning.types';
 import StrategyOptions from '@/components/cloning/strategy-options/strategy-options';
 import type { ColumnProps } from '@/components/cloning/strategy-options/types';
+import { useCloningLabels } from '@/components/cloning/use-cloning-labels';
 import Button from '@/components/form/button';
 import Select from '@/components/form/select';
 import { Badge } from '@/components/reui/badge';
@@ -17,7 +19,8 @@ const TablesAnonymisationColumn = ({ table, column }: ColumnProps) => {
     const meta = useCloningStore((s) => s.meta[key]);
     const transformation = useCloningStore((s) => s.values[key]);
     const setStrategy = useCloningStore((s) => s.setStrategy);
-    const strategyLabels = useCloningStore((s) => s.labels.strategies);
+    const { t } = useLaravelReactI18n();
+    const labels = useCloningLabels();
 
     return (
         <div className="flex flex-col gap-2 border-b border-border p-2 last:border-b-0">
@@ -32,19 +35,21 @@ const TablesAnonymisationColumn = ({ table, column }: ColumnProps) => {
                     {meta.detectedMatcher && (
                         <Muted
                             className="flex min-w-0 items-center gap-1 text-xs text-warning"
-                            title={`${meta.detectedMatcher.groupLabel} › ${meta.detectedMatcher.name} détecté`}
+                            title={t('cloning.ui.detected', { group: labels.group(meta.detectedMatcher.group), matcher: labels.matcher(meta.detectedMatcher.key) })}
                         >
                             <TriangleAlertIcon className="size-3 shrink-0" />
                             <span className="truncate">
-                                {meta.detectedMatcher.groupLabel} ›{' '}
-                                {meta.detectedMatcher.name} détecté
+                                {t('cloning.ui.detected', {
+                                    group: labels.group(meta.detectedMatcher.group),
+                                    matcher: labels.matcher(meta.detectedMatcher.key),
+                                })}
                             </span>
                         </Muted>
                     )}
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                     <Badge variant="outline" size="xl">
-                        {strategyLabels[transformation.strategy] ?? transformation.strategy}
+                        {labels.strategy(transformation.strategy)}
                     </Badge>
                     <Button
                         icon={ChevronDownIcon}
@@ -65,14 +70,14 @@ const TablesAnonymisationColumn = ({ table, column }: ColumnProps) => {
                     innerClassName={'rounded-lg p-2 grid grid-cols-1 gap-2 sm:grid-cols-2'}
                 >
                     <Select
-                        label="Stratégie"
+                        label={t('cloning.ui.strategy')}
                         value={transformation.strategy}
                         onValueChange={(value) =>
                             setStrategy(table, column, value as AvailableStrategy)
                         }
                         items={meta.options.map((option) => ({
                             value: option,
-                            label: strategyLabels[option] ?? option,
+                            label: labels.strategy(option),
                         }))}
                     />
                     <StrategyOptions

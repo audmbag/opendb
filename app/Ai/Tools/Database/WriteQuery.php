@@ -6,7 +6,9 @@ use App\Ai\Enums\AgentAccessModeEnum;
 use App\Database\AdminStatementGuard;
 use App\Database\Contracts\DriverContract;
 use App\Database\HiddenTableGuard;
+use App\Database\QueryBindings;
 use App\Database\StackedStatementGuard;
+use App\Support\TranslatableMessage;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Database\QueryException;
 use Laravel\Ai\Approvals\Approval;
@@ -22,15 +24,9 @@ class WriteQuery extends BaseTool implements Approvable, Tool
     use InteractsWithApprovals;
 
     /**
-     * @var array<string, string> The destructive keyword, with what a statement starting with it does to the data.
+     * @var list<string> The destructive keywords, each explained by ai.approvals.write_query.{keyword} in lang/{locale}/ai.php.
      */
-    private const array DESTRUCTIVE_OPERATIONS = [
-        'DELETE' => "Cette requête supprime définitivement des lignes de la table : elles ne pourront être récupérées qu'à partir d'une sauvegarde.",
-        'DROP' => "Cette requête supprime définitivement un objet de la base (table, vue, index…). S'il s'agit d'une table, toutes ses données sont perdues.",
-        'TRUNCATE' => 'Cette requête vide entièrement la table : toutes ses lignes sont supprimées, sans annulation possible.',
-        'ALTER' => 'Cette requête modifie la structure de la table. Selon le changement, des colonnes ou des données existantes peuvent être perdues.',
-        'UPDATE' => "Cette requête remplace des valeurs existantes : les anciennes valeurs sont écrasées et ne pourront être récupérées qu'à partir d'une sauvegarde.",
-    ];
+    private const array DESTRUCTIVE_OPERATIONS = ['DELETE', 'DROP', 'TRUNCATE', 'ALTER', 'UPDATE'];
 
     public function __construct(
         private readonly DriverContract $driver,
@@ -38,32 +34,31 @@ class WriteQuery extends BaseTool implements Approvable, Tool
 
     public function description(): Stringable|string
     {
-        return 'Exécute une requête SQL de modification (INSERT, UPDATE, DELETE, CREATE, ALTER, TRUNCATE) '
-            .'sur la base de données courante. '
-            .'Si vous souhaitez supprimer une table, vérifiez d\'abord si elle est vide. Si elle est vide, indiquez-le clairement à l\'utilisateur.'
-            .'Les requêtes multiples (empilage de statements) ne sont pas autorisées.'
-            .'Les opérations réservées à un administrateur (comptes, rôles, droits, bases, serveur) sont toujours refusées. '
-            .'Note importante: pour les opérations insertion des informations qui sont généralement hashées comme le mot de passe,'
-            .'vérifie d\'abord si l\'utilisateur a fourni un mot de passe en clair, si c\'est le cas, hash-le avant de l\'insérer dans la base des données. '
-            .'Pour les opérations de suppression d\'enregistrements(DELETE), utilise toujours la clause WHERE sur la clé primaire s\'il y en a une, sinon sur un identifiant unique, et jamais sur un champ qui peut contenir des doublons.';
+        return 'Runs an SQL query that changes data (INSERT, UPDATE, DELETE, CREATE, ALTER, TRUNCATE) on the current '
+            .'database. Before dropping a table, first check whether it is empty, and if it is, tell the user '
+            .'clearly. Multiple queries (stacked statements) are not allowed. The operations reserved to an '
+            .'administrator (accounts, roles, privileges, databases, server) are always refused. Important note: '
+            .'when inserting values that are usually hashed, like a password, first check whether the user gave a '
+            .'clear-text password and, if so, hash it before inserting it in the database. For deletions (DELETE), '
+            .'always use a WHERE clause on the primary key if there is one, otherwise on a unique identifier, and '
+            .'never on a field that can hold duplicate values.';
     }
 
     public function handle(Request $request): Stringable|string
     {
         $sql = trim((string) $request['query']);
-        $bindings = $request['bindings'];
 
         try {
             $this->assertAllowed($sql);
 
-            $this->driver->statement($sql, $bindings);
+            $this->driver->statement($sql, QueryBindings::from($request['bindings'] ?? null));
         } catch (QueryException $e) {
             return $this->formatQueryError($e);
         } catch (RuntimeException $e) {
             return $e->getMessage();
         }
 
-        return 'Requête exécutée avec succès.';
+        return 'Query run successfully.';
     }
 
     public function schema(JsonSchema $schema): array
@@ -83,9 +78,9 @@ class WriteQuery extends BaseTool implements Approvable, Tool
 
         $sql = strtoupper(StackedStatementGuard::withoutTextValues($raw_sql));
 
-        foreach (array_keys(self::DESTRUCTIVE_OPERATIONS) as $keyword) {
+        foreach (self::DESTRUCTIVE_OPERATIONS as $keyword) {
             if (preg_match('/\b'.$keyword.'\b/', $sql)) {
-                return Approval::required($this->approvalReason($sql, $keyword));
+                return Approval::required($this->approvalReason($sql, $keyword)->toJson());
             }
         }
 
@@ -94,16 +89,18 @@ class WriteQuery extends BaseTool implements Approvable, Tool
 
     /**
      * Explain the operation from the keyword starting the statement, since the matched keyword may only be a part of it (ON DELETE CASCADE, ALTER … DROP COLUMN).
-     * Any other query gets a warning that does not claim what it does.
+     * Any other query gets a warning that does not claim what it does. Saved with the conversation, the reason is shown
+     * in the language of the interface whenever it is displayed.
      */
-    private function approvalReason(string $sql, string $matchedKeyword): string
+    private function approvalReason(string $sql, string $matchedKeyword): TranslatableMessage
     {
         preg_match('/^\s*(\w+)/', $sql, $matches);
 
-        $explanation = self::DESTRUCTIVE_OPERATIONS[$matches[1] ?? '']
-            ?? "Cette requête contient le mot-clé {$matchedKeyword}, qui peut supprimer ou écraser des données selon son utilisation. Vérifiez-la attentivement.";
+        $statement = mb_strtolower($matches[1] ?? '');
 
-        return $explanation.' Voulez-vous autoriser son exécution ?';
+        return in_array(mb_strtoupper($statement), self::DESTRUCTIVE_OPERATIONS, true)
+            ? new TranslatableMessage("ai.approvals.write_query.{$statement}")
+            : new TranslatableMessage('ai.approvals.write_query.other', ['keyword' => $matchedKeyword]);
     }
 
     private function assertAllowed(string $sql): void

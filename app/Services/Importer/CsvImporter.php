@@ -35,15 +35,15 @@ class CsvImporter
         $unknown = array_diff(array_filter($mapping), $columns);
 
         if ($unknown !== []) {
-            throw new RuntimeException('Ces colonnes n\'existent pas dans la table : '.implode(', ', $unknown).'.');
+            throw new RuntimeException(__('imports.errors.unknown_columns', ['columns' => implode(', ', $unknown)]));
         }
 
         if (array_filter($mapping) === []) {
-            throw new RuntimeException('Associez au moins une colonne du fichier à une colonne de la table.');
+            throw new RuntimeException(__('imports.errors.no_mapping'));
         }
 
         if (count(array_filter($mapping)) !== count(array_unique(array_filter($mapping)))) {
-            throw new RuntimeException('Une colonne de la table ne peut recevoir qu\'une seule colonne du fichier.');
+            throw new RuntimeException(__('imports.errors.duplicate_mapping'));
         }
 
         $connection = $driver->getConnection();
@@ -97,7 +97,7 @@ class CsvImporter
         } catch (QueryException $exception) {
             $lastLine = $firstLine + count($rows) - 1;
 
-            throw new RuntimeException("Lignes {$firstLine} à {$lastLine} du fichier refusées, rien n'a été importé : ".($exception->errorInfo[2] ?? $exception->getMessage()), 0, $exception);
+            throw new RuntimeException(__('imports.errors.rows_refused', ['first' => $firstLine, 'last' => $lastLine, 'error' => $exception->errorInfo[2] ?? $exception->getMessage()]), 0, $exception);
         }
     }
 

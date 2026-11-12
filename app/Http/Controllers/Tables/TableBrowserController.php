@@ -16,6 +16,7 @@ class TableBrowserController extends TableController
 {
     /**
      * The Tables tab, with the table opened when one is named. The list of tables is sent once, and kept when another table is opened.
+     * The columns of every table, completed in the consoles, come apart so that they never delay the structure.
      */
     public function index(Project $project, ?string $table = null): Response
     {
@@ -23,14 +24,15 @@ class TableBrowserController extends TableController
         $tables = $this->tables->tables($driver, $project->driver_config->disabled_tables ?? []);
 
         if ($table !== null && ! in_array($table, array_column($tables, 'name'), true)) {
-            throw new NotFoundHttpException("Cette table n'existe pas dans la base de données.");
+            throw new NotFoundHttpException(__('tables.errors.table_not_found'));
         }
 
         return Inertia::render('projects/tables/index', [
-            'project' => $project->load(['driver_config.driver']),
+            'project' => $project->withConnectionFor(request()->user()),
             'tables' => $tables,
             'table' => $table,
             'structure' => $table !== null ? Inertia::defer(fn (): array => $this->tables->structure($driver, $table)) : null,
+            'completion' => Inertia::defer(fn (): array => $this->tables->columnNamesByTable($driver), 'completion'),
         ]);
     }
 

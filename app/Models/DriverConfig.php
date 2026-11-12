@@ -4,13 +4,14 @@ namespace App\Models;
 
 use App\Database\Contracts\DriverContract;
 use App\Database\Drivers\BaseDriver;
+use App\Services\Privileges\PrivilegeManager;
 use Illuminate\Database\Eloquent\Attributes\Appends;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\WithoutTimestamps;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['driver_id', 'host', 'port', 'database', 'username', 'password', 'ssh', 'disabled_tables'])]
+#[Fillable(['driver_id', 'host', 'port', 'database', 'username', 'password', 'ssh', 'disabled_tables', 'read_only'])]
 #[Appends(['connection_string'])]
 #[WithoutTimestamps]
 class DriverConfig extends Model
@@ -25,7 +26,17 @@ class DriverConfig extends Model
             'username' => 'encrypted',
             'ssh' => 'encrypted:array',
             'disabled_tables' => 'encrypted:array',
+            // Only reads run in the SQL editor of the project, and their results cannot be changed there.
+            'read_only' => 'boolean',
         ];
+    }
+
+    /**
+     * Leave out of what is sent to the page the password, the SSH tunnel and the tables hidden from the agent.
+     */
+    public function withoutSecrets(): static
+    {
+        return $this->makeHidden(['password', 'ssh', 'disabled_tables']);
     }
 
     public function project(): BelongsTo
@@ -57,6 +68,29 @@ class DriverConfig extends Model
     public function getAgentDriver(): DriverContract
     {
         return $this->getDriver()->hideTables($this->disabled_tables ?? []);
+    }
+
+    /**
+     * The driver of a user: the tables they hold no privilege on are hidden, and their queries checked against their privileges.
+     */
+    public function driverFor(User $user): DriverContract
+    {
+        return $this->withPrivilegesOf($user, $this->getDriver());
+    }
+
+    /**
+     * The driver of the agent of a user, which never does more than the user: the tables disabled for the agent are hidden too.
+     */
+    public function agentDriverFor(User $user): DriverContract
+    {
+        return $this->withPrivilegesOf($user, $this->getAgentDriver());
+    }
+
+    private function withPrivilegesOf(User $user, DriverContract $driver): DriverContract
+    {
+        $privileges = app(PrivilegeManager::class)->for($user)->tablePrivileges((string) $this->project_id);
+
+        return $privileges->unrestricted ? $driver : $driver->withPrivileges($privileges, $user->name);
     }
 
     public function getConnectionStringAttribute(): string

@@ -80,7 +80,7 @@ final readonly class CloningAnonymizationConfig
 
         foreach ($draft as $tableName => $columns) {
             if (! isset($tables[$tableName])) {
-                throw new InvalidArgumentException("Table inconnue dans le fichier d'origine : {$tableName}");
+                throw new InvalidArgumentException(__('cloning.errors.unknown_table', ['table' => $tableName]));
             }
 
             foreach ($columns as $columnName => $data) {

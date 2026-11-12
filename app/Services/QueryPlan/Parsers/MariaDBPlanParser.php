@@ -6,6 +6,7 @@ namespace App\Services\QueryPlan\Parsers;
 
 use App\Services\QueryPlan\Data\PlanNode;
 use App\Services\QueryPlan\PlanOperation;
+use App\Support\TranslatableMessage;
 
 /**
  * Le plan JSON de MariaDB : proche de celui de MySQL 5.7, mais le tri et la table temporaire sont des enveloppes
@@ -84,8 +85,8 @@ class MariaDBPlanParser extends MySQLPlanParser
 
         return match (true) {
             $topLevel && $this->clauses->groupBy() !== null => $this->groupNode($this->clauses->groupBy(), $children, ['temporary' => true]),
-            $topLevel && $this->clauses->isDistinct() => new PlanNode(PlanOperation::Distinct, subtitle: 'SELECT DISTINCT', outputLabel: 'lignes distinctes', facts: ['temporary' => true], children: $children),
-            default => new PlanNode(PlanOperation::Materialize, subtitle: 'table temporaire', facts: ['temporary' => true], children: $children),
+            $topLevel && $this->clauses->isDistinct() => new PlanNode(PlanOperation::Distinct, subtitle: 'SELECT DISTINCT', outputLabel: new TranslatableMessage('query_plan.output.distinct_rows'), facts: ['temporary' => true], children: $children),
+            default => new PlanNode(PlanOperation::Materialize, subtitle: new TranslatableMessage('query_plan.subtitles.temporary_table'), facts: ['temporary' => true], children: $children),
         };
     }
 

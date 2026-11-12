@@ -18,10 +18,10 @@ class UpdateProjectMemory implements Tool
 
     public function description(): Stringable|string
     {
-        return 'Modifie la mémoire persistante du projet, partagée entre toutes les conversations de ce projet. '
-            .'Le paramètre `action` vaut `add` (ajouter une entrée avec `note`), `replace` (remplacer l\'entrée '
-            .'contenant `match` par `note`) ou `remove` (supprimer l\'entrée contenant `match`). '
-            .'`match` est un extrait du texte d\'une entrée existante, qui doit en désigner une seule.';
+        return 'Changes the persistent memory of the project, shared between all the conversations of this project. '
+            .'The `action` parameter is `add` (add an entry with `note`), `replace` (replace the entry '
+            .'containing `match` with `note`) or `remove` (remove the entry containing `match`). '
+            .'`match` is an extract of the text of an existing entry, which must point to a single one.';
     }
 
     public function handle(Request $request): Stringable|string
@@ -31,15 +31,15 @@ class UpdateProjectMemory implements Tool
         $match = $request->string('match')->trim()->toString();
 
         if ($action === null) {
-            return 'Action inconnue : utilise `add`, `replace` ou `remove`.';
+            return 'Unknown action: use `add`, `replace` or `remove`.';
         }
 
         if ($action->requiresNote() && $note === '') {
-            return "Le paramètre `note` est obligatoire pour l'action `{$action->value}`.";
+            return "The `note` parameter is required for the `{$action->value}` action.";
         }
 
         if ($action->requiresMatch() && $match === '') {
-            return "Le paramètre `match` est obligatoire pour l'action `{$action->value}`.";
+            return "The `match` parameter is required for the `{$action->value}` action.";
         }
 
         try {
@@ -52,7 +52,7 @@ class UpdateProjectMemory implements Tool
             return $e->getMessage();
         }
 
-        return "Mémoire du projet mise à jour (`{$action->value}`).";
+        return "Project memory updated (`{$action->value}`).";
     }
 
     public function schema(JsonSchema $schema): array
@@ -61,12 +61,12 @@ class UpdateProjectMemory implements Tool
             'action' => $schema->string()
                 ->enum(array_column(MemoryActionEnum::cases(), 'value'))
                 ->required()
-                ->description("L'opération à effectuer sur la mémoire : add, replace ou remove."),
+                ->description('The operation to run on the memory: add, replace or remove.'),
             'note' => $schema->string()
-                ->description('Le texte de l\'entrée, une seule phrase concise (requis pour add et replace). '
-                    .'Une consigne de l\'utilisateur s\'écrit en règle impérative qui garde toutes ses conditions.'),
+                ->description('The text of the entry, a single concise sentence (required for add and replace). '
+                    .'An instruction of the user is written as an imperative rule that keeps all its conditions.'),
             'match' => $schema->string()
-                ->description('Un extrait du texte de l\'entrée existante à cibler (requis pour replace et remove).'),
+                ->description('An extract of the text of the existing entry to target (required for replace and remove).'),
         ];
     }
 }

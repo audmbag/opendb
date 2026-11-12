@@ -20,6 +20,8 @@ class QueryHistoryEntryFactory extends Factory
     {
         return [
             'project_id' => Project::factory(),
+            // A run of the owner of the project by default.
+            'user_id' => fn (array $attributes): int => Project::findOrFail($attributes['project_id'])->user_id,
             'file' => fake()->slug(2).'.sql',
             'sql' => 'SELECT * FROM customers;',
             'succeeded' => true,

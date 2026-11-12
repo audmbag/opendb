@@ -1,12 +1,9 @@
 import { usePage } from '@inertiajs/react';
-import { FolderPlusIcon } from 'lucide-react';
-import { FileTextIcon } from 'lucide-react';
+import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
-    Code2Icon,
+    FileTextIcon,
     FolderCogIcon,
-    GitCompareArrowsIcon,
-    MessageSquareTextIcon,
-    Table2Icon,
+    FolderPlusIcon,
 } from 'lucide-react';
 import * as React from 'react';
 import type { SidebarMenuItemType } from '@/components/sidebar-menu-item';
@@ -25,74 +22,26 @@ import {
     SidebarTrigger,
     useSidebar,
 } from '@/components/ui/sidebar';
-import { useProjectSettingsDialog } from '@/hooks/use-project-settings-modal';
+import { useCreateProject } from '@/hooks/use-project-modal';
+import { useProjectNavigation } from '@/hooks/use-project-navigation';
+import { usePrivileges } from '@/hooks/use-privileges';
+import { useProjectSettingsDialog, useProjectSettingsNavItems } from '@/hooks/use-project-settings-modal';
+import { DOCUMENTATION_URL } from '@/lib/links';
 import { cn, limit } from '@/lib/utils';
 import type { Project } from '@/types/models/project';
-import ConversationController from '@/wayfinder/actions/App/Http/Controllers/ConversationController';
-import SqlEditorController from '@/wayfinder/actions/App/Http/Controllers/SqlEditor/SqlEditorController';
-import TableBrowserController from '@/wayfinder/actions/App/Http/Controllers/Tables/TableBrowserController';
 
-const getMenuItems = (
-    project: Project,
-    currentUrl: string,
-    openProjectSettings: () => void,
-): SidebarMenuItemType[] => {
-    const chatUrl = ConversationController.home(project.id).url;
-    const tablesUrl = TableBrowserController.index.url({ project: project.id });
-    const sqlEditorUrl = SqlEditorController.index.url({ project: project.id });
-
-    return [
-        {
-            label: 'Nouveau',
-            icon: FolderPlusIcon,
-            separator: true,
-            shortcut: ['Ctrl', 'Shift', 'N'],
-        },
-        {
-            label: 'Chat',
-            icon: MessageSquareTextIcon,
-            href: chatUrl,
-            isActive:
-                currentUrl === chatUrl ||
-                currentUrl.startsWith(`${chatUrl}/chat/`),
-        },
-        {
-            label: 'Tables',
-            icon: Table2Icon,
-            href: tablesUrl,
-            isActive:
-                currentUrl === tablesUrl ||
-                currentUrl.startsWith(`${tablesUrl}/`),
-        },
-        {
-            label: 'Éditeur SQL',
-            icon: Code2Icon,
-            href: sqlEditorUrl,
-            isActive: currentUrl === sqlEditorUrl,
-        },
-        {
-            label: 'Schéma ERD',
-            icon: GitCompareArrowsIcon,
-            separator: true,
-        },
-        {
-            label: 'Paramètres du projet',
-            icon: FolderCogIcon,
-            onClick: openProjectSettings,
-        },
-    ];
-};
-
-const Footerdata: SidebarMenuItemType[] = [
+const footerItems = (t: (key: string) => string): SidebarMenuItemType[] => [
     {
-        label: 'Documentation',
+        label: t('projects.menu.documentation'),
         icon: FileTextIcon,
         separator: true,
         external: true,
+        href: DOCUMENTATION_URL,
     },
 ];
 
 const Header = () => {
+    const { t } = useLaravelReactI18n();
     const {
         props: { project },
     } = usePage<{ project: Project }>();
@@ -121,6 +70,7 @@ const Header = () => {
                                 </span>
                             </div>
                             <SidebarTrigger
+                                aria-label={t('common.toggle_sidebar')}
                                 className={cn(
                                     'ml-auto rotate-180 transition-transform delay-200 duration-200',
                                     {
@@ -139,19 +89,43 @@ const Header = () => {
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const { open } = useSidebar();
 
-    const {
-        url,
-        props: { project },
-    } = usePage<{ project: Project }>();
-
     const { open: openProjectSettings } = useProjectSettingsDialog();
+    const createProject = useCreateProject();
+    const projectPages = useProjectNavigation();
+    const projectSettingsPages = useProjectSettingsNavItems();
+    const { can } = usePrivileges();
+    const { t } = useLaravelReactI18n();
+    const canCreateProject = can('create_project');
+    const hasProjectSettings = projectSettingsPages.length > 0;
 
-    const menuItems = React.useMemo(
-        () =>
-            getMenuItems(project, url.split('?')[0], () =>
-                openProjectSettings(),
-            ),
-        [openProjectSettings, project, url],
+    const menuItems = React.useMemo<SidebarMenuItemType[]>(
+        () => [
+            ...(canCreateProject
+                ? [
+                      {
+                          label: t('projects.menu.new'),
+                          icon: FolderPlusIcon,
+                          separator: true,
+                          shortcut: ['Ctrl', 'Shift', 'N'],
+                          onClick: createProject,
+                      },
+                  ]
+                : []),
+            ...projectPages.map((page, index) => ({
+                ...page,
+                separator: index === projectPages.length - 1 && hasProjectSettings,
+            })),
+            ...(hasProjectSettings
+                ? [
+                      {
+                          label: t('projects.menu.settings'),
+                          icon: FolderCogIcon,
+                          onClick: () => openProjectSettings(),
+                      },
+                  ]
+                : []),
+        ],
+        [canCreateProject, createProject, hasProjectSettings, openProjectSettings, projectPages, t],
     );
 
     return (
@@ -162,6 +136,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     <SidebarGroupContent>
                         <SidebarMenu>
                             <SidebarTrigger
+                                aria-label={t('common.toggle_sidebar')}
                                 className={cn(
                                     'hidden overflow-hidden transition-transform delay-200 duration-200 md:flex',
                                     {
@@ -179,7 +154,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             </SidebarContent>
             <SidebarFooter>
                 <SidebarMenu>
-                    {Footerdata.map((item) => (
+                    {footerItems(t).map((item) => (
                         <SidebarMenuItem key={item.label} {...item} />
                     ))}
                 </SidebarMenu>

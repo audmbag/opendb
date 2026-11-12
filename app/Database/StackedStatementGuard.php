@@ -23,8 +23,7 @@ class StackedStatementGuard
     {
         if (static::hasSeveralStatements($sql)) {
             throw new RuntimeException(
-                'Requête rejetée : les requêtes multiples (empilage de statements) ne sont pas autorisées. '
-                .'S\'il n\'y a qu\'une seule instruction, retire les commentaires et passe les valeurs contenant un point-virgule dans `bindings`.'
+                __('database.guards.stacked')
             );
         }
     }

@@ -16,6 +16,7 @@ use App\Models\Project;
 use App\Services\ProjectMemory;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Laravel\Ai\Tools\ToolNameResolver;
 
 beforeEach(function () {
     Storage::fake('opendb');
@@ -37,14 +38,14 @@ it('names the tables disabled for the agent in its instructions', function () {
 
     $instructions = (string) new SQLDatabaseAgent(AgentAccessModeEnum::ReadOnly, $this->project->refresh())->instructions();
 
-    expect($instructions)->toContain("### Tables désactivées pour l'agent")
+    expect($instructions)->toContain('### Tables disabled for the agent')
         ->and($instructions)->toContain('`customers`, `payments`');
 });
 
 it('does not mention disabled tables when the agent may read every table', function () {
     $instructions = (string) new SQLDatabaseAgent(AgentAccessModeEnum::ReadOnly, $this->project)->instructions();
 
-    expect($instructions)->not->toContain('Tables désactivées');
+    expect($instructions)->not->toContain('Tables disabled for the agent');
 });
 
 it('takes as many steps and reads as many rows as the user allows', function () {
@@ -54,7 +55,7 @@ it('takes as many steps and reads as many rows as the user allows', function () 
     $readQuery = collect($agent->tools())->first(fn ($tool) => $tool instanceof ReadQuery);
 
     expect($agent->maxSteps())->toBe(30)
-        ->and((string) $readQuery->description())->toContain('LIMITe de 50');
+        ->and((string) $readQuery->description())->toContain('LIMIT of 50');
 });
 
 it('keeps the instructions identical across projects until the context of the project', function () {
@@ -65,10 +66,10 @@ it('keeps the instructions identical across projects until the context of the pr
     $instructions = (string) new SQLDatabaseAgent(AgentAccessModeEnum::ReadOnly, $this->project)->instructions();
     $otherInstructions = (string) new SQLDatabaseAgent(AgentAccessModeEnum::ReadOnly, $otherProject)->instructions();
 
-    $sharedPrefix = Str::before($instructions, "### Contexte d'exécution");
+    $sharedPrefix = Str::before($instructions, '### Execution context');
 
     expect($sharedPrefix)->not->toBe($instructions)
-        ->and(Str::before($otherInstructions, "### Contexte d'exécution"))->toBe($sharedPrefix)
+        ->and(Str::before($otherInstructions, '### Execution context'))->toBe($sharedPrefix)
         ->and($sharedPrefix)->not->toContain($this->project->name)
         ->and($sharedPrefix)->not->toContain('Les montants de `orders` sont en centimes.');
 });
@@ -105,3 +106,11 @@ it('gives the mail tools to the agent in read-write mode only', function (AgentA
     'read-only' => [AgentAccessModeEnum::ReadOnly, false],
     'read-write' => [AgentAccessModeEnum::ReadWrite, true],
 ]);
+
+it('names in read-only mode every tool only the read-write mode gives', function () {
+    $names = fn (AgentAccessModeEnum $mode) => collect(new SQLDatabaseAgent($mode, $this->project)->tools())->map(ToolNameResolver::resolve(...));
+    $instructions = (string) new SQLDatabaseAgent(AgentAccessModeEnum::ReadOnly, $this->project)->instructions();
+
+    $names(AgentAccessModeEnum::ReadWrite)->diff($names(AgentAccessModeEnum::ReadOnly))
+        ->each(fn (string $tool) => expect($instructions)->toContain("`{$tool}`"));
+});
