@@ -6,8 +6,9 @@ rem   opendb self-update [--rollback]  la dernière version, ou retour à la pr�
 rem   opendb ^<commande^> ...           les commandes de la console (chat, settings, mcp:serve...)
 setlocal
 
-set "OPENDB_ROOT=%~dp0"
-set "OPENDB_RUNTIME=%~dp0runtime"
+rem Le chemin complet du paquet, sans « .. » : le serveur web ne saurait pas le résoudre.
+for %%I in ("%~dp0.") do set "OPENDB_ROOT=%%~fI\"
+set "OPENDB_RUNTIME=%OPENDB_ROOT%runtime"
 rem Le php.ini du paquet, qui active les extensions de runtime\ext.
 set "PHPRC=%OPENDB_RUNTIME%"
 rem Ce qu'un client MCP lance : le raccourci de bin\ quand il a lancé ce fichier, sinon ce fichier lui-même.

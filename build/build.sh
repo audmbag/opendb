@@ -180,6 +180,13 @@ build_windows_package() {
     for extension in $windows_extensions; do
         cp "$unpacked/ext/php_$extension.dll" "$output/runtime/ext/"
     done
+
+    # Le runtime Visual C++ avec lequel PHP a été compilé, lu dans l'en-tête de php8ts.dll : install.ps1 l'installe si
+    # Windows en a un plus ancien, avec lequel PHP refuserait de démarrer.
+    local header major minor
+    header=$(od -An -tu4 -j60 -N4 "$unpacked/php8ts.dll" | tr -d ' ')
+    read -r major minor <<< "$(od -An -tu1 -j$((header + 26)) -N2 "$unpacked/php8ts.dll")"
+    printf '%s.%s\n' "$major" "$minor" > "$output/runtime/vcruntime.txt"
     {
         # ${OPENDB_RUNTIME} est défini par opendb.cmd : le dossier runtime du paquet, où qu'il soit installé.
         echo 'extension_dir = "${OPENDB_RUNTIME}\ext"'
