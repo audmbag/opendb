@@ -13,7 +13,19 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'Laravel'),
+    'name' => env('APP_NAME', 'OpenDB'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Application Version
+    |--------------------------------------------------------------------------
+    |
+    | The version of OpenDB, kept in the VERSION file at the root: release-please
+    | writes it with each release, and the build copies it into the binary.
+    |
+    */
+
+    'version' => trim((string) @file_get_contents(base_path('VERSION'))) ?: 'dev',
 
     /*
     |--------------------------------------------------------------------------

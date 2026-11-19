@@ -10,3 +10,28 @@ updates:
       github-actions:
         patterns:
           - "*"
+
+  # Une pull request par semaine pour les mises à jour mineures et correctives, chacune passée par les tests.
+  - package-ecosystem: "composer"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 5
+    groups:
+      composer:
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "bun"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 5
+    groups:
+      bun:
+        update-types:
+          - "minor"
+          - "patch"

@@ -49,8 +49,8 @@ import {
     useDriverConfigTestConnection,
 } from '@/hooks/use-driver-config';
 import { LOCALES, useLocale } from '@/hooks/use-locale';
-import { useOpenProjectFolder } from '@/hooks/use-project';
 import { usePrivileges } from '@/hooks/use-privileges';
+import { useOpenProjectFolder } from '@/hooks/use-project';
 import { useCreateProject } from '@/hooks/use-project-modal';
 import { useProjectNavigation } from '@/hooks/use-project-navigation';
 import {

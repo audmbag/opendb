@@ -67,6 +67,9 @@ class TurnPrinter
 
                 $this->printEvent($event);
             }
+        } catch (AnswerInterrupted $interruption) {
+            // Not an error of the answer: the user stopped it, which the chat tells them by itself.
+            throw $interruption;
         } catch (Throwable $exception) {
             $error = StreamErrorMessage::for($exception) ?? __('chat_cli.errors.unexpected');
 

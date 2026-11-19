@@ -3,7 +3,8 @@
 namespace App\Console\Commands\Chat\Output;
 
 /**
- * The name of the application drawn in large letters, from grey to white as in the application itself.
+ * The name of the application drawn in large letters, from grey to white as in the application itself, with its version
+ * under it, on the right.
  */
 class Banner
 {
@@ -30,6 +31,8 @@ class Banner
         foreach (self::LINES as $index => $line) {
             $this->terminal->line($this->terminal->theme->color($line, self::GRADIENT[$index]));
         }
+
+        $this->terminal->line($this->terminal->theme->muted(str_pad(config('app.version'), mb_strlen(self::LINES[0]), ' ', STR_PAD_LEFT)));
 
         $this->terminal->line();
     }

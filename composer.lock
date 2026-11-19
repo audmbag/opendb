@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "5895b5902551263ea4befe05ee972a27",
+    "content-hash": "726ea9f0f22ff16897df45e1c7ccf2fa",
     "packages": [
         {
             "name": "albertoarena/laravel-truss",
@@ -11235,7 +11235,6 @@
     "prefer-lowest": false,
     "platform": {
         "php": "^8.5",
-        "ext-pcntl": "*",
         "ext-zip": "*"
     },
     "platform-dev": {},

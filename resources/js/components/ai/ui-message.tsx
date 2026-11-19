@@ -125,7 +125,8 @@ const UIMessage = ({
                     ))}
                 </Attachments>
             )}
-            <MessageContent>
+            {/* An answer spans the whole message, so that its tables do too, whatever the length of its text. */}
+            <MessageContent className={cn({ 'w-full': message.role === 'assistant' })}>
                 {/* MessageResponse redraws only for a new text: the key redraws it for a new syntax theme. */}
                 <MessageResponse
                     key={syntaxTheme.value}

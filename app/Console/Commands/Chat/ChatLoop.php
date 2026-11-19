@@ -7,6 +7,7 @@ use App\Console\Commands\Chat\Output\Terminal;
 use App\Console\Commands\Chat\SlashCommands\SlashCommandRegistry;
 use App\Console\Commands\Chat\Turn\TranscriptPrinter;
 use App\Console\Commands\Chat\Turn\TurnRunner;
+use App\Console\ConsoleScript;
 use Laravel\Prompts\Prompt;
 
 /**
@@ -97,10 +98,8 @@ class ChatLoop
 
     private function resumeCommand(ChatSession $session): string
     {
-        $script = basename($_SERVER['argv'][0] ?? 'artisan');
-
         return implode(' ', [
-            $script === 'artisan' ? 'php artisan' : $script,
+            ConsoleScript::name(),
             'chat',
             '--name='.escapeshellarg($session->user->name),
             $session->conversation === null ? "--project={$session->project->id}" : "--conversation={$session->conversation->id}",

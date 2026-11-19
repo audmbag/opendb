@@ -14,13 +14,17 @@ function domProps<T extends ExtraProps>(props: T): Omit<T, 'node'> {
 
 /**
  * The tables of the messages drawn plainly: no frame nor copy, download and fullscreen buttons around them, and
- * tighter cells than those of Streamdown, so that a table takes no more room than its rows.
+ * tighter cells than those of Streamdown. A table always spans the whole width of its message, and scrolls
+ * sideways when its columns need more.
  */
 export const markdownTableComponents: Components = {
     table: ({ className, ...props }) => (
-        <div className="my-3 w-fit max-w-full overflow-x-auto rounded-md border">
+        <div className="my-3 w-full overflow-x-auto rounded-md border">
             <table
-                className={cn('divide-y divide-border text-sm', className)}
+                className={cn(
+                    'w-full divide-y divide-border text-sm',
+                    className,
+                )}
                 data-streamdown="table"
                 {...domProps(props)}
             />

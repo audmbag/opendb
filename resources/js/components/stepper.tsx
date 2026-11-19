@@ -1,5 +1,7 @@
 'use client';
 
+import type { LucideIcon } from 'lucide-react';
+import { CheckIcon, LoaderCircleIcon } from 'lucide-react';
 import {
     Stepper as UIStepper,
     StepperContent,
@@ -13,7 +15,6 @@ import {
     StepperTrigger,
 } from '@/components/reui/stepper';
 import { cn } from '@/lib/utils';
-import { CheckIcon, LoaderCircleIcon, LucideIcon } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
 
 

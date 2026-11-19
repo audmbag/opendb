@@ -2,7 +2,6 @@ import { clsx } from 'clsx';
 import type { ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import type { StoreApi, UseBoundStore } from 'zustand';
-import type { PromptInputMessage } from '@/components/ai-elements/prompt-input';
 import { numberFormatter } from '@/lib/intl';
 
 export function cn(...inputs: ClassValue[]) {

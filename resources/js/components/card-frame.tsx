@@ -2,9 +2,9 @@ import { LoaderIcon  } from 'lucide-react';
 import type {LucideIcon} from 'lucide-react';
 import React from 'react';
 import type {ReactNode} from 'react';
+import IconStackGlow from '@/components/icon-stack-glow';
 import { cn } from '@/lib/utils';
 import { Frame, FrameDescription, FrameHeader, FramePanel, FrameTitle } from './reui/frame';
-import IconStackGlow from '@/components/icon-stack-glow';
 
 type Props = {
     ref?: React.Ref<HTMLDivElement>;

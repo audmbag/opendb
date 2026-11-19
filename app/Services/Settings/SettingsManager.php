@@ -3,6 +3,7 @@
 namespace App\Services\Settings;
 
 use App\Models\User;
+use Illuminate\Contracts\Session\Session;
 
 /**
  * The global settings of a user: their account, how the agent behaves by default and how the exports are made.
@@ -12,6 +13,7 @@ class SettingsManager
     public function __construct(
         protected ApplicationInfo $applicationInfo,
         protected CacheCleaner $cacheCleaner,
+        protected DefaultPassword $defaultPassword,
     ) {}
 
     /**
@@ -47,5 +49,21 @@ class SettingsManager
     public function clearCaches(User $user): int
     {
         return $this->cacheCleaner->clear($user);
+    }
+
+    /**
+     * Whether the account still has the password every installation starts with, which the user is invited to change.
+     */
+    public function usesDefaultPassword(User $user, Session $session): bool
+    {
+        return $this->defaultPassword->isUsed($user, $session);
+    }
+
+    /**
+     * The account changed: whether its password is still the default one is checked again.
+     */
+    public function forgetDefaultPassword(Session $session): void
+    {
+        $this->defaultPassword->forget($session);
     }
 }

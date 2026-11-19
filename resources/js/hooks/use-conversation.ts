@@ -3,13 +3,14 @@ import { router, useHttp, usePage } from '@inertiajs/react';
 import type { DynamicToolUIPart, UIMessage } from 'ai';
 import { DefaultChatTransport } from 'ai';
 import { Trash2Icon } from 'lucide-react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import type { PromptInputMessage } from '@/components/ai-elements/prompt-input';
 import AlertDialog from '@/components/alert-dialog';
 import { useProjectSettingsDialog } from '@/hooks/use-project-settings-modal';
 import { responseMessage } from '@/lib/http-errors';
 import { trans } from '@/lib/i18n';
+import { registerProjectWork } from '@/lib/project-activity';
 import { useAgentSettingsStore } from '@/store/use-agent-settings-store';
 import { useConversationStore } from '@/store/use-conversation-store';
 import type { APIData } from '@/types/global';
@@ -125,6 +126,20 @@ const useConversationMessage = (
             receivedStreamErrorMessageRef.current = null;
         },
     });
+
+    // Leaving the project stops the answer: the server is asked by the disconnection, the page stops reading it here.
+    const answering = status === 'submitted' || status === 'streaming';
+
+    useEffect(() => {
+        if (!answering) {
+            return;
+        }
+
+        return registerProjectWork({
+            describe: () => ({ answering: true }),
+            stop: () => void stop(),
+        });
+    }, [answering, stop]);
 
     const submitPromptMessage = useCallback(
         async (message: PromptInputMessage) => {

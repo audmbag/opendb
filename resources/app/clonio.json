@@ -1,0 +1,21 @@
+{
+    "connections": {
+        "target": {
+        },
+        "dump": {
+        },
+        "source": {
+        }
+    },
+    "audit": {
+        "channels": {
+            "local": {
+                "type": "local",
+                "path": "/logs"
+            }
+        },
+        "use": [
+            "local"
+        ]
+    }
+}

@@ -12,4 +12,10 @@ return [
     'password_placeholder' => 'Enter the password',
     'password_description' => 'Enter the password here',
     'submit' => 'Log in',
+    'default_password' => [
+        'title' => 'Default password',
+        'description' => 'It is the same on every new installation of opendb.',
+        'change' => 'Change',
+        'later' => 'Later',
+    ],
 ];

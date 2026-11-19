@@ -30,6 +30,10 @@ yarn-error.log
 /.zed
 .env.before_lerd
 clonio.json
+# The template of the cloning workspaces ships with the application.
+!/resources/app/clonio.json
 /opendb
 /database/pii-scenarios/.credentials
 .update
+/build/dist
+/build/cache

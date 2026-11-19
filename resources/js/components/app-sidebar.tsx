@@ -22,9 +22,9 @@ import {
     SidebarTrigger,
     useSidebar,
 } from '@/components/ui/sidebar';
+import { usePrivileges } from '@/hooks/use-privileges';
 import { useCreateProject } from '@/hooks/use-project-modal';
 import { useProjectNavigation } from '@/hooks/use-project-navigation';
-import { usePrivileges } from '@/hooks/use-privileges';
 import { useProjectSettingsDialog, useProjectSettingsNavItems } from '@/hooks/use-project-settings-modal';
 import { DOCUMENTATION_URL } from '@/lib/links';
 import { cn, limit } from '@/lib/utils';

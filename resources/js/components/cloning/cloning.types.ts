@@ -1,6 +1,4 @@
-import type { ProjectInfo } from '@/hooks/use-project';
 import type { DriverConfig } from '@/types/databases';
-import type { Project } from '@/types/models/project';
 
 export type Sensitivity = 'low' | 'medium' | 'high' | 'critical';
 

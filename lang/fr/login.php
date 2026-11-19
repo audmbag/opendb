@@ -12,4 +12,10 @@ return [
     'password_placeholder' => 'Entrez le mot de passe',
     'password_description' => 'Saisissez ici le mot de passe',
     'submit' => 'Se connecter',
+    'default_password' => [
+        'title' => 'Mot de passe par défaut',
+        'description' => 'Il est le même sur toute installation neuve d\'opendb.',
+        'change' => 'Changer',
+        'later' => 'Plus tard',
+    ],
 ];

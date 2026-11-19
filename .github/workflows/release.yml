@@ -1,0 +1,296 @@
+name: release
+
+# Construit les binaires d'une version et les publie sur sa release GitHub. Il est lancé par release-please quand sa pull
+# request de version est fusionnée, par un tag poussé à la main (git tag v0.1.0-beta.1 && git push origin
+# v0.1.0-beta.1), ou à la main depuis l'onglet Actions. Un tag avec un tiret donne une préversion.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version à publier (ex. v0.1.0-beta.1)'
+        required: true
+  workflow_call:
+    inputs:
+      version:
+        description: 'Le tag de la version, créé par release-please'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.version || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  VERSION: ${{ inputs.version || github.ref_name }}
+  FRANKENPHP_VERSION: v1.13.5
+
+jobs:
+  # Le lint a son propre workflow, sur main et les pull requests : une erreur de style ne bloque pas une version.
+  tests:
+    uses: ./.github/workflows/tests.yml
+
+  # L'application, préparée une fois sous Linux, est la même dans tous les paquets.
+  app:
+    needs: tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - uses: shivammathur/setup-php@7c071dfe9dc99bdf297fa79cb49ea005b9fcadbc # v2
+        with:
+          php-version: '8.5'
+          extensions: intl, pdo_sqlite, sqlite3, zip, sodium
+          tools: composer:v2
+          coverage: none
+
+      - uses: oven-sh/setup-bun@v2
+
+      # Le tag et le fichier VERSION, que l'application affiche, doivent dire la même chose.
+      - name: Check the version
+        run: |
+          if [ "${VERSION#v}" != "$(cat VERSION)" ]; then
+            echo "::error::Le tag $VERSION ne correspond pas au fichier VERSION ($(cat VERSION))."
+            exit 1
+          fi
+
+      - name: Prepare the application
+        run: build/build.sh app
+
+      # Une archive garde les droits des fichiers, que l'envoi d'un dossier perdrait.
+      - name: Pack the application
+        run: tar -C build/dist -cf app.tar app
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app
+          path: app.tar
+          retention-days: 3
+
+  # Les machines ARM ne sont gratuites que pour un dépôt public : un dépôt privé ne construit que x86_64.
+  linux:
+    needs: app
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(github.event.repository.private && '[{"arch":"x86_64","platform":"amd64","runner":"ubuntu-24.04"}]' || '[{"arch":"x86_64","platform":"amd64","runner":"ubuntu-24.04"},{"arch":"aarch64","platform":"arm64","runner":"ubuntu-24.04-arm"}]') }}
+    runs-on: ${{ matrix.runner }}
+    # La première compilation de PHP et de ses bibliothèques prend près d'une heure.
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: app
+
+      - name: Unpack the application
+        run: mkdir -p build/dist && tar -C build/dist -xf app.tar
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Les téléchargements et les bibliothèques compilées par static-php-cli, gardés d'une publication à l'autre.
+      - name: Restore the cache of static-php-cli
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: static-php-cache
+          key: static-php-linux-${{ matrix.arch }}-${{ github.run_id }}
+          restore-keys: static-php-linux-${{ matrix.arch }}-
+
+      - uses: reproducible-containers/buildkit-cache-dance@v3
+        with:
+          cache-map: |
+            {
+              "static-php-cache": {
+                "target": "/go/src/app/dist",
+                "id": "opendb-static-builder-gnu-${{ matrix.platform }}"
+              }
+            }
+          skip-extraction: ${{ steps.cache.outputs.cache-hit }}
+
+      - name: Build the binary
+        run: build/build.sh binary --reuse-app
+
+      - name: Smoke test
+        run: build/smoke-test.sh build/dist/release/opendb-linux-${{ matrix.arch }}.tar.xz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-${{ matrix.arch }}
+          path: build/dist/release/opendb-linux-${{ matrix.arch }}.tar.xz
+          compression-level: 0
+
+  # Une minute de macOS compte pour dix sur un dépôt privé : macOS n'est construit qu'une fois le dépôt public.
+  macos:
+    needs: app
+    if: ${{ !github.event.repository.private }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: aarch64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: app
+
+      - name: Unpack the application
+        run: mkdir -p build/dist && tar -C build/dist -xf app.tar
+
+      - name: Restore the cache of static-php-cli
+        uses: actions/cache@v4
+        with:
+          path: build/cache/frankenphp-${{ env.FRANKENPHP_VERSION }}/dist
+          key: static-php-macos-${{ matrix.arch }}-${{ github.run_id }}
+          restore-keys: static-php-macos-${{ matrix.arch }}-
+
+      - name: Build the binary
+        run: build/build.sh binary --reuse-app
+
+      - name: Smoke test
+        run: build/smoke-test.sh build/dist/release/opendb-macos-${{ matrix.arch }}.tar.xz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-macos-${{ matrix.arch }}
+          path: build/dist/release/opendb-macos-${{ matrix.arch }}.tar.xz
+          compression-level: 0
+
+  # Windows n'a rien à compiler : le paquet réunit FrankenPHP et PHP pour Windows, publiés tels quels, et l'application.
+  windows:
+    needs: app
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: app
+
+      - name: Unpack the application
+        run: mkdir -p build/dist && tar -C build/dist -xf app.tar
+
+      - name: Assemble the package
+        run: build/build.sh windows --reuse-app
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-windows-x86_64
+          path: build/dist/release/opendb-windows-x86_64.zip
+          compression-level: 0
+
+  # Le paquet Windows, installé et lancé sur une vraie machine Windows, avec Windows PowerShell 5.1.
+  windows-smoke-test:
+    needs: windows
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-windows-x86_64
+          path: release
+
+      - name: Install
+        shell: powershell
+        run: |
+          $env:OPENDB_ARCHIVE = (Resolve-Path release\opendb-windows-x86_64.zip).Path
+          powershell -NoProfile -ExecutionPolicy Bypass -File build\install.ps1
+          if (-not (Test-Path "$env:LOCALAPPDATA\opendb\bin\opendb.cmd")) { throw 'opendb.cmd est absent.' }
+
+      - name: Console
+        shell: cmd
+        run: |
+          call "%LOCALAPPDATA%\opendb\bin\opendb.cmd" --version || exit /b 1
+          call "%LOCALAPPDATA%\opendb\bin\opendb.cmd" > commands.txt || exit /b 1
+          findstr /c:"chat" commands.txt || exit /b 1
+          call "%LOCALAPPDATA%\opendb\bin\opendb.cmd" migrate:status && (echo Les commandes de Laravel devraient etre fermees. & exit /b 1)
+          exit /b 0
+
+      - name: Web interface and HTTPS
+        shell: powershell
+        run: |
+          $opendb = "$env:LOCALAPPDATA\opendb\bin\opendb.cmd"
+          Start-Process -FilePath $opendb -ArgumentList 'serve', '--port', '8123' -WindowStyle Hidden
+          $status = 0
+          foreach ($attempt in 1..30) {
+              try { $status = (Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8123/login).StatusCode; break } catch { Start-Sleep 1 }
+          }
+          if ($status -ne 200) { throw "La page de connexion répond $status." }
+          # Par curl, comme les SDK des fournisseurs d'IA : sans les certificats du paquet, l'appel échouerait.
+          $runtime = "$env:LOCALAPPDATA\opendb\current\runtime"
+          $env:OPENDB_RUNTIME = $runtime
+          $env:PHPRC = $runtime
+          $code = '$c = curl_init("https://api.github.com/zen"); curl_setopt_array($c, [CURLOPT_RETURNTRANSFER => true, CURLOPT_USERAGENT => "opendb"]); curl_exec($c); echo curl_getinfo($c, CURLINFO_HTTP_CODE), " ", curl_error($c); exit(curl_getinfo($c, CURLINFO_HTTP_CODE) === 200 ? 0 : 1);'
+          & "$runtime\frankenphp.exe" php-cli -r $code
+          if ($LASTEXITCODE -ne 0) { throw 'L appel HTTPS a échoué.' }
+
+  publish:
+    needs: [linux, macos, windows-smoke-test]
+    # macOS peut avoir été sauté (dépôt privé) : seule une erreur ou une annulation empêche la publication.
+    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: release
+          merge-multiple: true
+
+      - name: Checksums
+        run: |
+          cp build/install.sh build/install.ps1 release/
+          cd release
+          sha256sum -- opendb-* install.sh install.ps1 > SHA256SUMS
+          cat SHA256SUMS
+
+      # release-please a déjà créé la release, avec ses notes : les fichiers s'y ajoutent. Un tag poussé à la main n'en a pas.
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$VERSION" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release upload "$VERSION" release/* --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            prerelease=""
+            case "$VERSION" in *-*) prerelease="--prerelease" ;; esac
+            gh release create "$VERSION" release/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "opendb $VERSION" \
+              --generate-notes \
+              $prerelease
+          fi

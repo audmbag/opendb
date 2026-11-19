@@ -6,6 +6,8 @@ return [
     'model' => 'Modèle',
     'approval_required' => 'Approbation requise pour `:tool`',
     'invalid_credentials' => 'Identifiants incorrects.',
+    'unknown_command' => 'La commande « :command » n\'existe pas : « :help » liste celles d\'OpenDB',
+    'default_password' => 'Ce compte utilise encore le mot de passe par défaut d\'opendb. Pour le changer : :command',
     'quit' => 'Quitter',
     'back' => 'Retour',
     'project' => 'Projet',

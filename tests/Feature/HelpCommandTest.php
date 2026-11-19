@@ -1,5 +1,9 @@
 <?php
 
+use App\Enums\OperatingSystemEnum;
+use App\Services\SystemInfoService;
+use App\Support\ApplicationHome;
+use Symfony\Component\Console\Exception\CommandNotFoundException;
 use Symfony\Component\Console\Exception\InvalidOptionException;
 
 it('shows the help of a command of the application in the language of the console, with --help as its only global option', function () {
@@ -22,6 +26,13 @@ it('keeps the help of Symfony for the commands of Laravel', function () {
         ->expectsOutputToContain('Usage:')
         ->expectsOutputToContain('--env')
         ->assertSuccessful();
+});
+
+it('does not describe the commands of Laravel once the application is installed', function () {
+    $this->app->instance(ApplicationHome::class, ApplicationHome::detect(sys_get_temp_dir(), null, new SystemInfoService(OperatingSystemEnum::LINUX, ApplicationHome::NAME, ['HOME' => sys_get_temp_dir()])));
+
+    expect(fn () => $this->artisan('help', ['command_name' => 'migrate'])->run())
+        ->toThrow(CommandNotFoundException::class, "La commande « migrate » n'existe pas :");
 });
 
 it('translates the errors of what was typed', function () {

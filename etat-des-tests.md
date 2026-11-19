@@ -40,7 +40,7 @@ Relevé du 13 novembre 2026.
 | Divers (Services, Workspace, Database, Auth) | 26 |
 | **Total** | **1 794** |
 
-Il y a 107 fichiers et environ 950 blocs `it()`. L'écart avec 1 794 vient des datasets (`->with()`, utilisé 139 fois), surtout dans le clonage.
+Il y a 107 fichiers et environ 790 blocs `it()` ou `test()`. L'écart avec 1 794 vient des datasets (`->with()`, utilisé 139 fois), surtout dans le clonage.
 
 ## Ce qu'on simule, ce qu'on exécute vraiment
 
@@ -56,18 +56,20 @@ Il y a 107 fichiers et environ 950 blocs `it()`. L'écart avec 1 794 vient des d
 
 ## Points faibles relevés
 
-1. **Aucun test ne tourne sur un vrai serveur MySQL, MariaDB ou PostgreSQL.** L'application prétend pourtant prendre en charge ces quatre bases. Les différences entre bases (quoting, `information_schema`, transactions DDL, GRANT réels) ne sont donc pas couvertes.
+1. **Aucun test ne tourne sur un vrai serveur MySQL, MariaDB ou PostgreSQL.** L'application annonce pourtant quatre moteurs pris en charge, et seul SQLite est réellement exécuté par les tests. Les différences entre bases (quoting, `information_schema`, transactions DDL, GRANT réels) ne sont donc pas couvertes.
 2. **La CI (`.github/workflows/tests.yml`) a trois problèmes** :
    - elle ne se déclenche que sur les tags `v*` : les déclencheurs sur push et pull request sont en commentaire ;
    - sa matrice teste PHP 8.3, 8.4 et 8.5, alors que `composer.json` exige `^8.5` et que le code utilise `|>` et `array_first`. Les jobs 8.3 et 8.4 échoueront dès `composer install` ;
    - elle installe avec `npm i` et active la couverture xdebug sans jamais la produire.
-   - `lint.yml` tourne lui aussi en PHP 8.4.
+
+   `lint.yml` a les deux premiers défauts : il ne se déclenche que sur les tags `v*` et tourne en PHP 8.4.
 3. **Le front n'a aucun test** : ni Vitest ni tests navigateur Pest 4, seulement `eslint`, `tsc` et `prettier`.
-4. **L'authentification est très peu testée** : `AuthenticationTest` ne vérifie que l'affichage de l'écran de connexion. Les tests d'accès aux projets sont en revanche solides (15 dans `ProjectAccessTest`).
+4. **L'authentification est très peu testée** : `AuthenticationTest` ne vérifie que l'affichage de l'écran de connexion. Les tests d'accès aux projets sont en revanche solides (14 dans `ProjectAccessTest`).
 5. **Il n'y a aucune mesure de couverture** : ni pcov ni xdebug ne sont installés en local.
-6. **Il reste du code d'exemple** :
+6. **Il reste du code d'exemple ou inutilisé** :
    - `tests/Unit/ExampleTest.php` (`true is true`) ;
-   - dans `Pest.php`, l'expectation `toBeOne` et la fonction `something()`.
+   - dans `Pest.php`, l'expectation `toBeOne` et la fonction `something()` ;
+   - dans `TestCase.php`, le helper `skipUnlessFortifyHas()`, que plus aucun test n'appelle.
 7. **Le test le plus lent** est `PiiMatchersFileTest` : environ 8 s sur les 90 de l'exécution d'un seul bloc, à cause de 4 cas qui génèrent beaucoup de valeurs. Ce n'est pas bloquant.
 
 ## Commandes utiles

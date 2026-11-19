@@ -10,6 +10,7 @@ import SettingsController from '@/wayfinder/actions/App/Http/Controllers/Setting
 
 type ApplicationInfo = {
     name: string;
+    version: string;
     environment: string;
     phpVersion: string;
     laravelVersion: string;
@@ -62,6 +63,7 @@ export default function AboutSettings() {
                 description={t('settings.about.description')}
                 icon={InfoIcon}
             >
+                <SettingRow label={t('settings.about.version')}>{info.version}</SettingRow>
                 <SettingRow label={t('settings.about.system')}>{info.operatingSystem}</SettingRow>
                 <SettingRow label={t('settings.about.environment')}>
                     {info.environment}

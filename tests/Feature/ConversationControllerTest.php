@@ -5,6 +5,7 @@ use App\Ai\Enums\AgentAccessModeEnum;
 use App\Ai\Enums\AgentEffortEnum;
 use App\Ai\Middleware\StopWhenCancelled;
 use App\Ai\Services\AnswerCancellation;
+use App\Ai\Services\AnswersInProgress;
 use App\Ai\Services\ProviderManagerService;
 use App\Jobs\GenerateConversationTitle;
 use App\Models\Project;
@@ -674,6 +675,21 @@ it('saves an answer stopped by the user as interrupted', function () {
     $answer = $conversation->messages()->where('role', 'assistant')->sole();
     expect($answer->meta['cancelled'])->toBeTrue()
         ->and(app(AnswerCancellation::class)->isRequested($conversation->id))->toBeFalse();
+});
+
+it('knows the answer is in progress until it is streamed', function () {
+    $user = User::factory()->create();
+    $conversation = conversationWithDriver($user);
+    $answers = app(AnswersInProgress::class);
+    SQLDatabaseAgent::fake([function () use ($answers, $conversation) {
+        expect($answers->among([$conversation->id]))->toBe([$conversation->id]);
+
+        return 'Bonjour !';
+    }]);
+
+    postChatMessage($user, $conversation)->assertOk()->streamedContent();
+
+    expect($answers->among([$conversation->id]))->toBe([]);
 });
 
 it('ignores a stop asked before the answer started', function () {

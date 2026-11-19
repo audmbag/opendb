@@ -1,7 +1,7 @@
 import type { Edge, Node } from '@xyflow/react';
-import ELK from 'elkjs/lib/elk.bundled.js';
 import { showsCostShare } from '@/components/ai/artifacts/query-plan/format';
 import type { StepDirection } from '@/components/ai/artifacts/query-plan/format';
+import { layoutEngine } from '@/lib/elk';
 import type { ServerMessage } from '@/lib/i18n';
 import type { PlanNode, QueryPlan } from '@/types/agent';
 
@@ -39,8 +39,6 @@ export type FlowEdgeData = {
 };
 
 export type PlanFlowEdge = Edge<FlowEdgeData, 'flow'>;
-
-const elk = new ELK();
 
 /**
  * The height of a card before it is measured: one more line for the bar of the cost, one more for the alert.
@@ -90,7 +88,7 @@ export async function layoutPlan(
     const heightOf = (node: PlanNode) =>
         measuredHeights[node.id] ?? estimatedNodeHeight(node, plan);
 
-    const graph = await elk.layout({
+    const graph = await layoutEngine().layout({
         id: 'plan',
         layoutOptions: {
             'elk.algorithm': 'layered',

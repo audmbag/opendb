@@ -33,8 +33,6 @@
 
         <link rel="icon" href="{{ asset('favicon.png') }}" type="img/png" sizes="any">
 
-        @fonts
-
         @viteReactRefresh
         @vite(['resources/css/app.css', 'resources/js/app.tsx', "resources/js/pages/{$page['component']}.tsx"])
         <x-inertia::head>

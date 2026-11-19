@@ -3,14 +3,17 @@
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\HandleLocale;
+use App\Services\SystemInfoService;
+use App\Support\ApplicationHome;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
+use Symfony\Component\Console\Exception\CommandNotFoundException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
-return Application::configure(basePath: dirname(__DIR__))
+$app = Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
         commands: __DIR__.'/../routes/console.php',
@@ -32,6 +35,9 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // A command typed wrong is answered in the console: it is no error of the application.
+        $exceptions->dontReport(CommandNotFoundException::class);
+
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('helpers/*') || $request->expectsJson(),
         );
@@ -46,3 +52,12 @@ return Application::configure(basePath: dirname(__DIR__))
         });
     })
     ->create();
+
+// An installed copy writes nothing next to its code: its configuration, database and storage live in ~/.opendb.
+ApplicationHome::detect(
+    dirname(__DIR__),
+    $_SERVER['APP_ENV'] ?? $_ENV['APP_ENV'] ?? (getenv('APP_ENV') ?: null),
+    new SystemInfoService(appName: ApplicationHome::NAME),
+)?->apply($app);
+
+return $app;

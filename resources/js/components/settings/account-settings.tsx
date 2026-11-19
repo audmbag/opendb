@@ -21,7 +21,7 @@ type AccountForm = {
  */
 export default function AccountSettings() {
     const { t } = useLaravelReactI18n();
-    const { auth, appName } = usePage().props;
+    const { auth } = usePage().props;
 
     const form = useHttp<AccountForm, { message: string }>({
         name: auth.user.name,
@@ -30,7 +30,6 @@ export default function AccountSettings() {
         password_confirmation: '',
     });
 
-    const isDefaultAccount = auth.user.name === 'opendb';
 
     const save = (event: React.FormEvent) => {
         event.preventDefault();
@@ -56,11 +55,11 @@ export default function AccountSettings() {
 
     return (
         <form className="flex flex-col gap-4" onSubmit={save}>
-            {isDefaultAccount && (
+            {auth.defaultPassword && (
                 <Alert
                     variant="warning"
-                    title={t('settings.account.default_account')}
-                    message={t('settings.account.default_account_message', { app: appName })}
+                    title={t('settings.account.default_password')}
+                    message={t('settings.account.default_password_message')}
                 />
             )}
             <CardFrame

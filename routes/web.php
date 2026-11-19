@@ -18,6 +18,7 @@ use App\Http\Controllers\MailRecipientController;
 use App\Http\Controllers\MailSettingController;
 use App\Http\Controllers\McpTokenController;
 use App\Http\Controllers\Project\ProjectArchivedConversationController;
+use App\Http\Controllers\Project\ProjectDisconnectController;
 use App\Http\Controllers\Project\ProjectSettingsController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ProjectFileController;
@@ -139,6 +140,7 @@ Route::middleware(['auth'])->group(function () {
 
     Route::prefix('/{project}')->middleware([ExcludeDraftProjectMiddleware::class, 'can:view,project'])->group(function () {
         Route::get('/', [ConversationController::class, 'home']);
+        Route::post('/disconnect', ProjectDisconnectController::class);
         Route::get('/conversations/search', [ConversationController::class, 'search']);
         Route::resource('/conversations', ConversationController::class)->only(['index', 'store']);
         Route::get('/chat/{conversation}', [ConversationController::class, 'conversation'])->name('conversation.chat')->can('view', 'conversation');

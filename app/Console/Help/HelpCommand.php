@@ -3,6 +3,8 @@
 namespace App\Console\Help;
 
 use App\Console\ApplicationCommands;
+use App\Console\InstalledConsole;
+use App\Support\ApplicationHome;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Command\HelpCommand as SymfonyHelpCommand;
 use Symfony\Component\Console\Descriptor\ApplicationDescription;
@@ -43,6 +45,11 @@ class HelpCommand extends SymfonyHelpCommand
     {
         $command = $this->describedCommand ?? $this->getApplication()->find($input->getArgument('command_name'));
         $this->describedCommand = null;
+
+        // Once installed, the commands of Laravel are out of reach: their help too.
+        if (app()->bound(ApplicationHome::class) && ! ApplicationCommands::contains($command)) {
+            throw InstalledConsole::unknown($command->getName());
+        }
 
         if (! ApplicationCommands::contains($command) || $input->getOption('format') !== 'txt' || $input->getOption('raw')) {
             parent::setCommand($command);

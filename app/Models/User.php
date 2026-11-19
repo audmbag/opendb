@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Hash;
 use Laravel\Ai\Concerns\HasConversations;
 use Laravel\Ai\Models\ConversationMessage;
 
@@ -55,6 +56,15 @@ class User extends Authenticatable
             get: fn (?string $value): UserSettings => UserSettings::fromArray((array) json_decode($value ?? '[]', true)),
             set: fn (UserSettings $settings): string => json_encode($settings->toArray(), JSON_THROW_ON_ERROR),
         );
+    }
+
+    /**
+     * Whether the account still has the password every installation starts with (config/opendb.php), which the user is
+     * invited to change after signing in.
+     */
+    public function hasDefaultPassword(): bool
+    {
+        return Hash::check((string) config('opendb.default_password'), $this->password);
     }
 
     public function projects(): HasMany

@@ -1,5 +1,5 @@
-import ELK from 'elkjs/lib/elk.bundled.js';
-import type { ElkNode } from 'elkjs/lib/elk.bundled.js';
+import type { ElkNode } from 'elkjs/lib/elk-api';
+import { layoutEngine } from '@/lib/elk';
 import { TABLE_HANDLE } from './types';
 import type { RelationshipEdgeType, TableNodeType } from './types';
 
@@ -17,8 +17,6 @@ const COMPONENT_SPACING = 96;
  * Width / height ratio aimed at, so the diagram fills a landscape canvas instead of a tall column.
  */
 const TARGET_ASPECT_RATIO = 1.6;
-
-const elk = new ELK();
 
 type Size = { width: number; height: number };
 
@@ -143,7 +141,7 @@ export async function getLayoutedNodes(
     };
 
     try {
-        const layoutedGraph = await elk.layout(graph);
+        const layoutedGraph = await layoutEngine().layout(graph);
         const positions = new Map(
             (layoutedGraph.children ?? []).map((child) => [
                 child.id,

@@ -38,6 +38,8 @@ import {
     ResizablePanelGroup,
 } from '@/components/ui/resizable';
 import { usePrivileges } from '@/hooks/use-privileges';
+import { useValueAsRef } from '@/hooks/use-value-as-ref';
+import { registerProjectWork } from '@/lib/project-activity';
 import {
     createTableChangesStore,
     pendingChangesCount,
@@ -187,6 +189,30 @@ export default function TablesIndex({
     const tableNames = tables.map((item) => item.name);
     const activeTab = tabs.find((tab) => tab.id === activeId) ?? null;
     const activeTable = activeTab?.kind === 'table' ? activeTab.table : null;
+
+    // Leaving the project loses the changes not applied yet: the user is told before.
+    const tabsRef = useValueAsRef(tabs);
+
+    useEffect(
+        () =>
+            registerProjectWork({
+                describe: () => ({
+                    changes: tabsRef.current.flatMap((tab) => {
+                        const count =
+                            tab.kind === 'table'
+                                ? pendingChangesCount(
+                                      tab.stores.changes.getState(),
+                                  )
+                                : 0;
+
+                        return tab.kind === 'table' && count > 0
+                            ? [{ table: tab.table, count }]
+                            : [];
+                    }),
+                }),
+            }),
+        [tabsRef],
+    );
 
     useEffect(() => {
         try {

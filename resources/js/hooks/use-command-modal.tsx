@@ -18,7 +18,7 @@ const CommandModalContext = createContext<CommandModalContextType>({
 const CommandModalProvider = ({ children }: { children: React.ReactNode }) => {
     const [open, setOpen] = useState(false);
 
-    useHotkeys('mod+k', (e) => {
+    useHotkeys('mod+k', () => {
         setOpen(prev => !prev);
     }, { preventDefault: true });
 
@@ -37,6 +37,7 @@ const useCommandModal = () => {
     if (!context) {
         throw new Error("useCommandModal must be used within a CommandModalProvider");
     }
+
     return context;
 }
 

@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Enums\PrivilegeEnum;
 use App\Models\Project;
 use App\Services\Privileges\PrivilegeManager;
+use App\Services\Settings\SettingsManager;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -44,6 +45,8 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
                 'privileges' => fn (): ?array => $this->privileges($request),
+                'defaultPassword' => fn (): bool => $request->user() !== null
+                    && app(SettingsManager::class)->usesDefaultPassword($request->user(), $request->session()),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];

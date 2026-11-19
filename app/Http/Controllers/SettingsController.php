@@ -35,6 +35,7 @@ class SettingsController extends Controller
     public function updateAccount(AccountRequest $request): JsonResponse
     {
         $this->settings->updateAccount($request->user(), $request->validated());
+        $this->settings->forgetDefaultPassword($request->session());
 
         return response()->json(['message' => __('settings.messages.account_saved')]);
     }

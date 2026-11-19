@@ -1,0 +1,82 @@
+#!/bin/sh
+# Lanceur d'opendb pour Linux et macOS, installé à côté du binaire opendb-core (FrankenPHP avec l'application).
+#
+#   opendb serve [--port 8000]       l'interface web, sur 127.0.0.1
+#   opendb self-update [--rollback]  la dernière version, ou retour à la précédente
+#   opendb <commande> …              les commandes de la console (chat, settings, mcp:serve…)
+set -eu
+
+# Le chemin par lequel opendb a été lancé (~/.local/bin/opendb), qui reste le même d'une version à l'autre : c'est
+# lui qu'un client MCP doit lancer.
+invoked=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/$(basename -- "$0")
+
+# Le dossier du lanceur, liens symboliques suivis : opendb-core se trouve à côté.
+self=$0
+while [ -L "$self" ]; do
+    target=$(readlink "$self")
+    case $target in
+        /*) self=$target ;;
+        *) self=$(dirname "$self")/$target ;;
+    esac
+done
+directory=$(CDPATH= cd -- "$(dirname -- "$self")" && pwd -P)
+core="$directory/opendb-core"
+
+# Le dossier où l'application écrit (App\Support\ApplicationHome), et ce qu'un client MCP lance pour la démarrer.
+home="$HOME/.opendb"
+export OPENDB_BINARY="$invoked"
+
+# La console compile chaque fichier une seule fois : le cache sur disque d'OPcache sert d'une commande à l'autre.
+if [ ! -f "$home/php/opendb.ini" ]; then
+    mkdir -p "$home/php" "$home/cache/opcache"
+    printf 'opcache.enable_cli = 1\nopcache.file_cache = "%s"\n' "$home/cache/opcache" > "$home/php/opendb.ini"
+fi
+mkdir -p "$home/cache/opcache"
+export PHP_INI_SCAN_DIR="${PHP_INI_SCAN_DIR:-}:$home/php"
+
+# FrankenPHP unpacks the application into $TMPDIR, then reuses the folder it finds there: in /tmp, open to every user,
+# another one could prepare it beforehand. The folder of the user is private, and survives a restart of the machine.
+export TMPDIR="$home/tmp"
+mkdir -p "$TMPDIR"
+chmod 700 "$home" "$TMPDIR"
+
+if [ "${1:-}" = "self-update" ]; then
+    # build/install.sh garde chaque version dans <dossier>/versions/<version>, et <dossier>/current mène à celle en cours.
+    install_dir=$(dirname "$(dirname "$directory")")
+    if [ "$(basename "$(dirname "$directory")")" != "versions" ]; then
+        echo "opendb : cette copie n'a pas été installée par install.sh, elle ne peut pas se mettre à jour seule." >&2
+        exit 1
+    fi
+
+    if [ "${2:-}" = "--rollback" ]; then
+        previous=$(readlink "$install_dir/previous" 2> /dev/null || true)
+        if [ -z "$previous" ] || [ ! -d "$previous" ]; then
+            echo "opendb : aucune version précédente à retrouver." >&2
+            exit 1
+        fi
+        ln -sfn "$directory" "$install_dir/previous"
+        ln -sfn "$previous" "$install_dir/current"
+        echo "opendb revient à la version $(cat "$previous/VERSION")."
+        exit 0
+    fi
+
+    curl -fsSL "${OPENDB_RELEASES_URL:-https://github.com/audmbag/opendb/releases}/latest/download/install.sh" \
+        | OPENDB_INSTALL_DIR="$install_dir" sh
+    exit
+fi
+
+if [ "${1:-}" = "serve" ]; then
+    shift
+    port=${OPENDB_PORT:-8000}
+    if [ "${1:-}" = "--port" ] && [ -n "${2:-}" ]; then
+        port=$2
+        shift 2
+    fi
+
+    # Les liens vers l'interface web, écrits par le chat de la console, mènent à ce serveur.
+    export APP_URL="${APP_URL:-http://127.0.0.1:$port}"
+    exec "$core" php-server --listen "127.0.0.1:$port" "$@"
+fi
+
+export APP_URL="${APP_URL:-http://127.0.0.1:${OPENDB_PORT:-8000}}"
+exec "$core" php-cli artisan "$@"

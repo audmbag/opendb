@@ -4,6 +4,8 @@ import {
     BrainCircuitIcon,
     BrainIcon,
     CornerDownLeftIcon,
+    FolderTreeIcon,
+    PaperclipIcon,
     PencilIcon,
     PencilOffIcon,
     PlusIcon,
@@ -35,6 +37,12 @@ import Button from '@/components/form/button';
 import Select from '@/components/form/select';
 import Presence from '@/components/presence';
 import PromptSuggestions from '@/components/prompt-suggestions';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { InputGroupAddon } from '@/components/ui/input-group';
 import { Kbd } from '@/components/ui/kbd';
 import {
@@ -80,10 +88,18 @@ const PromptInputAttachmentsDisplay = ({ className }: { className?: string }) =>
     );
 };
 
-const AttachmentButton = ({ className, size = 'sm', ...props }: React.ComponentProps<typeof Button>) => {
+interface AttachmentButtonProps extends React.ComponentProps<typeof Button> {
+    /**
+     * Start a project file mention in the prompt, once the menu has given the focus back.
+     */
+    onMentionProjectFile: () => void;
+}
+
+const AttachmentButton = ({ className, size = 'sm', onMentionProjectFile, ...props }: AttachmentButtonProps) => {
     const { t } = useLaravelReactI18n();
 
     const attachments = usePromptInputAttachments();
+    const mentionAfterClose = useRef(false);
 
     const handleSelectAttachments = useCallback(() => {
         attachments.openFileDialog();
@@ -92,17 +108,42 @@ const AttachmentButton = ({ className, size = 'sm', ...props }: React.ComponentP
     useHotkeys('mod+u', handleSelectAttachments, { ...PROMPT_HOTKEY_OPTIONS, enabled: !props.disabled });
 
     return (
-        <Button
-            {...props}
-            tooltip={[t('ai.prompt.add_file'), ['Ctrl', 'U']]}
-            icon={PlusIcon}
-            variant="secondary"
-            className={cn('size-10 rounded-full', className)}
-            onClick={handleSelectAttachments}
-            size={size}
-        />
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button
+                    {...props}
+                    tooltip={[t('ai.prompt.add_file'), ['Ctrl', 'U']]}
+                    aria-label={t('ai.prompt.add_file')}
+                    icon={PlusIcon}
+                    variant="secondary"
+                    className={cn('size-10 rounded-full', className)}
+                    size={size}
+                />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+                align="start"
+                className="w-48"
+                onCloseAutoFocus={(event) => {
+                    // The mention list opens on the prompt: the focus must go there rather than back to the button.
+                    if (mentionAfterClose.current) {
+                        event.preventDefault();
+                        mentionAfterClose.current = false;
+                        onMentionProjectFile();
+                    }
+                }}
+            >
+                <DropdownMenuItem onSelect={handleSelectAttachments}>
+                    <PaperclipIcon />
+                    {t('ai.prompt.add_file')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => (mentionAfterClose.current = true)}>
+                    <FolderTreeIcon />
+                    {t('ai.prompt.project_files')}
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
     );
-}
+};
 
 interface FileMentionProps extends React.ComponentProps<typeof Mention> {
     query: string;
@@ -248,6 +289,31 @@ export default function PromptInput({
         setMentions([]);
     }, []);
 
+    /**
+     * Type the mention trigger at the caret, as the user would: the input event lets the mention list open and shift
+     * the mentions already placed. The trigger stays apart from the surrounding words, otherwise it opens nothing.
+     */
+    const mentionProjectFile = useCallback(() => {
+        const textarea = textareaRef.current;
+
+        if (!textarea) {
+            return;
+        }
+
+        textarea.focus();
+
+        const { selectionStart, selectionEnd, value } = textarea;
+        const textBefore = value.slice(0, selectionStart);
+        const textAfter = value.slice(selectionEnd);
+        const spaceBefore = textBefore === '' || /\s$/.test(textBefore) ? '' : ' ';
+        const spaceAfter = textAfter === '' || /^\s/.test(textAfter) ? '' : ' ';
+        const caret = selectionStart + spaceBefore.length + 1;
+
+        textarea.setRangeText(`${spaceBefore}@${spaceAfter}`, selectionStart, selectionEnd);
+        textarea.setSelectionRange(caret, caret);
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    }, []);
+
     const handleSubmitPromptMessage = useCallback(
         async (message: AIPromptInputMessage) => {
             setPrompt('');
@@ -367,6 +433,7 @@ export default function PromptInput({
                             createPortal(
                                 <AttachmentButton
                                     disabled={loading}
+                                    onMentionProjectFile={mentionProjectFile}
                                     size="icon-xs"
                                     className="size-6 rounded-sm"
                                 />,
@@ -376,7 +443,7 @@ export default function PromptInput({
                 ) : (
                     <PromptInputFooter className="p-2 pt-0">
                         <PromptInputTools>
-                            <AttachmentButton disabled={loading} />
+                            <AttachmentButton disabled={loading} onMentionProjectFile={mentionProjectFile} />
                         </PromptInputTools>
                         {submitButton}
                     </PromptInputFooter>

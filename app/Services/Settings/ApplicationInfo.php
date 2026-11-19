@@ -12,12 +12,13 @@ class ApplicationInfo
     public function __construct(protected SystemInfoService $system) {}
 
     /**
-     * @return array{name: string, environment: string, phpVersion: string, laravelVersion: string, operatingSystem: string, dataDirectory: string, logDirectory: string}
+     * @return array{name: string, version: string, environment: string, phpVersion: string, laravelVersion: string, operatingSystem: string, dataDirectory: string, logDirectory: string}
      */
     public function describe(): array
     {
         return [
             'name' => (string) config('app.name'),
+            'version' => (string) config('app.version'),
             'environment' => app()->environment(),
             'phpVersion' => PHP_VERSION,
             'laravelVersion' => app()->version(),

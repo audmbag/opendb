@@ -13,9 +13,9 @@ import { H6, Muted } from '@/components/typograpfy/typography';
 import { buttonVariants } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { trans } from '@/lib/i18n';
+import { projectEntryUrl } from '@/lib/last-project-page';
 import { cn } from '@/lib/utils';
 import type { Project } from '@/types/models/project';
-import ConversationController from '@/wayfinder/actions/App/Http/Controllers/ConversationController';
 import ProjectController from '@/wayfinder/actions/App/Http/Controllers/ProjectController';
 
 type Props = { project: Project } & React.ComponentProps<typeof FramePanel>;
@@ -113,7 +113,7 @@ const ProjectItem = ({ project, className, ...props }: Props) => {
             </div>
             <div className="flex items-center gap-2">
                 <Link
-                    href={ConversationController.home(project.id as string)}
+                    href={projectEntryUrl(project.id as string)}
                     className={buttonVariants({ variant: 'secondary' })}
                 >
                     <PlugIcon />

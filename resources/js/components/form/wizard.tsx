@@ -1,5 +1,4 @@
 import type { LucideIcon} from 'lucide-react';
-import { Table2Icon } from 'lucide-react';
 import { CheckIcon } from 'lucide-react';
 import React from "react"
 import IconStackGlow from '@/components/icon-stack-glow';

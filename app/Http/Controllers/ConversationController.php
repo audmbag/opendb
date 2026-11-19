@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Ai\Protocols\VercelDataProtocolWithModel;
 use App\Ai\Services\AnswerCancellation;
+use App\Ai\Services\AnswersInProgress;
 use App\Ai\Services\ConversationTurn;
 use App\Http\Requests\ConversationMessageRequest;
 use App\Http\Requests\ConversationRequest;
@@ -103,11 +104,13 @@ class ConversationController extends Controller
      * Stream the answer of the agent. An answer asked again replaces the previous one, and an answer the user stops
      * keeps the steps taken until then: the request goes on once the page has stopped reading it.
      */
-    public function chat(Conversation $conversation, ConversationMessageRequest $request, ConversationTurn $turn): StreamableAgentResponse
+    public function chat(Conversation $conversation, ConversationMessageRequest $request, ConversationTurn $turn, AnswersInProgress $answers): StreamableAgentResponse
     {
         ignore_user_abort(true);
 
         $chat = Vercel::chat($request);
+
+        $answers->start($conversation->id);
 
         return $turn
             ->stream(
@@ -117,6 +120,7 @@ class ConversationController extends Controller
                 $request->agentSettings(),
                 $request->regeneratesAnswer() ? $request->userMessagesCount() : null,
             )
+            ->then(fn () => $answers->finish($conversation->id))
             ->usingProtocol(new VercelDataProtocolWithModel($chat->messageId()));
     }
 

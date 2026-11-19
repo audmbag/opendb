@@ -10,7 +10,6 @@
     "license": "MIT",
     "require": {
         "php": "^8.5",
-        "ext-pcntl": "*",
         "ext-zip": "*",
         "albertoarena/laravel-truss": "^1.11",
         "calebporzio/sushi": "^2.5",
@@ -38,6 +37,10 @@
         "nunomaduro/collision": "^8.9.3",
         "pestphp/pest": "^4.7",
         "pestphp/pest-plugin-laravel": "^4.1"
+    },
+    "suggest": {
+        "ext-pcntl": "Linux and macOS: lets Ctrl+C stop an answer of the console chat at once, and draws its wait indicator",
+        "ext-posix": "Linux and macOS: needed with ext-pcntl by the console chat"
     },
     "autoload": {
         "psr-4": {

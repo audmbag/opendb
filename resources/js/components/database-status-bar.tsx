@@ -1,4 +1,3 @@
-import { router } from '@inertiajs/react';
 import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     DatabaseIcon,
@@ -24,7 +23,6 @@ import { useOpenProjectFolder } from '@/hooks/use-project';
 import { cn } from '@/lib/utils';
 import type { DriverConfig } from '@/types/databases';
 import type { Project } from '@/types/models/project';
-import HomeController from '@/wayfinder/actions/App/Http/Controllers/HomeController';
 
 const DatabaseConnectionStatus = () => {
     const { t } = useLaravelReactI18n();
@@ -50,6 +48,11 @@ type Props = {
     projectId?: Project['id'];
     buttons?: ('open-folder' | 'reconnect' | 'copy' | 'disconnect')[];
     showLabels?: boolean;
+    /**
+     * Leaves the project: without it, the bar has no disconnect button.
+     */
+    onDisconnect?: () => void;
+    disconnecting?: boolean;
 } & React.ComponentProps<'div'>;
 
 export function DatabaseStatusBar({
@@ -58,6 +61,8 @@ export function DatabaseStatusBar({
     projectId,
     buttons = ['open-folder', 'reconnect', 'copy', 'disconnect'],
     showLabels = true,
+    onDisconnect,
+    disconnecting = false,
     className,
 }: Props) {
     const { t } = useLaravelReactI18n();
@@ -68,10 +73,6 @@ export function DatabaseStatusBar({
     const handleTestConnection = useCallback(async () => {
         await testConnection(driver_config);
     }, [driver_config, testConnection]);
-
-    const handleDisconnect = useCallback(() => {
-        router.visit(HomeController.url());
-    }, []);
 
     return (
         <div
@@ -165,13 +166,14 @@ export function DatabaseStatusBar({
                         stateAppearance={copying ? 'success' : undefined}
                     />
                 )}
-                {buttons.includes('disconnect') && (
+                {buttons.includes('disconnect') && onDisconnect && (
                     <Button
                         icon={UnplugIcon}
                         size="icon"
                         variant="destructive"
                         tooltip={t('projects.status.disconnect')}
-                        onClick={handleDisconnect}
+                        onClick={onDisconnect}
+                        processing={disconnecting}
                     />
                 )}
             </div>

@@ -8,7 +8,7 @@ interface DriverStoreState {
     fillDrivers: (data: Driver[]) => void;
 }
 
-const useDriverStore = createSelectors(create<DriverStoreState>((set, get) => ({
+const useDriverStore = createSelectors(create<DriverStoreState>((set) => ({
     drivers: [],
     fillDrivers: (drivers: Driver[]) => set({ drivers })
 })))

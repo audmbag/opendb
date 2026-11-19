@@ -5,9 +5,9 @@ import { initializeTheme } from '@/hooks/use-apparence';
 import { initializeColorTheme } from '@/hooks/use-color-theme';
 import { getLocale, initializeLocale } from '@/hooks/use-locale';
 import { initializeSyntaxTheme } from '@/hooks/use-syntax-theme';
-import { initializeForbiddenRequestToasts } from '@/lib/http-errors';
 import AppLayout from '@/layouts/app';
 import BlankLayout from '@/layouts/blank-layout';
+import { initializeForbiddenRequestToasts } from '@/lib/http-errors';
 import { TranslatorBridge } from '@/lib/i18n';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
@@ -26,7 +26,7 @@ createInertiaApp({
             return BlankLayout;
         }
 
-        if (['auth/login'].includes(name)) {
+        if (['auth/login', 'error'].includes(name)) {
             return null
         }
 

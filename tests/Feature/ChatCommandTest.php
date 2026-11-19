@@ -5,6 +5,7 @@ use App\Ai\Enums\AgentAccessModeEnum;
 use App\Console\Commands\Chat\Output\SqlHighlighter;
 use App\Console\Commands\Chat\Output\Theme;
 use App\Console\Commands\Chat\Tools\SqlToolRenderer;
+use App\Console\Commands\Chat\Turn\AnswerInterrupted;
 use App\Models\Project;
 use App\Models\Provider;
 use App\Models\User;
@@ -216,6 +217,20 @@ it('tells why the provider ended the answer', function () {
         ->assertSuccessful();
 });
 
+it('gives the chat back without an error when Ctrl+C interrupts the answer', function () {
+    $user = User::factory()->create();
+    $project = chatProject($user);
+    SQLDatabaseAgent::fake([fn () => throw new AnswerInterrupted]);
+    AnonymousAgent::fake(['Titre']);
+
+    openChat($user, $project)
+        ->expectsQuestion('Message', 'Salut')
+        ->expectsOutputToContain('Réponse interrompue.')
+        ->doesntExpectOutputToContain('Une erreur est survenue pendant la réponse.')
+        ->expectsQuestion('Message', '/quit')
+        ->assertSuccessful();
+});
+
 it('asks again the approval a conversation was left waiting for', function () {
     $user = User::factory()->create();
     $project = chatProject($user);
@@ -269,6 +284,17 @@ it('tells how to come back to the conversation when the chat is left', function 
         ->expectsOutputToContain('Conversation : Salutations')
         ->expectsQuestion('Message', '/quit')
         ->expectsOutputToContain("chat --name='{$user->name}' --conversation=")
+        ->assertSuccessful();
+});
+
+it('tells to come back through opendb once the application is installed', function () {
+    config(['opendb.binary' => '/home/jane/.local/bin/opendb']);
+    $user = User::factory()->create();
+    $project = chatProject($user);
+
+    openChat($user, $project)
+        ->expectsQuestion('Message', '/quit')
+        ->expectsOutputToContain("opendb chat --name='{$user->name}' --project={$project->id}")
         ->assertSuccessful();
 });
 

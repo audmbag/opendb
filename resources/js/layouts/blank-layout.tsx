@@ -1,6 +1,7 @@
 import React from 'react';
 import AlertDialog from '@/components/alert-dialog';
 import AppLogo from '@/components/app-logo';
+import DefaultPasswordNotice from '@/components/default-password-notice';
 import CommandModal from '@/components/modals/command-modal';
 import SelectFileModal from '@/components/modals/select-file-modal';
 import SettingsDialog from '@/components/modals/settings-modal';
@@ -30,6 +31,7 @@ export default function BlankLayout({ children }: { children: React.ReactNode })
                 <CommandModal />
                 <SettingsDialog />
                 <Toaster duration={5000} />
+                <DefaultPasswordNotice />
                 <AlertDialog />
                 <SelectFileModal />
             </CommandModalProvider>

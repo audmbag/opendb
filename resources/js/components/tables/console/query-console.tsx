@@ -38,6 +38,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useValueAsRef } from '@/hooks/use-value-as-ref';
+import { trackEditorRun } from '@/lib/project-activity';
 import {
     formatSql,
     parameterNames,
@@ -429,6 +430,8 @@ export default function QueryConsole({
         setPlan(null);
         runId.current = editor ? crypto.randomUUID() : null;
         lastStatements.current = selection;
+        // Kept until the database answers, even when the page is left meanwhile: leaving the project interrupts it.
+        const forgetRun = runId.current ? trackEditorRun(runId.current) : null;
 
         try {
             const result = await requestTableData<ConsoleRun>(
@@ -470,6 +473,7 @@ export default function QueryConsole({
         } finally {
             setProcessing(false);
             runId.current = null;
+            forgetRun?.();
             editor?.onRan();
         }
     };

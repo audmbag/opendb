@@ -21,11 +21,24 @@ final readonly class McpClientConfig
         return [
             'mcpServers' => [
                 'opendb-'.Str::slug($project->name) => [
-                    'command' => new PhpExecutableFinder()->find(false) ?: 'php',
-                    'args' => [base_path('artisan'), 'mcp:serve'],
+                    ...$this->command(),
                     'env' => [self::TOKEN_VARIABLE => $plainToken],
                 ],
             ],
         ];
+    }
+
+    /**
+     * An installed copy is started by its own executable: its code lies in a folder that changes with each version.
+     *
+     * @return array{command: string, args: list<string>}
+     */
+    private function command(): array
+    {
+        $binary = config('opendb.binary');
+
+        return is_string($binary) && $binary !== ''
+            ? ['command' => $binary, 'args' => ['mcp:serve']]
+            : ['command' => new PhpExecutableFinder()->find(false) ?: 'php', 'args' => [base_path('artisan'), 'mcp:serve']];
     }
 }

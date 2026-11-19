@@ -17,6 +17,7 @@ use App\Enums\PrivilegeEnum;
 use App\Services\Privileges\Data\TablePrivileges;
 use App\Services\SSH\Remote;
 use App\Services\SSH\SshTunnel;
+use App\Services\SSH\TunnelUsage;
 use Closure;
 use Exception;
 use Illuminate\Database\Connection;
@@ -24,6 +25,7 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use RuntimeException;
+use Throwable;
 
 class BaseDriver
 {
@@ -123,9 +125,38 @@ class BaseDriver
         return strtolower(config('app.name')).'_'.$database_key;
     }
 
+    /**
+     * Forward a local port to the database through the SSH master of its server, held until the process ends so that
+     * the master is not closed while it is in use.
+     */
     protected function startSSHTunnel(): void
     {
-        $sshConfig = $this->databaseConfig['ssh'];
+        $tunnel = static::sshTunnelFor($this->databaseConfig);
+
+        $this->ssh_tunnel_forward_port = $tunnel->start();
+
+        $usage = app(TunnelUsage::class);
+        $usage->hold($tunnel->target());
+
+        register_shutdown_function(static function () use ($usage, $tunnel): void {
+            try {
+                $usage->release($tunnel->target());
+            } catch (Throwable) {
+                // The cache is gone with the process: the hold is forgotten after its delay.
+            }
+        });
+    }
+
+    /**
+     * The tunnel to the database through its SSH server, not started yet.
+     *
+     * @param  array<string, mixed>  $config
+     *
+     * @throws InvalidArgumentException when the SSH configuration is incomplete, or its key cannot be read
+     */
+    public static function sshTunnelFor(array $config): SshTunnel
+    {
+        $sshConfig = $config['ssh'];
 
         array_map(function (string $key) use ($sshConfig) {
             if (! ($sshConfig[$key] ?? false)) {
@@ -135,19 +166,17 @@ class BaseDriver
             }
         }, ['host', 'port', 'user', 'id_file']);
 
-        $tunnel = new SshTunnel(
+        return new SshTunnel(
             sshHost: $sshConfig['host'],
             remote: Remote::tcp(
-                remotePort: $this->port,
-                remoteHost: $this->host
+                remotePort: (int) $config['port'],
+                remoteHost: self::cleanHost((string) $config['host'])
             ),
             sshUser: $sshConfig['user'],
-            sshPort: $sshConfig['port'],
+            sshPort: (int) $sshConfig['port'],
             identityFile: $sshConfig['id_file'],
             autoDisconnectTimeout: '15m'
         );
-
-        $this->ssh_tunnel_forward_port = $tunnel->start();
     }
 
     public function label(): string

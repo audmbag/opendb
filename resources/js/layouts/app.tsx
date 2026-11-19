@@ -4,6 +4,7 @@ import React from 'react';
 import AlertDialog from '@/components/alert-dialog';
 import { AppSidebar } from "@/components/app-sidebar";
 import { DatabaseStatusBar } from '@/components/database-status-bar';
+import DefaultPasswordNotice from '@/components/default-password-notice';
 import CommandModal from '@/components/modals/command-modal';
 import ProjectSettingsDialog from '@/components/modals/project-settings-modal';
 import SelectFileModal from '@/components/modals/select-file-modal';
@@ -17,6 +18,7 @@ import {
 } from '@/components/ui/sidebar';
 import { CommandModalProvider } from '@/hooks/use-command-modal';
 import { usePrivileges } from '@/hooks/use-privileges';
+import { useProjectDisconnect } from '@/hooks/use-project-disconnect';
 import { ProjectSettingsProvider } from '@/hooks/use-project-settings-modal';
 import { SettingsProvider } from '@/hooks/use-settings-modal';
 import type { Project } from '@/types/models/project';
@@ -29,6 +31,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     const { props:  { project } } = usePage<{ project: Project }>();
     // Testing the connection needs its password, and opening the folder changes the machine: both are for who manages the project.
     const canManageProject = usePrivileges().canOnProject('manage_project');
+    const { disconnect, processing: disconnecting } = useProjectDisconnect(project);
 
     return (
         <SettingsProvider>
@@ -45,6 +48,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                                     path={project.path}
                                     projectId={project.id}
                                     buttons={canManageProject ? ['open-folder', 'reconnect', 'copy', 'disconnect'] : ['copy', 'disconnect']}
+                                    onDisconnect={disconnect}
+                                    disconnecting={disconnecting}
                                     className="ml-0.5"
                                 />
                             )}
@@ -61,6 +66,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <AlertDialog />
                 <ParametersDialog />
                 <Toaster duration={5000} />
+                <DefaultPasswordNotice />
             </CommandModalProvider>
             </ProjectSettingsProvider>
         </SettingsProvider>

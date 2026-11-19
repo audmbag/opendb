@@ -38,6 +38,15 @@ it('creates a token and gives its value and the entry of the MCP client once', f
         ->and($this->user->mcpTokens()->sole()->token_hash)->toBe(hash('sha256', $plainToken));
 });
 
+it('starts the MCP server through the executable of an installed copy', function () {
+    config(['opendb.binary' => '/home/jane/.local/bin/opendb']);
+
+    $this->actingAs($this->user)->postJson('/mcp-tokens', ['name' => 'Claude Code', 'project_id' => $this->project->id])
+        ->assertCreated()
+        ->assertJsonPath('config.mcpServers.opendb-shop.command', '/home/jane/.local/bin/opendb')
+        ->assertJsonPath('config.mcpServers.opendb-shop.args', ['mcp:serve']);
+});
+
 it('refuses a token on a project the user may not open', function () {
     $this->actingAs(User::factory()->create())->postJson('/mcp-tokens', ['name' => 'Cursor', 'project_id' => $this->project->id])
         ->assertJsonValidationErrors(['project_id' => 'Le projet « Shop » n\'est pas accessible avec vos privilèges.']);

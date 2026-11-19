@@ -16,7 +16,8 @@ return [
     */
 
     'ssr' => [
-        'enabled' => true,
+        // The pages are only rendered in the browser (vite.config.ts): there is no server to ask.
+        'enabled' => false,
         'url' => 'http://127.0.0.1:13714',
         // 'bundle' => base_path('bootstrap/ssr/ssr.mjs'),
 

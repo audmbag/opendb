@@ -48,7 +48,9 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { FileNode } from '@/hooks/use-file-tree';
 import { usePrivileges } from '@/hooks/use-privileges';
+import { useValueAsRef } from '@/hooks/use-value-as-ref';
 import { trans, transChoice } from '@/lib/i18n';
+import { registerProjectWork } from '@/lib/project-activity';
 import { latestRowsQuery, plainIdentifier } from '@/lib/sql';
 import { cn } from '@/lib/utils';
 import type { Project } from '@/types/models/project';
@@ -254,6 +256,31 @@ export default function SqlEditorIndex({
     const [historyVersion, setHistoryVersion] = useState(0);
     const views = useRef(new Map<string, EditorView>());
     const flushers = useRef(new Map<string, () => Promise<void>>());
+
+    // Leaving the project writes what was typed, but loses a file the user has not settled after a conflict or an error.
+    const tabsRef = useValueAsRef(tabs);
+    const statusesRef = useValueAsRef(statuses);
+
+    useEffect(
+        () =>
+            registerProjectWork({
+                describe: () => ({
+                    unsavedFiles: tabsRef.current
+                        .filter((tab) =>
+                            ['conflict', 'error'].includes(
+                                statusesRef.current[tab.id] ?? '',
+                            ),
+                        )
+                        .map((tab) => tab.name),
+                }),
+                settle: async () => {
+                    await Promise.allSettled(
+                        [...flushers.current.values()].map((flush) => flush()),
+                    );
+                },
+            }),
+        [statusesRef, tabsRef],
+    );
 
     const driver =
         project.driver_config?.driver_id ??

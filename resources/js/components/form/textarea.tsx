@@ -1,8 +1,10 @@
+import type { LucideIcon} from 'lucide-react';
+import { TriangleAlertIcon } from 'lucide-react';
 import React from 'react';
+import Tooltip from '@/components/tooltip';
 import {
     Field,
     FieldDescription,
-    FieldError,
     FieldLabel,
 } from '@/components/ui/field';
 
@@ -13,8 +15,6 @@ import {
     InputGroupTextarea,
 } from '@/components/ui/input-group';
 import { cn } from '@/lib/utils';
-import { FileCodeIcon, LucideIcon, TriangleAlertIcon } from 'lucide-react';
-import Tooltip from '@/components/tooltip';
 
 type Props = {
     label?: string;

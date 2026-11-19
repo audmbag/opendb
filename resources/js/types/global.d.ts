@@ -9,7 +9,14 @@ export interface APIData<T> {
 declare module '@inertiajs/core' {
     export interface InertiaConfig {
         sharedPageProps: {
-            auth: { user: User; privileges: SharedPrivileges | null };
+            auth: {
+                user: User;
+                privileges: SharedPrivileges | null;
+                /**
+                 * Whether the account still has the password every installation starts with.
+                 */
+                defaultPassword: boolean;
+            };
             sidebarOpen?: boolean;
             appName: string;
         };

@@ -85,6 +85,27 @@ it('changes the password once the current one is confirmed', function () {
     expect(Hash::check('nouveau-secret', $this->user->refresh()->password))->toBeTrue();
 });
 
+it('tells every page that the account still has the default password', function () {
+    $this->user->update(['password' => 'opendb']);
+
+    $this->actingAs($this->user)->get('/')
+        ->assertInertia(fn (AssertableInertia $page) => $page->where('auth.defaultPassword', true));
+});
+
+it('tells the pages that the default password is gone once changed', function () {
+    $this->user->update(['password' => 'opendb']);
+    $this->actingAs($this->user)->get('/');
+
+    $this->putJson('/settings/account', [
+        'name' => 'opendb',
+        'current_password' => 'opendb',
+        'password' => 'nouveau-secret',
+        'password_confirmation' => 'nouveau-secret',
+    ])->assertOk();
+
+    $this->get('/')->assertInertia(fn (AssertableInertia $page) => $page->where('auth.defaultPassword', false));
+});
+
 it('keeps the account when the change is invalid', function (array $values, string $field) {
     User::factory()->create(['name' => 'grace']);
 
@@ -102,10 +123,13 @@ it('keeps the account when the change is invalid', function (array $values, stri
     'short password' => [['current_password' => 'password', 'password' => 'court', 'password_confirmation' => 'court'], 'password'],
 ]);
 
-it('tells where the application keeps its data', function () {
+it('tells where the application keeps its data, and its version', function () {
+    config(['app.version' => '1.4.2']);
+
     $this->actingAs($this->user)->getJson('/settings/about')
         ->assertOk()
         ->assertJsonPath('data.phpVersion', PHP_VERSION)
+        ->assertJsonPath('data.version', '1.4.2')
         ->assertJsonStructure(['data' => ['name', 'laravelVersion', 'operatingSystem', 'dataDirectory', 'logDirectory']]);
 });
 
