@@ -24,7 +24,7 @@ const Home = () => {
     }, [agentSettings.accessMode, agentSettings.effort]);
 
     return (
-        <div className="flex h-full flex-col items-center gap-8 p-4 pt-32">
+        <div className="flex h-full flex-col items-center gap-8 p-4 pt-[min(8rem,15dvh)]">
             <AppLogo />
             <H3 className="font-normal">
                 {t('conversations.welcome')}

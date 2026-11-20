@@ -731,6 +731,23 @@
     html {
         @apply font-sans;
     }
+
+    /*
+     * Small screens of a computer, like 1366×768 or a high Windows scaling, which leaves about 1100×500 pixels to the
+     * page: everything is sized in rem, so a smaller root shrinks the whole interface as the zoom of the browser would.
+     * The phones keep their own layout, under the md breakpoint.
+     */
+    @media (min-width: 768px) and ((max-width: 1365px) or (max-height: 699px)) {
+        html {
+            font-size: 15px;
+        }
+    }
+
+    @media (min-width: 768px) and ((max-width: 1199px) or (max-height: 559px)) {
+        html {
+            font-size: 14px;
+        }
+    }
 }
 
 @theme inline {

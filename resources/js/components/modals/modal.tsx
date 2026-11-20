@@ -76,6 +76,7 @@ export default function Modal({
                             {
                                 'relative top-0 left-0 m-auto translate-x-0 translate-y-0':
                                     scrollable,
+                                'max-h-[calc(100dvh-2rem)]': !scrollable,
                             },
                             className,
                         )}

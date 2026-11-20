@@ -98,7 +98,7 @@ const Panels = ({ children }: { children: React.ReactNode }) => {
             >
                 <div className="relative flex h-full w-full">
                     <ChatSideBar />
-                    <SidebarInset>
+                    <SidebarInset className="min-w-0">
                         <div className="flex flex-1 flex-col overflow-auto">
                             {children}
                         </div>
