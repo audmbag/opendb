@@ -62,6 +62,25 @@ it('points an installed copy to the folder of the user', function () {
         ->and($this->home.'/.opendb/storage/logs')->toBeDirectory();
 });
 
+it('keeps the caches in the folder of a Windows user', function () {
+    $system = new SystemInfoService(OperatingSystemEnum::WINDOWS, ApplicationHome::NAME, ['USERPROFILE' => 'C:\Users\someone']);
+    $app = installedApplication($this->base);
+    $home = ApplicationHome::detect($this->base, null, $system);
+    $directory = getcwd();
+
+    // On Linux, the folders of C:\Users\someone are created as one folder named so, in the current one.
+    chdir($this->root);
+
+    try {
+        $home->apply($app);
+    } finally {
+        chdir($directory);
+    }
+
+    expect($app->getCachedPackagesPath())->toBe($home->bootstrapCacheDirectory().'\packages.php')
+        ->and($app->getCachedConfigPath())->toStartWith('C:\Users\someone\.opendb\cache\bootstrap\\');
+});
+
 it('draws the key once, readable by the user alone', function () {
     ApplicationHome::detect($this->base, null, $this->system)->apply(installedApplication($this->base));
     $environment = file_get_contents($this->home.'/.opendb/config/.env');

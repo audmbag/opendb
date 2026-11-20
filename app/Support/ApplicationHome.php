@@ -72,6 +72,9 @@ final readonly class ApplicationHome
         $app->useEnvironmentPath($this->path('config'));
         $app->useStoragePath($this->path('storage'));
 
+        // Laravel takes a cache path starting with neither / nor \ for one inside the application, as C:\Users\… is.
+        $app->addAbsoluteCachePathPrefix($this->root);
+
         // Values the process already received win, as they do over the .env file.
         foreach ($this->environmentVariables() as $name => $value) {
             if (! isset($_SERVER[$name]) && ! isset($_ENV[$name]) && getenv($name) === false) {
