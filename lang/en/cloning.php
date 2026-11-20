@@ -264,7 +264,7 @@ return [
             'transferring' => [
                 'title' => 'Cloning in progress',
                 'description' => 'The database is being cloned',
-                'message' => 'This can take several minutes, do not close this window.',
+                'message' => 'This can take several minutes. Leaving or reloading the page cancels the cloning.',
             ],
             'success' => [
                 'title' => 'Cloning finished',
@@ -281,6 +281,29 @@ return [
                 'description' => 'The database could not be cloned',
                 'message' => 'The cloning was interrupted.',
             ],
+            'cancelled' => [
+                'title' => 'Cloning cancelled',
+                'description' => 'The cloning was stopped before the end',
+                'message' => 'The destination database keeps the tables already copied.',
+            ],
+        ],
+        'cancel' => 'Cancel the cloning',
+        'cancelling' => 'Cancelling…',
+        'keep_cloning' => 'Keep cloning',
+        'cancel_title' => 'Cancel the cloning?',
+        'cancel_description' => 'The cloning stops after the current batch of rows. The destination database keeps the tables already copied.',
+        'progress' => [
+            'phases' => [
+                'preparing' => 'Preparing the cloning…',
+                'schema' => 'Copying the structure of the tables…',
+                'remapping' => 'Computing the new keys…',
+                'tables' => 'Copying the data…',
+            ],
+            'table' => 'Table :position of :count: :table',
+            'rows' => ':copied / :expected rows',
+            'rows_unknown' => ':copied rows',
+            'elapsed' => 'Elapsed: :time',
+            'duration' => 'Duration: :time',
         ],
         'interrupted' => 'Cloning interrupted',
         'not_started' => 'The cloning could not be started',

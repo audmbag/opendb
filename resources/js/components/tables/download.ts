@@ -1,11 +1,6 @@
 import { trans } from '@/lib/i18n';
+import { xsrfToken } from '@/lib/xsrf';
 import { TableRequestError } from './api';
-
-const xsrfToken = (): string | null => {
-    const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
-
-    return match ? decodeURIComponent(match[1]) : null;
-};
 
 /**
  * Send the form and save the file the server answers with, under the name it gives. An error of the server is

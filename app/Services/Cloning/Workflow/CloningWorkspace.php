@@ -15,7 +15,7 @@ use Symfony\Component\Yaml\Yaml;
 
 /**
  * Dossier temporaire d'un clonage, ~/.{app}/tmp/{id}/ : `clonio.json`, `clonio.pii-matchers.yaml`,
- * `source.cloning.yaml` et le journal écrit par le moteur.
+ * `source.cloning.yaml`, le journal écrit par le moteur et les fichiers de CloningProgress.
  */
 final readonly class CloningWorkspace
 {
@@ -108,6 +108,14 @@ final readonly class CloningWorkspace
         File::deleteDirectory($temporaryPath);
 
         return $destination;
+    }
+
+    /**
+     * Le suivi du clonage, qui ne crée pas le dossier : la page peut interroger un clonage déjà terminé.
+     */
+    public function progress(): CloningProgress
+    {
+        return new CloningProgress($this->systemInfoService->applicationPath('tmp', $this->id));
     }
 
     public function disk(): FilesystemAdapter

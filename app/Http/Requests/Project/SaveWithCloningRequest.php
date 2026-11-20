@@ -8,6 +8,7 @@ use App\Models\Project;
 use App\Services\Cloning\CloningManager;
 use App\Services\Cloning\Config\CloningColumn;
 use App\Services\Cloning\Faker\CloningFakerCatalog;
+use App\Services\Cloning\Workflow\CloningWorkspaceFactory;
 use App\Services\SystemInfoService;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -130,7 +131,7 @@ class SaveWithCloningRequest extends FormRequest
     {
         return [
             'anonymisation' => ['required', 'array'],
-            'anonymisation.cloningId' => ['bail', 'required', 'string', 'regex:/^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_[A-Za-z0-9]{8}$/', $this->cloningSessionExists(...)],
+            'anonymisation.cloningId' => ['bail', 'required', 'string', 'regex:/^'.CloningWorkspaceFactory::ID_PATTERN.'$/', $this->cloningSessionExists(...)],
             'anonymisation.tables' => ['present', 'array'],
         ];
     }

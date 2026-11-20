@@ -2,8 +2,10 @@
 
 namespace App\Services\Cloning;
 
+use App\Services\Cloning\Engine\Cloning\CloningMonitor;
 use App\Services\Cloning\Engine\CloningEngine;
 use App\Services\Cloning\Engine\CloningRunOptions;
+use App\Services\Cloning\Engine\Exceptions\CloningCancelledException;
 use App\Services\Cloning\Exception\CloningException;
 use App\Services\SystemInfoService;
 use RuntimeException;
@@ -27,7 +29,7 @@ class CloningRunnerHelper
      * @param  array<string, bool>  $options  Options de DEFAULT_CLONING_OPTIONS à surcharger.
      * @param  list<string>  $skipTables
      */
-    public function cloningOptions(array $options = [], array $skipTables = []): CloningRunOptions
+    public function cloningOptions(array $options = [], array $skipTables = [], ?CloningMonitor $monitor = null): CloningRunOptions
     {
         $options = [...self::DEFAULT_CLONING_OPTIONS, ...$options];
 
@@ -38,6 +40,7 @@ class CloningRunnerHelper
             enforceColumnTypes: (bool) $options['enforce_column_types'],
             breakOnFailure: (bool) $options['break_on_failure'],
             skipTables: array_values($skipTables),
+            monitor: $monitor,
         );
     }
 
@@ -48,18 +51,19 @@ class CloningRunnerHelper
      * @param  list<string>  $skipTables
      *
      * @throws CloningException Si le clonage n'a pas pu démarrer (configuration invalide, connexion impossible...)
+     * @throws CloningCancelledException Si `$monitor` a demandé l'arrêt
      */
-    public function cloneNow(string $tmpName, array $options = [], array $skipTables = []): string
+    public function cloneNow(string $tmpName, array $options = [], array $skipTables = [], ?CloningMonitor $monitor = null): string
     {
         $workingDirectory = $this->systemInfoService->temporaryDirectory($tmpName)->path('');
 
-        return $this->withRunLimits(function () use ($workingDirectory, $options, $skipTables): string {
+        return $this->withRunLimits(function () use ($workingDirectory, $options, $skipTables, $monitor): string {
             try {
                 return $this->engine->run(
                     $workingDirectory,
                     CloningManager::SOURCE_CONNECTION_NAME.'.cloning.yaml',
                     CloningManager::TARGET_CONNECTION_NAME,
-                    $this->cloningOptions($options, $skipTables),
+                    $this->cloningOptions($options, $skipTables, $monitor),
                 );
             } catch (RuntimeException $e) {
                 throw CloningException::failedToCloneConnection($e->getMessage());

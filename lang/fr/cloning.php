@@ -264,7 +264,7 @@ return [
             'transferring' => [
                 'title' => 'Clonage en cours',
                 'description' => 'La base de données est en cours de clonage',
-                'message' => 'Cette opération peut prendre plusieurs minutes, ne fermez pas cette fenêtre.',
+                'message' => 'Cette opération peut prendre plusieurs minutes. Quitter ou recharger la page annule le clonage.',
             ],
             'success' => [
                 'title' => 'Clonage terminé',
@@ -281,6 +281,29 @@ return [
                 'description' => 'La base de données n\'a pas pu être clonée',
                 'message' => 'Le clonage a été interrompu.',
             ],
+            'cancelled' => [
+                'title' => 'Clonage annulé',
+                'description' => 'Le clonage a été arrêté avant la fin',
+                'message' => 'La base de destination garde les tables déjà copiées.',
+            ],
+        ],
+        'cancel' => 'Annuler le clonage',
+        'cancelling' => 'Annulation…',
+        'keep_cloning' => 'Continuer le clonage',
+        'cancel_title' => 'Annuler le clonage ?',
+        'cancel_description' => 'Le clonage s\'arrête après le lot de lignes en cours. La base de destination garde les tables déjà copiées.',
+        'progress' => [
+            'phases' => [
+                'preparing' => 'Préparation du clonage…',
+                'schema' => 'Copie de la structure des tables…',
+                'remapping' => 'Calcul des nouvelles clés…',
+                'tables' => 'Copie des données…',
+            ],
+            'table' => 'Table :position sur :count : :table',
+            'rows' => ':copied / :expected lignes',
+            'rows_unknown' => ':copied lignes',
+            'elapsed' => 'Temps écoulé : :time',
+            'duration' => 'Durée : :time',
         ],
         'interrupted' => 'Clonage interrompu',
         'not_started' => 'Le clonage n\'a pas pu être lancé',

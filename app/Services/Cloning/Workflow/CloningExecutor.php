@@ -8,6 +8,7 @@ use App\Services\Cloning\CloningManager;
 use App\Services\Cloning\CloningResult;
 use App\Services\Cloning\CloningRunnerHelper;
 use App\Services\Cloning\Data\CloningRequest;
+use App\Services\Cloning\Engine\Exceptions\CloningCancelledException;
 use App\Services\Cloning\Exception\CloningException;
 use App\Services\SystemInfoService;
 
@@ -26,6 +27,7 @@ class CloningExecutor
 
     /**
      * @throws CloningException Si le remappage dépasse la mémoire, si le clonage ne démarre pas ou si son journal est introuvable
+     * @throws CloningCancelledException Si la page l'a annulé ou fermée : le dossier du clonage reste, pour un nouvel essai
      */
     public function execute(CloningRequest $request): CloningResult
     {
@@ -34,6 +36,9 @@ class CloningExecutor
             CloningManager::SOURCE_CONNECTION_NAME => $this->connections->engineConnection($request->source),
             CloningManager::TARGET_CONNECTION_NAME => $this->connections->engineConnection($request->target),
         ]);
+
+        $progress = $workspace->progress();
+        $progress->start();
 
         new CloningPlan($request->source, $workspace, $this->connections, $this->stats, $this->systemInfoService)
             ->applyClientDraft($request->clientDraft);
@@ -44,9 +49,11 @@ class CloningExecutor
             $target->createDatabaseIfNotExists();
         }
 
-        $this->runner->cloneNow($workspace->id, $request->options, $request->skipTables);
-
-        $target->forgetSchema();
+        try {
+            $this->runner->cloneNow($workspace->id, $request->options, $request->skipTables, $progress);
+        } finally {
+            $target->forgetSchema();
+        }
 
         return CloningResult::for($workspace->archiveLog());
     }

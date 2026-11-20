@@ -1,6 +1,6 @@
 import { useLaravelReactI18n } from 'laravel-react-i18n';
 import type { LucideIcon } from 'lucide-react';
-import { CheckIcon, DatabaseIcon, TriangleAlertIcon, XIcon } from 'lucide-react';
+import { BanIcon, CheckIcon, DatabaseIcon, TriangleAlertIcon, XIcon } from 'lucide-react';
 import { AnimatePresence, MotionConfig, motion, useReducedMotion } from 'motion/react';
 import type { Transition } from 'motion/react';
 import React from 'react';
@@ -9,7 +9,7 @@ import { Muted } from '@/components/typograpfy/typography';
 import { trans } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
-export type TransferStatus = 'transferring' | 'success' | 'warning' | 'error';
+export type TransferStatus = 'transferring' | 'success' | 'warning' | 'error' | 'cancelled';
 
 type Endpoint = {
     driverId?: string;
@@ -43,12 +43,14 @@ const STATUS_COLORS: Record<TransferStatus, string> = {
     success: 'text-success',
     warning: 'text-warning',
     error: 'text-destructive',
+    cancelled: 'text-muted-foreground',
 };
 
 const STATUSES: Record<Exclude<TransferStatus, 'transferring'>, { icon: LucideIcon; label: string }> = {
     success: { icon: CheckIcon, label: 'cloning.ui.animation.success' },
     warning: { icon: TriangleAlertIcon, label: 'cloning.ui.status.warning.title' },
     error: { icon: XIcon, label: 'cloning.ui.status.error.title' },
+    cancelled: { icon: BanIcon, label: 'cloning.ui.status.cancelled.title' },
 };
 
 /**

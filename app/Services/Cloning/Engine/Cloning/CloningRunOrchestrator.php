@@ -20,6 +20,7 @@ use App\Services\Cloning\Engine\Data\Schema\TableSchemaData;
 use App\Services\Cloning\Engine\Database\DatabaseConnectionService;
 use App\Services\Cloning\Engine\Enums\ClearMode;
 use App\Services\Cloning\Engine\Enums\DatabaseConnectionType;
+use App\Services\Cloning\Engine\Exceptions\CloningCancelledException;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -31,6 +32,9 @@ class CloningRunOrchestrator
         private readonly DependencyResolver $resolver,
     ) {}
 
+    /**
+     * @throws CloningCancelledException Si `$monitor` demande l'arrêt : entre deux tables ou deux lots de lignes
+     */
     public function run(
         CloningAuditLog $log,
         CloningConfigData $config,
@@ -44,6 +48,7 @@ class CloningRunOrchestrator
         ?KeyRemappingService $keyRemapping = null,
         bool $breakOnFailure = false,
         ?callable $onTableStart = null,
+        ?CloningMonitor $monitor = null,
     ): RunResultData {
         $start = microtime(true);
         $tableNames = array_map(static fn (TableCloningConfigData $t): string => $t->tableName, $config->tables);
@@ -87,6 +92,8 @@ class CloningRunOrchestrator
             }
         }
 
+        $this->stopIfCancelled($monitor);
+
         $engine = new AnonymizationEngine($config->options->fakerLocale);
 
         $tableResults = [];
@@ -106,7 +113,9 @@ class CloningRunOrchestrator
             $log->info('table_skipped_by_cascade', ['table' => $tableName, 'reason' => $reason]);
         }
 
-        foreach ($sortedTables as $tableName) {
+        foreach (array_values($sortedTables) as $index => $tableName) {
+            $this->stopIfCancelled($monitor);
+
             $tableConfig = $config->getTable($tableName);
 
             if (! $tableConfig instanceof TableCloningConfigData) {
@@ -158,6 +167,9 @@ class CloningRunOrchestrator
                 $engine,
                 $keyRemapping,
                 $config->keyRemapping,
+                $monitor,
+                $index + 1,
+                count($sortedTables),
             );
 
             $tableDuration = microtime(true) - $tableStart;
@@ -235,6 +247,9 @@ class CloningRunOrchestrator
         AnonymizationEngine $engine,
         ?KeyRemappingService $keyRemapping = null,
         ?KeyRemappingConfigData $keyRemappingConfig = null,
+        ?CloningMonitor $monitor = null,
+        int $position = 0,
+        int $tableCount = 0,
     ): array {
         $sourceConn = $this->connector->open($source);
         $targetConn = $this->connector->open($target);
@@ -255,6 +270,8 @@ class CloningRunOrchestrator
             if ($tableConfig->rows->clear !== ClearMode::None) {
                 $this->clearTable($targetConn, $tableConfig->tableName, $tableConfig->rows->clear, $target);
             }
+
+            $monitor?->tableStarted($tableConfig->tableName, $position, $tableCount, $this->expectedRows($sourceConn, $tableConfig));
 
             do {
 
@@ -303,6 +320,9 @@ class CloningRunOrchestrator
                 }
 
                 $offset += count($chunk);
+
+                $monitor?->rowsCopied($offset);
+                $this->stopIfCancelled($monitor);
             } while (count($chunk) === $chunkSize);
 
             if ($rows === 0 && $skipped > 0) {
@@ -315,6 +335,8 @@ class CloningRunOrchestrator
             }
 
             return [$rows, $skipped, false, null, $skippedRows];
+        } catch (CloningCancelledException $cancelled) {
+            throw $cancelled;
         } catch (Throwable $throwable) {
             return [$rows, $skipped, true, $throwable->getMessage(), $skippedRows];
         } finally {
@@ -325,6 +347,30 @@ class CloningRunOrchestrator
             DB::purge($sourceConn);
             DB::purge($targetConn);
         }
+    }
+
+    /**
+     * @throws CloningCancelledException
+     */
+    private function stopIfCancelled(?CloningMonitor $monitor): void
+    {
+        if ($monitor?->isCancelled() === true) {
+            throw new CloningCancelledException;
+        }
+    }
+
+    /**
+     * Lignes que la table va copier, pour suivre sa progression ; null si la source refuse de les compter.
+     */
+    private function expectedRows(string $sourceConn, TableCloningConfigData $config): ?int
+    {
+        try {
+            $count = DB::connection($sourceConn)->table($config->tableName)->count();
+        } catch (Throwable) {
+            return null;
+        }
+
+        return $config->rows->strategy === 'full' || $config->rows->limit === null ? $count : min($count, $config->rows->limit);
     }
 
     private function transformChunk(

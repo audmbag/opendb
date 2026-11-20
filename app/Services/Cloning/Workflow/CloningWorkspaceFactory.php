@@ -9,6 +9,11 @@ use Illuminate\Support\Str;
 
 class CloningWorkspaceFactory
 {
+    /**
+     * Forme de l'identifiant d'un clonage, sans délimiteurs : la date de sa préparation suivie de 8 caractères.
+     */
+    const string ID_PATTERN = '\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_[A-Za-z0-9]{8}';
+
     public function __construct(
         private readonly SystemInfoService $systemInfoService,
         private readonly string $configTemplatePath,

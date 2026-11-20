@@ -53,6 +53,8 @@ it('refuses to change a project of another user', function (string $method, stri
     'tables' => ['POST', '/projects/{project}/save-table-infos'],
     'cloning' => ['POST', '/projects/{project}/save-with-cloning'],
     'cloning logs' => ['GET', '/projects/{project}/cloning/logs'],
+    'cloning progress' => ['GET', '/projects/{project}/cloning/2026-11-19_16-00-00_a1B2c3D4/progress'],
+    'cloning cancellation' => ['POST', '/projects/{project}/cloning/2026-11-19_16-00-00_a1B2c3D4/cancel'],
     'folder opening' => ['POST', '/projects/{project}/open-folder'],
 ]);
 

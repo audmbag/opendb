@@ -82,7 +82,8 @@ export interface CloningResult {
 
 
 export interface CloningResultMinimalResult {
-    logPath: string;
-    status: CloningStatus;
+    /** Null pour un clonage annulé, qui n'écrit pas de journal. */
+    logPath: string | null;
+    status: CloningStatus | 'cancelled';
     successful: boolean;
 }

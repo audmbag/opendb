@@ -13,6 +13,7 @@ use App\Models\Project;
 use App\Repository\ProjectRepository;
 use App\Services\Cloning\CloningManager;
 use App\Services\Cloning\CloningResult;
+use App\Services\Cloning\Engine\Exceptions\CloningCancelledException;
 use App\Services\Cloning\Exception\CloningException;
 use App\Services\FileExplorerService;
 use App\Services\SystemInfoService;
@@ -76,6 +77,8 @@ class ProjectController extends Controller
                 'successful' => $result->isSuccessful(),
             ]);
 
+        } catch (CloningCancelledException) {
+            return response()->json(['logPath' => null, 'status' => 'cancelled', 'successful' => false]);
         } catch (DatabaseCheckException $e) {
             throw ValidationException::withMessages(['cloningFailed' => __('cloning.errors.database', ['error' => $e->getMessage()])]);
         } catch (CloningException $e) {
@@ -83,6 +86,24 @@ class ProjectController extends Controller
         } catch (Exception $e) {
             throw ValidationException::withMessages(['cloningFailed' => __('cloning.errors.unexpected', ['error' => $e->getMessage()])]);
         }
+    }
+
+    /**
+     * Avancement du clonage en cours, que la page lit chaque seconde ; null une fois le clonage terminé.
+     */
+    public function cloningProgress(Project $project, string $cloningId, CloningManager $cloningManager): JsonResponse
+    {
+        return response()->json($cloningManager->progress($cloningId));
+    }
+
+    /**
+     * Arrête le clonage en cours : bouton Annuler, ou page quittée pendant le clonage.
+     */
+    public function cancelCloning(Project $project, string $cloningId, CloningManager $cloningManager): Response
+    {
+        $cloningManager->cancel($cloningId);
+
+        return response()->noContent();
     }
 
     /**

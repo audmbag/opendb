@@ -41,6 +41,7 @@ use App\Http\Controllers\Users\RoleController;
 use App\Http\Controllers\Users\UserController;
 use App\Http\Middleware\ExcludeDraftProjectMiddleware;
 use App\Models\Provider;
+use App\Services\Cloning\Workflow\CloningWorkspaceFactory;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/login', [LoginController::class, 'loginForm'])->name('login');
@@ -111,6 +112,8 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/save-table-infos', [ProjectController::class, 'saveWithDisabledTables']);
             Route::post('/save-with-cloning', [ProjectController::class, 'saveWithCloning']);
             Route::get('/cloning/logs', [ProjectController::class, 'cloningLogs']);
+            Route::get('/cloning/{cloningId}/progress', [ProjectController::class, 'cloningProgress'])->can('clone', 'project')->where('cloningId', CloningWorkspaceFactory::ID_PATTERN);
+            Route::post('/cloning/{cloningId}/cancel', [ProjectController::class, 'cancelCloning'])->can('clone', 'project')->where('cloningId', CloningWorkspaceFactory::ID_PATTERN);
             Route::post('/open-folder', [ProjectController::class, 'openFolder']);
 
             Route::prefix('/settings')->controller(ProjectSettingsController::class)->group(function () {

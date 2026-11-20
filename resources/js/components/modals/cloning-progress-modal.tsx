@@ -2,6 +2,7 @@ import { router, useHttp, usePage } from '@inertiajs/react';
 import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     ArrowRightIcon,
+    BanIcon,
     CopyIcon,
     ScrollTextIcon,
     SettingsIcon,
@@ -9,10 +10,12 @@ import {
 import { motion } from 'motion/react';
 import React, { useEffect, useRef, useState } from 'react';
 import Alert from '@/components/alert';
+import CloningProgressDetails, { formatElapsed } from '@/components/cloning/cloning-progress-details';
 import type { CloningResultMinimalResult } from '@/components/cloning/cloning-result.types';
 import type { CloningPayload } from '@/components/cloning/cloning.types';
 import DataTransferAnimation from '@/components/cloning/data-transfer-animation';
 import type { TransferStatus } from '@/components/cloning/data-transfer-animation';
+import { useCloningProgress } from '@/components/cloning/use-cloning-progress';
 import Button from '@/components/form/button';
 import CloningLogsModal from '@/components/modals/cloning-logs-modal';
 import Modal from '@/components/modals/modal';
@@ -56,6 +59,11 @@ const STATUS_TEXTS: Record<
         description: 'cloning.ui.status.error.description',
         message: 'cloning.ui.status.error.message',
     },
+    cancelled: {
+        title: 'cloning.ui.status.cancelled.title',
+        description: 'cloning.ui.status.cancelled.description',
+        message: 'cloning.ui.status.cancelled.message',
+    },
 };
 
 export default function CloningProgressModal({
@@ -76,6 +84,12 @@ export default function CloningProgressModal({
     const [logPath, setLogPath] = useState<string | null>(null);
 
     const isMountedRef = useRef(false);
+    const running = status === 'transferring' && failures === null;
+    const { progress, elapsedSeconds, cancel, isCancelling } = useCloningProgress(
+        projectId,
+        payload.anonymisation.cloningId,
+        running,
+    );
 
     useEffect(() => {
         if (isMountedRef.current || !projectId) {
@@ -166,7 +180,36 @@ export default function CloningProgressModal({
                                 ? t('cloning.ui.cloning_to', { database: payload.cloningDriverConfig.database })
                                 : t('cloning.ui.destination', { database: payload.cloningDriverConfig.database })}
                         </Small>
+                        {running ? (
+                            <CloningProgressDetails progress={progress} elapsedSeconds={elapsedSeconds} />
+                        ) : (
+                            elapsedSeconds > 0 && (
+                                <Muted className="tabular-nums">
+                                    {t('cloning.ui.progress.duration', { time: formatElapsed(elapsedSeconds) })}
+                                </Muted>
+                            )
+                        )}
                         <Muted>{t(STATUS_TEXTS[status].message)}</Muted>
+                    </div>
+                )}
+
+                {running && (
+                    <div className="flex justify-end border-t border-border bg-accent p-4">
+                        <Button
+                            variant="outline"
+                            icon={BanIcon}
+                            processing={isCancelling}
+                            onClick={cancel}
+                            confirmation={{
+                                title: t('cloning.ui.cancel_title'),
+                                description: t('cloning.ui.cancel_description'),
+                                icon: BanIcon,
+                                confirmText: t('cloning.ui.cancel'),
+                                cancelText: t('cloning.ui.keep_cloning'),
+                            }}
+                        >
+                            {isCancelling ? t('cloning.ui.cancelling') : t('cloning.ui.cancel')}
+                        </Button>
                     </div>
                 )}
 
@@ -190,7 +233,7 @@ export default function CloningProgressModal({
                                 {t('cloning.ui.see_logs')}
                             </Button>
                         )}
-                        {status === 'error' ? (
+                        {status === 'error' || status === 'cancelled' ? (
                             <Button
                                 variant="outline"
                                 icon={SettingsIcon}

@@ -16,6 +16,8 @@ use App\Services\Cloning\Engine\Data\Cloning\KeyRemappingConfigData;
 use App\Services\Cloning\Engine\Data\Cloning\TableCloningConfigData;
 use App\Services\Cloning\Engine\Data\ConnectionData;
 use App\Services\Cloning\Engine\Database\DatabaseConnectionService;
+use App\Services\Cloning\Engine\Enums\CloningPhase;
+use App\Services\Cloning\Engine\Exceptions\CloningCancelledException;
 use App\Services\Cloning\Engine\Schema\SchemaInspector;
 use DateTimeImmutable;
 use DateTimeZone;
@@ -47,6 +49,7 @@ class CloningEngine
      * @return string Le chemin du journal JSONL écrit
      *
      * @throws RuntimeException Si la configuration est invalide, si une connexion échoue ou si le remappage des clés est impossible
+     * @throws CloningCancelledException Si `$options->monitor` demande l'arrêt ; aucun journal n'est alors écrit
      */
     public function run(string $workingDirectory, string $yamlFile, string $targetName, CloningRunOptions $options = new CloningRunOptions): string
     {
@@ -60,8 +63,12 @@ class CloningEngine
         }
     }
 
+    /**
+     * @throws CloningCancelledException
+     */
     private function transfer(string $workingDirectory, string $yamlFile, string $targetName, CloningRunOptions $options): string
     {
+        $monitor = $options->monitor;
         $config = $this->applyOptions($this->loadConfig($workingDirectory.DIRECTORY_SEPARATOR.$yamlFile), $options);
         $skipTables = array_values(array_unique([...$options->skipTables, ...$config->skipTables]));
 
@@ -81,6 +88,7 @@ class CloningEngine
         $log = new CloningAuditLog;
         $startedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
         $log->info('run_started', ['source' => $config->connectionName, 'target' => $targetName]);
+        $monitor?->phaseStarted(CloningPhase::Schema);
 
         try {
             $sourceSchema = $this->inspector->inspect($source);
@@ -91,6 +99,7 @@ class CloningEngine
         $keyRemapping = null;
 
         if ($config->keyRemapping instanceof KeyRemappingConfigData && $config->keyRemapping->isActive()) {
+            $monitor?->phaseStarted(CloningPhase::Remapping);
             $keyRemapping = new KeyRemappingService($this->connector);
             $keyRemapping->generateMappings(
                 $config->keyRemapping,
@@ -100,25 +109,28 @@ class CloningEngine
             );
         }
 
-        $result = $this->orchestrator->run(
-            log: $log,
-            config: $config,
-            source: $source,
-            target: $target,
-            sourceSchema: $sourceSchema,
-            skipSchema: false,
-            skipTables: $skipTables,
-            onlyTables: [],
-            onProgress: static function (): void {},
-            keyRemapping: $keyRemapping,
-            breakOnFailure: $options->breakOnFailure,
-        );
+        try {
+            $result = $this->orchestrator->run(
+                log: $log,
+                config: $config,
+                source: $source,
+                target: $target,
+                sourceSchema: $sourceSchema,
+                skipSchema: false,
+                skipTables: $skipTables,
+                onlyTables: [],
+                onProgress: static function (): void {},
+                keyRemapping: $keyRemapping,
+                breakOnFailure: $options->breakOnFailure,
+                monitor: $monitor,
+            );
 
-        $log->info('run_finished', ['success' => $result->success, 'rows' => $result->totalRows]);
-
-        if ($keyRemapping instanceof KeyRemappingService) {
-            $keyRemapping->cleanup();
-            $log->info('key_mapping_cleanup_completed');
+            $log->info('run_finished', ['success' => $result->success, 'rows' => $result->totalRows]);
+        } finally {
+            if ($keyRemapping instanceof KeyRemappingService) {
+                $keyRemapping->cleanup();
+                $log->info('key_mapping_cleanup_completed');
+            }
         }
 
         return $this->writeLog($workingDirectory, $log, $config->connectionName, $targetName, $startedAt);

@@ -3,6 +3,9 @@
 use App\Enums\OperatingSystemEnum;
 use App\Services\Cloning\CloningResult;
 use App\Services\Cloning\CloningRunnerHelper;
+use App\Services\Cloning\Engine\Cloning\CloningMonitor;
+use App\Services\Cloning\Engine\Enums\CloningPhase;
+use App\Services\Cloning\Engine\Exceptions\CloningCancelledException;
 use App\Services\Cloning\Exception\CloningException;
 use App\Services\SystemInfoService;
 use Illuminate\Support\Facades\DB;
@@ -206,5 +209,70 @@ it('fails before cloning when the source connection is not configured', function
 
     expect(fn () => app(CloningRunnerHelper::class)->cloneNow($this->runName))
         ->toThrow(CloningException::class, "Source connection 'missing' not found in clonio.json.")
+        ->and(is_dir($this->workingDirectory.'logs'))->toBeFalse();
+});
+
+/**
+ * Suivi qui note ce que le moteur lui signale et demande l'arrêt après `$cancelAfterRows` lignes copiées.
+ */
+function recordingMonitor(int $cancelAfterRows = PHP_INT_MAX): CloningMonitor
+{
+    return new class($cancelAfterRows) implements CloningMonitor
+    {
+        /** @var list<array<int, mixed>> */
+        public array $tables = [];
+
+        /** @var list<int> */
+        public array $copiedRows = [];
+
+        public function __construct(private readonly int $cancelAfterRows) {}
+
+        public function phaseStarted(CloningPhase $phase): void {}
+
+        public function tableStarted(string $table, int $position, int $tableCount, ?int $expectedRows): void
+        {
+            $this->tables[] = [$table, $position, $tableCount, $expectedRows];
+        }
+
+        public function rowsCopied(int $rows): void
+        {
+            $this->copiedRows[] = $rows;
+        }
+
+        public function isCancelled(): bool
+        {
+            return array_sum($this->copiedRows) >= $this->cancelAfterRows;
+        }
+    };
+}
+
+it('tells the monitor each table it copies and the rows copied so far', function () {
+    writeCloningYaml($this->workingDirectory, [
+        'users' => keepColumns('id', 'email', 'name'),
+        'posts' => keepColumns('id', 'user_id', 'title'),
+        'comments' => keepColumns('id', 'post_id', 'body'),
+    ]);
+    $monitor = recordingMonitor();
+
+    app(CloningRunnerHelper::class)->cloneNow($this->runName, monitor: $monitor);
+
+    expect($monitor->tables)->toBe([
+        ['users', 1, 3, 3],
+        ['posts', 2, 3, 2],
+        ['comments', 3, 3, 1],
+    ])->and($monitor->copiedRows)->toBe([2, 3, 2, 1]);
+});
+
+it('stops between two chunks when the monitor cancels, without writing the log', function () {
+    writeCloningYaml($this->workingDirectory, [
+        'users' => keepColumns('id', 'email', 'name'),
+        'posts' => keepColumns('id', 'user_id', 'title'),
+        'comments' => keepColumns('id', 'post_id', 'body'),
+    ]);
+
+    expect(fn () => app(CloningRunnerHelper::class)->cloneNow($this->runName, monitor: recordingMonitor(cancelAfterRows: 2)))
+        ->toThrow(CloningCancelledException::class)
+        ->and(targetRows($this->targetPath, 'users'))->toHaveCount(2)
+        ->and(targetRows($this->targetPath, 'posts'))->toBe([])
         ->and(is_dir($this->workingDirectory.'logs'))->toBeFalse();
 });
