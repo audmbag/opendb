@@ -80,6 +80,12 @@ interface CloningState {
     loadPayload: (payload: CloningClientPayload) => void;
     clear: () => void;
 
+    /** Retient le clonage ouvert sans anonymisation : la page en suit la progression par cet identifiant. */
+    setCloningId: (cloningId: string) => void;
+
+    /** Oublie l'anonymisation automatique chargée : le clonage conservera toutes les données. */
+    forgetPayload: () => void;
+
     getMeta: (table: string, column: string) => ColumnMeta | undefined;
     getTransformation: (
         table: string,
@@ -115,9 +121,6 @@ interface CloningState {
     ) => void;
 
     resetColumn: (table: string, column: string) => void;
-
-    /** Passe toutes les colonnes qui le permettent en stratégie "keep". */
-    keepAll: () => void;
 
     /** Restaure toutes les colonnes à leur état d'origine. */
     resetAll: () => void;
@@ -191,6 +194,23 @@ export const useCloningStore = create<CloningState>()(
                 }
 
                 state.loaded = true;
+            }),
+
+        setCloningId: (cloningId) =>
+            set((state) => {
+                state.cloningId = cloningId;
+            }),
+
+        forgetPayload: () =>
+            set((state) => {
+                state.originalPayload = null;
+                state.fakerCatalogs = {};
+                state.meta = {};
+                state.tableOrder = [];
+                state.columnsByTable = {};
+                state.initialValues = {};
+                state.values = {};
+                state.loaded = false;
             }),
 
         clear: () =>
@@ -304,15 +324,6 @@ export const useCloningStore = create<CloningState>()(
                 }
             }),
 
-        keepAll: () =>
-            set((state) => {
-                for (const key of Object.keys(state.meta) as ColumnKey[]) {
-                    if (state.meta[key].options.includes('keep')) {
-                        state.values[key] = { strategy: 'keep' };
-                    }
-                }
-            }),
-
         resetAll: () =>
             set((state) => {
                 for (const key of Object.keys(
@@ -363,7 +374,8 @@ export const useCloningStore = create<CloningState>()(
 
             return {
                 cloningId: state.cloningId || '',
-                tables: draft,
+                automatic: state.originalPayload !== null,
+                tables: state.originalPayload !== null ? draft : {},
             };
         },
     })),

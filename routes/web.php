@@ -139,6 +139,7 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('/driver-config/{config}')->middleware('can:update,config')->group(function () {
         Route::patch('/', [DriverConfigController::class, 'update']);
         Route::get('/cloning/client-payload', [DriverConfigController::class, 'cloningClientPayload']);
+        Route::post('/cloning/workspace', [DriverConfigController::class, 'cloningWorkspace']);
     });
 
     Route::prefix('/{project}')->middleware([ExcludeDraftProjectMiddleware::class, 'can:view,project'])->group(function () {

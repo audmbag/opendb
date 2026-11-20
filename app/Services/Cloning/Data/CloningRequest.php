@@ -16,6 +16,7 @@ final readonly class CloningRequest
 {
     /**
      * @param  array<string, mixed>  $clientDraft  Tables du brouillon d'anonymisation, par nom.
+     * @param  bool  $automaticAnonymisation  Faux si le client n'a pas demandé l'anonymisation : tout est conservé.
      * @param  array<string, bool>  $options  Options de CloningRunnerHelper::DEFAULT_CLONING_OPTIONS à surcharger.
      * @param  list<string>  $skipTables
      */
@@ -27,6 +28,7 @@ final readonly class CloningRequest
         public array $options = [],
         public array $skipTables = [],
         public bool $createTargetDatabase = false,
+        public bool $automaticAnonymisation = true,
     ) {}
 
     /**
@@ -44,6 +46,7 @@ final readonly class CloningRequest
             options: $payload['options'],
             skipTables: $payload['cloningDisabled'],
             createTargetDatabase: (bool) $target['create_database_if_not_exists'],
+            automaticAnonymisation: (bool) $payload['anonymisation']['automatic'],
         );
     }
 }

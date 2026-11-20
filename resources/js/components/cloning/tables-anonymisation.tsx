@@ -3,8 +3,8 @@ import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     CircleSlashIcon,
     DatabaseBackupIcon,
-    Loader2Icon,
     RefreshCwIcon,
+    ScanSearchIcon,
     Table2Icon,
 } from 'lucide-react';
 import React, { useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
@@ -16,6 +16,7 @@ import type {
     CloningDraft,
 } from '@/components/cloning/cloning.types';
 import TablesAnonymisationColumns from '@/components/cloning/tables-anonymisation-columns';
+import { EmptyState } from '@/components/empty-state';
 import Button from '@/components/form/button';
 import {
     SmallSideBar,
@@ -51,7 +52,7 @@ const TablesAnonymisationContent = ({ cloningPayload, }: { cloningPayload: Cloni
     }, [cloningPayload.tables]);
 
     const tableOrder = useCloningStore((s) => s.tableOrder);
-    const keepAll = useCloningStore((s) => s.keepAll);
+    const forgetPayload = useCloningStore((s) => s.forgetPayload);
     const resetAll = useCloningStore((s) => s.resetAll);
 
     return (
@@ -62,7 +63,7 @@ const TablesAnonymisationContent = ({ cloningPayload, }: { cloningPayload: Cloni
                         icon={DatabaseBackupIcon}
                         tooltip={t('cloning.ui.keep_all_tooltip')}
                         variant="secondary"
-                        onClick={keepAll}
+                        onClick={forgetPayload}
                     >
                         {t('cloning.ui.keep_all')}
                     </Button>
@@ -114,65 +115,85 @@ type Props = {
     ref?: React.Ref<TableAnonymisationRef>;
 };
 
+/**
+ * Étape d'anonymisation : le clonage conserve toutes les données, sauf si l'utilisateur demande l'anonymisation
+ * automatique, qui lit la source pour détecter ses données personnelles et proposer leur transformation.
+ */
 const TablesAnonymisation = ({ ref } : Props) => {
     const { t } = useLaravelReactI18n();
 
     const { get, processing } = useHttp<any, { data: CloningClientPayload }>();
+    const { post: openWorkspace } = useHttp<any, { data: { cloningId: string } }>();
 
     const loadPayload = useCloningStore((s) => s.loadPayload);
+    const setCloningId = useCloningStore((s) => s.setCloningId);
     const buildDraft = useCloningStore((s) => s.buildDraft);
-    const originalPayload = useCloningStore((s) => s.originalPayload);
+    const cloningId = useCloningStore((s) => s.cloningId);
+    const cloningPayload = useCloningStore((s) => s.originalPayload);
     const config = useTempProjectStore(state => state.cloningDriverConfig);
 
-    const [cloningPayload, setCloningPayload] = useState<null | CloningClientPayload>(originalPayload);
     const [cloningError, setCloningError] = useState<string | null>(null);
 
-    const isLoaded = useRef(false);
+    const isOpening = useRef(false);
 
+    // Le clonage est ouvert sans rien lire de la source : la page suit sa progression par son identifiant.
     useEffect(() => {
-
-        if (isLoaded.current || originalPayload) {
+        if (isOpening.current || cloningId || !config?.from_id) {
             return;
         }
 
+        isOpening.current = true;
+
+        openWorkspace(DriverConfigController.cloningWorkspace({ config: config.from_id }).url, {
+            onSuccess: ({ data }) => setCloningId(data.cloningId),
+            onHttpException: () => setCloningError(t('common.unexpected_error')),
+            onNetworkError: () => setCloningError(t('common.unexpected_error')),
+        }).catch(() => null);
+    }, [cloningId, config?.from_id, openWorkspace, setCloningId, t]);
+
+    const loadAutomaticAnonymisation = () => {
         if (!config?.from_id) {
             return;
         }
 
-        isLoaded.current = true;
+        setCloningError(null);
 
         get(
-            DriverConfigController.cloningClientPayload({ config: config.from_id }).url,
+            DriverConfigController.cloningClientPayload({ config: config.from_id }, { query: { cloningId } }).url,
             {
-                onSuccess: ({ data }) => {
-                    loadPayload(data);
-                    setCloningPayload(data);
-                },
-                onError: (error) => {
-                    setCloningError(error.error);
-                },
-                onHttpException: (error) => {
-                    setCloningError(JSON.parse(error.data).error);
-                },
+                onSuccess: ({ data }) => loadPayload(data),
+                onError: (error) => setCloningError(error.error),
+                onHttpException: (error) => setCloningError(JSON.parse(error.data).error),
             },
-        ).then(() => null);
-
-    }, [config?.from_id, loadPayload])
+        ).catch(() => null);
+    };
 
     useImperativeHandle(ref, () => ({
         submit: () => buildDraft(),
     }));
 
     return (
-        <div>
-            {processing && (
-                <div className="flex items-center justify-center p-4">
-                    <Loader2Icon className="size-4 animate-spin" />
-                </div>
-            )}
-
-            {cloningPayload && (
+        <div className="flex flex-col gap-4">
+            {cloningPayload ? (
                 <TablesAnonymisationContent cloningPayload={cloningPayload} />
+            ) : (
+                <CardFrame>
+                    <EmptyState
+                        icon={DatabaseBackupIcon}
+                        title={t('cloning.ui.keep_all_title')}
+                        description={t('cloning.ui.keep_all_description')}
+                        actions={[
+                            {
+                                label: t('cloning.ui.automatic_anonymisation'),
+                                icon: ScanSearchIcon,
+                                tooltip: t('cloning.ui.automatic_anonymisation_tooltip'),
+                                processing,
+                                disabled: processing || !cloningId,
+                                onClick: loadAutomaticAnonymisation,
+                            },
+                        ]}
+                    />
+                </CardFrame>
             )}
 
             {cloningError && (

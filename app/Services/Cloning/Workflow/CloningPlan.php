@@ -7,6 +7,7 @@ namespace App\Services\Cloning\Workflow;
 use App\Services\Cloning\CloningAnonymizationConfig;
 use App\Services\Cloning\CloningSourceConfig;
 use App\Services\Cloning\Engine\Data\ConnectionData;
+use App\Services\Cloning\Engine\Enums\DatabaseConnectionType;
 use App\Services\Cloning\Exception\CloningException;
 use App\Services\SystemInfoService;
 
@@ -66,6 +67,29 @@ final class CloningPlan
         }
 
         $this->workspace->writeSourceYaml($config);
+    }
+
+    /**
+     * Écrit `source.cloning.yaml` en conservant chaque colonne telle quelle, à la place d'un brouillon du client.
+     *
+     * Les plages de clés primaires, que seul le remappage demande, ne sont pas lues : sur une grosse base, leur
+     * COUNT(*) et MAX() par table prennent l'essentiel de la préparation. SQLite en a besoin pour mesurer ses lignes,
+     * dont la taille borne celle des lots copiés en mémoire.
+     */
+    public function keepEverything(): void
+    {
+        $driver = $this->connections->driver($this->source);
+        $primaryKeyRanges = $this->source->type === DatabaseConnectionType::Sqlite ? $this->stats->primaryKeyRanges($driver, $this->schema()) : [];
+
+        $config = new CloningSourceConfig(
+            $this->schema(),
+            [],
+            $this->systemInfoService->locale(),
+            $primaryKeyRanges,
+            $this->stats->largestRowBytes($driver, $primaryKeyRanges),
+        );
+
+        $this->workspace->writeSourceYaml($config->toRaw(anonymise: false));
     }
 
     private function anonymizationConfig(): CloningAnonymizationConfig

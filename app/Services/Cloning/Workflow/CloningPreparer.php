@@ -21,6 +21,18 @@ class CloningPreparer
     ) {}
 
     /**
+     * Ouvre le dossier d'un nouveau clonage, sans rien lire de la source : la page en suit la progression par son
+     * identifiant, et le clonage conserve toutes les données tant que l'anonymisation automatique n'est pas demandée.
+     */
+    public function openWorkspace(ConnectionData $source): string
+    {
+        $workspace = $this->workspaces->open();
+        $workspace->writeEngineConfig([CloningManager::SOURCE_CONNECTION_NAME => $this->connections->engineConnection($source)]);
+
+        return $workspace->id;
+    }
+
+    /**
      * @return array<string, mixed> Le brouillon d'anonymisation, avec l'identifiant du clonage (`cloningId`)
      */
     public function clientPayload(ConnectionData $source, ?string $cloningId = null): array

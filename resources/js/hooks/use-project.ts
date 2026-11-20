@@ -162,6 +162,22 @@ const getConnectionDefaults = (
     };
 };
 
+/**
+ * Base proposée pour cloner `database` : un fichier « -clone » à côté d'une base SQLite, un nom suffixé de « _clone »
+ * sur un serveur.
+ */
+const cloneDatabaseName = (database: string, driverId: string): string => {
+    if (database === '') {
+        return '';
+    }
+
+    if (driverId === DefaultDrivers.SQLITE) {
+        return /\.[^./\\]+$/.test(database) ? database.replace(/(\.[^./\\]+)$/, '-clone$1') : `${database}-clone`;
+    }
+
+    return `${database}_clone`;
+};
+
 const useProjectDriverConfig = ({
     onStart,
     onFinish,
@@ -183,24 +199,29 @@ const useProjectDriverConfig = ({
     const { post, put, optimistic, errors } = useHttp<DriverConfigFormPayload | null, { driverConfig: DriverConfig }>(null);
 
     const defaults = useMemo(() => {
-        return { ...tempProject?.driver_config, ...cloningDriverConfig, ...project?.driver_config };
-    }, [cloningDriverConfig, tempProject?.driver_config, project?.driver_config]);
+        // La cible d'un clonage garde ce que l'utilisateur y a saisi, plutôt que la connexion source.
+        return cloning
+            ? { ...tempProject?.driver_config, ...project?.driver_config, ...cloningDriverConfig }
+            : { ...tempProject?.driver_config, ...cloningDriverConfig, ...project?.driver_config };
+    }, [cloning, cloningDriverConfig, tempProject?.driver_config, project?.driver_config]);
 
     const [data, setFormData] = useState<DriverConfigFormData>(() => {
         const driverId = defaults.driver_id || DefaultDrivers.MYSQL;
+        // À la première ouverture, le clonage vise une nouvelle base à côté de la source, et non la source elle-même.
+        const suggestsTarget = cloning && !cloningDriverConfig;
 
         return {
             driver_id: driverId,
             ...getConnectionDefaults(driverId, defaults),
             password: defaults.password || '',
-            database: defaults.database || '',
+            database: suggestsTarget ? cloneDatabaseName(defaults.database || '', driverId) : defaults.database || '',
             ssh: {
                 host: defaults.ssh?.host || '',
                 port: String(defaults.ssh?.port || 22),
                 user: defaults.ssh?.user || '',
                 id_file: defaults.ssh?.id_file || '',
             },
-            create_database_if_not_exists: !!defaults.create_database_if_not_exists,
+            create_database_if_not_exists: suggestsTarget || !!defaults.create_database_if_not_exists,
         };
     });
 

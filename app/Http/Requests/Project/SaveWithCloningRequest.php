@@ -5,9 +5,9 @@ namespace App\Http\Requests\Project;
 use App\Http\Requests\DriverConfigRequest;
 use App\Models\DriverConfig;
 use App\Models\Project;
-use App\Services\Cloning\CloningManager;
 use App\Services\Cloning\Config\CloningColumn;
 use App\Services\Cloning\Faker\CloningFakerCatalog;
+use App\Services\Cloning\Workflow\CloningWorkspace;
 use App\Services\Cloning\Workflow\CloningWorkspaceFactory;
 use App\Services\SystemInfoService;
 use Closure;
@@ -132,6 +132,7 @@ class SaveWithCloningRequest extends FormRequest
         return [
             'anonymisation' => ['required', 'array'],
             'anonymisation.cloningId' => ['bail', 'required', 'string', 'regex:/^'.CloningWorkspaceFactory::ID_PATTERN.'$/', $this->cloningSessionExists(...)],
+            'anonymisation.automatic' => ['required', 'boolean'],
             'anonymisation.tables' => ['present', 'array'],
         ];
     }
@@ -261,11 +262,11 @@ class SaveWithCloningRequest extends FormRequest
     }
 
     /**
-     * Vérifie que le fichier généré à l'étape d'anonymisation existe encore pour cet identifiant de clonage.
+     * Vérifie que le dossier ouvert à l'étape d'anonymisation existe encore pour cet identifiant de clonage.
      */
     protected function cloningSessionExists(string $attribute, mixed $value, Closure $fail): void
     {
-        $file = app(SystemInfoService::class)->applicationPath('tmp', $value, CloningManager::SOURCE_CONNECTION_NAME.'.cloning.yaml');
+        $file = app(SystemInfoService::class)->applicationPath('tmp', $value, CloningWorkspace::CONFIG_FILE);
 
         if (! is_file($file)) {
             $fail(__('requests.cloning.session_expired'));

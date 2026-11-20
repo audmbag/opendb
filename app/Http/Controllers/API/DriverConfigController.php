@@ -9,9 +9,11 @@ use App\Models\Driver;
 use App\Models\DriverConfig;
 use App\Services\Cloning\CloningManager;
 use App\Services\Cloning\Exception\CloningException;
+use App\Services\Cloning\Workflow\CloningWorkspaceFactory;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Response;
 
 class DriverConfigController extends Controller
@@ -72,14 +74,31 @@ class DriverConfigController extends Controller
         return back();
     }
 
-    public function cloningClientPayload(DriverConfig $config, CloningManager $cloningManager): JsonResponse
+    /**
+     * Anonymisation automatique proposée pour cloner la base, dans le clonage `cloningId` déjà ouvert s'il est donné.
+     */
+    public function cloningClientPayload(DriverConfig $config, Request $request, CloningManager $cloningManager): JsonResponse
     {
+        $cloningId = $request->validate([
+            'cloningId' => ['nullable', 'string', 'regex:/^'.CloningWorkspaceFactory::ID_PATTERN.'$/'],
+        ])['cloningId'] ?? null;
+
         try {
             return Response::json([
-                'data' => $cloningManager->clientPayload($config),
+                'data' => $cloningManager->clientPayload($config, $cloningId),
             ]);
         } catch (CloningException $e) {
             return Response::json(['error' => $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Ouvre un nouveau clonage de la base, qui en conserve toutes les données tant que l'anonymisation n'est pas demandée.
+     */
+    public function cloningWorkspace(DriverConfig $config, CloningManager $cloningManager): JsonResponse
+    {
+        return Response::json([
+            'data' => ['cloningId' => $cloningManager->openWorkspace($config)],
+        ]);
     }
 }

@@ -29,13 +29,22 @@ final readonly class CloningManager
     ) {}
 
     /**
-     * Brouillon d'anonymisation proposé au client pour cloner la base de `$config`, avec l'identifiant du clonage.
+     * Brouillon d'anonymisation proposé au client pour cloner la base de `$config`, avec l'identifiant du clonage :
+     * celui de `$cloningId` s'il est donné, sinon un nouveau.
      *
      * @return array<string, mixed>
      */
-    public function clientPayload(DriverConfig $config): array
+    public function clientPayload(DriverConfig $config, ?string $cloningId = null): array
     {
-        return $this->preparer->clientPayload(CloningConnections::fromDriverConfig($config));
+        return $this->preparer->clientPayload(CloningConnections::fromDriverConfig($config), $cloningId);
+    }
+
+    /**
+     * Identifiant d'un nouveau clonage de la base de `$config`, qui conserve toutes ses données sauf anonymisation demandée.
+     */
+    public function openWorkspace(DriverConfig $config): string
+    {
+        return $this->preparer->openWorkspace(CloningConnections::fromDriverConfig($config));
     }
 
     /**

@@ -145,6 +145,8 @@ export type CloningDriverConfig = Pick<
 
 export type CloningDraft = {
     cloningId: string;
+    /** Faux tant que l'anonymisation automatique n'est pas chargée : toutes les données sont conservées. */
+    automatic: boolean;
     tables: Record<string, Record<string, ColumnTransformation>>;
 };
 

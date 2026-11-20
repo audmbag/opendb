@@ -60,17 +60,19 @@ final readonly class CloningSourceConfig
      * Mêmes valeurs que `clonio cloning:dump --all-columns --enforce-column-types` : chaque colonne est listée,
      * celles reconnues par un matcher PII reçoivent sa transformation, les clés primaires entières sont remappées.
      *
+     * Sans `$anonymise`, chaque colonne est conservée : rien n'est cherché parmi les matchers PII ni remappé.
+     *
      * @return array{version: string, connection: string, options: array<string, int|bool|string>, tables: array<string, array{rows: array{strategy: string, clear: string}, columns?: array<string, array<string, mixed>>}>}
      */
-    public function toRaw(): array
+    public function toRaw(bool $anonymise = true): array
     {
-        $remappedKeys = $this->remappedPrimaryKeys();
+        $remappedKeys = $anonymise ? $this->remappedPrimaryKeys() : [];
 
         $tables = [];
         foreach ($this->dbSchema as $table) {
             $columns = [];
             foreach ($table['columns'] ?? [] as $column) {
-                $columns[$column['name']] = $this->transformation($column['name'], $remappedKeys[$table['name']] ?? null)->toRaw();
+                $columns[$column['name']] = ($anonymise ? $this->transformation($column['name'], $remappedKeys[$table['name']] ?? null) : new CloningTransformation('keep'))->toRaw();
             }
 
             $tables[$table['name']] = $columns === [] || ! self::isCopyable($table['name'])

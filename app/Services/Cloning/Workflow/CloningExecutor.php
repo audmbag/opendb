@@ -40,8 +40,13 @@ class CloningExecutor
         $progress = $workspace->progress();
         $progress->start();
 
-        new CloningPlan($request->source, $workspace, $this->connections, $this->stats, $this->systemInfoService)
-            ->applyClientDraft($request->clientDraft);
+        $plan = new CloningPlan($request->source, $workspace, $this->connections, $this->stats, $this->systemInfoService);
+
+        if ($request->automaticAnonymisation) {
+            $plan->applyClientDraft($request->clientDraft);
+        } else {
+            $plan->keepEverything();
+        }
 
         $target = $this->connections->driver($request->target);
 

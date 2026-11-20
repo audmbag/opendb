@@ -4,7 +4,7 @@ use App\Enums\OperatingSystemEnum;
 use App\Http\Requests\Project\SaveWithCloningRequest;
 use App\Models\Project;
 use App\Models\User;
-use App\Services\Cloning\CloningManager;
+use App\Services\Cloning\Workflow\CloningWorkspace;
 use App\Services\SystemInfoService;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\File;
@@ -23,7 +23,7 @@ beforeEach(function () {
     $this->cloningId = '2026-10-13_14-30-00_a1B2c3D4';
     app(SystemInfoService::class)
         ->temporaryDirectory($this->cloningId)
-        ->put(CloningManager::SOURCE_CONNECTION_NAME.'.cloning.yaml', 'version: 1');
+        ->put(CloningWorkspace::CONFIG_FILE, '{}');
 
     $this->user = User::factory()->create();
     $this->project = $this->user->projects()->create(['name' => 'Projet source', 'path' => $this->home]);
@@ -41,6 +41,7 @@ beforeEach(function () {
         ],
         'anonymisation' => [
             'cloningId' => $this->cloningId,
+            'automatic' => true,
             'tables' => [
                 'users' => [
                     'id' => [
@@ -172,6 +173,7 @@ it('rejects a missing value', function (string $path) {
     'cloningDriverConfig.from_id',
     'anonymisation',
     'anonymisation.cloningId',
+    'anonymisation.automatic',
     'anonymisation.tables',
     'anonymisation.tables.users.email.strategy',
     'anonymisation.tables.users.name.fakerMethod',
