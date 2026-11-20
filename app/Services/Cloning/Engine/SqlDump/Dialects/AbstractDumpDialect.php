@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\Cloning\Engine\SqlDump\Dialects;
 
+use App\Services\Cloning\Engine\Data\Schema\ColumnDefaultData;
 use App\Services\Cloning\Engine\Data\Schema\ColumnSchemaData;
+use App\Services\Cloning\Engine\Data\Schema\ForeignKeyConstraintData;
+use App\Services\Cloning\Engine\Data\Schema\IndexSchemaData;
 use App\Services\Cloning\Engine\Data\Schema\TableSchemaData;
+use App\Services\Cloning\Engine\Enums\DatabaseConnectionType;
 use App\Services\Cloning\Engine\SqlDump\Contracts\SqlDumpDialect;
 use DateTimeImmutable;
 
@@ -19,7 +23,12 @@ abstract class AbstractDumpDialect implements SqlDumpDialect
 
     abstract protected function qualifiedTable(string $table): string;
 
-    abstract protected function mapColumnType(ColumnSchemaData $column): string;
+    /**
+     * Type le plus proche dans cette base d'une colonne venue d'une autre.
+     *
+     * @param  bool  $inKey  La colonne appartient à la clé primaire ou à un index unique.
+     */
+    abstract protected function mapColumnType(ColumnSchemaData $column, bool $inKey = false, ?DatabaseConnectionType $source = null): string;
 
     abstract protected function binaryLiteral(string $hex): string;
 
@@ -39,35 +48,314 @@ abstract class AbstractDumpDialect implements SqlDumpDialect
         return sprintf('DROP TABLE IF EXISTS %s;', $this->qualifiedTable($table))."\n";
     }
 
-    public function createTable(TableSchemaData $table, bool $ifNotExists): string
+    /**
+     * @param  ?DatabaseConnectionType  $source  Base d'où vient le schéma ; null pour celle du dialecte, dont les
+     *                                           types déclarés sont alors repris tels quels.
+     */
+    public function createTable(TableSchemaData $table, bool $ifNotExists, ?DatabaseConnectionType $source = null): string
     {
+        $primaryKey = $this->primaryKeyOf($table);
+        $identity = $this->identityColumn($table, $primaryKey, $source);
         $lines = [];
 
         foreach ($table->columns as $column) {
-            $lines[] = sprintf(
-                '  %s %s%s',
-                $this->quoteIdentifier($column->name),
-                $this->mapColumnType($column),
-                $column->nullable ? '' : ' NOT NULL',
-            );
+            $lines[] = '  '.$this->columnLine($column, $table, $source, $column === $identity);
         }
 
-        $pk = array_values(array_filter(
-            $table->columns,
-            static fn (ColumnSchemaData $c): bool => $c->isPrimary,
-        ));
+        if ($primaryKey !== [] && ! ($identity instanceof ColumnSchemaData && $this->identityIsPrimaryKey())) {
+            $lines[] = sprintf('  PRIMARY KEY (%s)', implode(', ', array_map($this->quoteIdentifier(...), $primaryKey)));
+        }
 
-        if ($pk !== []) {
-            $pkCols = implode(', ', array_map(
-                fn (ColumnSchemaData $c): string => $this->quoteIdentifier($c->name),
-                $pk,
-            ));
-            $lines[] = sprintf('  PRIMARY KEY (%s)', $pkCols);
+        if ($this->foreignKeysInline()) {
+            foreach ($table->constraints as $constraint) {
+                $lines[] = '  '.$this->foreignKeyClause($constraint);
+            }
         }
 
         $keyword = $ifNotExists ? 'CREATE TABLE IF NOT EXISTS' : 'CREATE TABLE';
 
         return sprintf("%s %s (\n%s\n);\n", $keyword, $this->qualifiedTable($table->name), implode(",\n", $lines));
+    }
+
+    /**
+     * Index de la table, hors clé primaire, une requête chacun.
+     *
+     * @return list<string>
+     */
+    public function createIndexes(TableSchemaData $table, ?DatabaseConnectionType $source = null): array
+    {
+        $columns = [];
+        foreach ($table->columns as $column) {
+            $columns[$column->name] = $column;
+        }
+
+        $statements = [];
+
+        foreach ($table->indexes as $index) {
+            if (array_any($index->columns, fn (string $name): bool => ! isset($columns[$name]))) {
+                continue;
+            }
+
+            $statements[] = sprintf(
+                '%s %s ON %s (%s);',
+                $index->unique ? 'CREATE UNIQUE INDEX' : 'CREATE INDEX',
+                $this->quoteIdentifier($this->indexName($table, $index, $source)),
+                $this->qualifiedTable($table->name),
+                implode(', ', array_map(
+                    fn (string $name): string => $this->indexedColumn($columns[$name], $this->columnType($columns[$name], $source, $this->isKeyColumn($table, $name))),
+                    $index->columns,
+                )),
+            );
+        }
+
+        return $statements;
+    }
+
+    /**
+     * Définition d'une colonne pour ALTER TABLE … ADD COLUMN.
+     */
+    public function columnDefinition(ColumnSchemaData $column, TableSchemaData $table, ?DatabaseConnectionType $source = null): string
+    {
+        return $this->columnLine($column, $table, $source, false);
+    }
+
+    /**
+     * Requêtes qui ajoutent les clés étrangères de la table une fois les lignes copiées, sans les vérifier : vide pour
+     * une base qui les écrit dans CREATE TABLE. Les colonnes visées doivent être connues (ForeignKeyConstraintData::referencing()).
+     *
+     * @return list<string>
+     */
+    public function addForeignKeys(TableSchemaData $table, ?DatabaseConnectionType $source = null): array
+    {
+        if ($this->foreignKeysInline()) {
+            return [];
+        }
+
+        return array_map(
+            fn (ForeignKeyConstraintData $constraint): string => sprintf(
+                'ALTER TABLE %s ADD CONSTRAINT %s %s%s;',
+                $this->qualifiedTable($table->name),
+                $this->quoteIdentifier($this->constraintName($table, $constraint->name ?? $table->name.'_'.implode('_', $constraint->columns).'_foreign', $source)),
+                $this->foreignKeyClause($constraint),
+                $this->unvalidatedConstraint(),
+            ),
+            $table->constraints,
+        );
+    }
+
+    /**
+     * Colonnes dont la valeur par défaut est une expression propre à une autre base, que celle-ci ne reprend pas.
+     *
+     * @return list<string>
+     */
+    public function unportableDefaults(TableSchemaData $table, ?DatabaseConnectionType $source = null): array
+    {
+        if ($this->isSameFamily($source)) {
+            return [];
+        }
+
+        return array_values(array_map(
+            fn (ColumnSchemaData $column): string => $column->name,
+            array_filter($table->columns, fn (ColumnSchemaData $column): bool => ! $column->autoIncrement && $column->defaultValue?->kind === ColumnDefaultData::EXPRESSION),
+        ));
+    }
+
+    abstract protected function engine(): DatabaseConnectionType;
+
+    /**
+     * Vrai si la base écrit ses clés étrangères dans CREATE TABLE (SQLite ne sait pas les ajouter ensuite).
+     */
+    protected function foreignKeysInline(): bool
+    {
+        return false;
+    }
+
+    /**
+     * Suffixe d'une clé étrangère ajoutée sans relire les lignes déjà copiées.
+     */
+    protected function unvalidatedConstraint(): string
+    {
+        return '';
+    }
+
+    protected function foreignKeyClause(ForeignKeyConstraintData $constraint): string
+    {
+        $referenced = $constraint->referencedColumns !== null ? ' ('.implode(', ', array_map($this->quoteIdentifier(...), $constraint->referencedColumns)).')' : '';
+
+        return sprintf(
+            'FOREIGN KEY (%s) REFERENCES %s%s ON DELETE %s ON UPDATE %s',
+            implode(', ', array_map($this->quoteIdentifier(...), $constraint->columns)),
+            $this->qualifiedTable($constraint->referencedTable),
+            $referenced,
+            $this->foreignKeyRule($constraint->onDelete),
+            $this->foreignKeyRule($constraint->onUpdate),
+        );
+    }
+
+    protected function foreignKeyRule(string $rule): string
+    {
+        return $rule;
+    }
+
+    /**
+     * Valeur par défaut de la colonne dans cette base, vide si elle n'en a pas ou ne peut pas la reprendre.
+     */
+    protected function defaultClause(ColumnSchemaData $column, string $type, ?DatabaseConnectionType $source): string
+    {
+        $default = $column->defaultValue;
+
+        $sql = match ($default?->kind) {
+            ColumnDefaultData::VALUE => $this->defaultValue($default->value, $type),
+            ColumnDefaultData::BOOLEAN => $this->defaultBoolean($default->value === '1', $type),
+            ColumnDefaultData::CURRENT_TIMESTAMP => $this->defaultCurrentTimestamp($type),
+            ColumnDefaultData::EXPRESSION => $this->isSameFamily($source) ? $this->defaultExpression($default->value) : null,
+            default => null,
+        };
+
+        return $sql === null ? '' : ' DEFAULT '.$sql;
+    }
+
+    protected function defaultValue(string $value, string $type): string
+    {
+        return $this->stringLiteral($value);
+    }
+
+    protected function defaultBoolean(bool $value, string $type): string
+    {
+        return $value ? "'1'" : "'0'";
+    }
+
+    protected function defaultCurrentTimestamp(string $type): ?string
+    {
+        return 'CURRENT_TIMESTAMP';
+    }
+
+    protected function defaultExpression(string $expression): string
+    {
+        return $expression;
+    }
+
+    /**
+     * Type de la colonne dans cette base : celui déclaré par une base de la même famille, sinon une correspondance.
+     *
+     * @param  bool  $inKey  La colonne appartient à la clé primaire ou à un index unique.
+     */
+    protected function columnType(ColumnSchemaData $column, ?DatabaseConnectionType $source, bool $inKey): string
+    {
+        if ($column->declaredType !== null && $this->isSameFamily($source)) {
+            return $column->declaredType;
+        }
+
+        return $this->mapColumnType($column, $inKey, $source);
+    }
+
+    /**
+     * Type d'une colonne générée par la base, null si cette base ne sait pas la générer avec ce type.
+     */
+    protected function identityType(string $type): ?string
+    {
+        return null;
+    }
+
+    /**
+     * Vrai si la colonne générée porte elle-même la clé primaire (INTEGER PRIMARY KEY de SQLite).
+     */
+    protected function identityIsPrimaryKey(): bool
+    {
+        return false;
+    }
+
+    protected function indexedColumn(ColumnSchemaData $column, string $type): string
+    {
+        return $this->quoteIdentifier($column->name);
+    }
+
+    /**
+     * Un nom d'index n'est unique que dans sa table pour MySQL, dans tout le schéma pour les autres bases.
+     */
+    protected function indexName(TableSchemaData $table, IndexSchemaData $index, ?DatabaseConnectionType $source): string
+    {
+        $perTable = in_array($source, [DatabaseConnectionType::Mysql, DatabaseConnectionType::MariaDB], true);
+
+        return $this->uniqueName($table, $index->name, $perTable && ! $this->isSameFamily($source));
+    }
+
+    /**
+     * Un nom de clé étrangère n'est unique que dans sa table pour PostgreSQL et SQLite, dans toute la base pour MySQL.
+     */
+    protected function constraintName(TableSchemaData $table, string $name, ?DatabaseConnectionType $source): string
+    {
+        return $this->uniqueName($table, $name, ! $this->isSameFamily($source));
+    }
+
+    private function uniqueName(TableSchemaData $table, string $name, bool $prefixWithTable): string
+    {
+        $name = $prefixWithTable && ! str_starts_with($name, $table->name.'_') ? $table->name.'_'.$name : $name;
+
+        return strlen($name) > 63 ? substr($name, 0, 54).'_'.substr(md5($name), 0, 8) : $name;
+    }
+
+    /**
+     * Chiffres après la virgule des secondes : ceux déclarés, sinon 6 quand la source ne les précise pas (PostgreSQL,
+     * SQLite), 0 pour MySQL dont DATETIME n'en a aucun par défaut.
+     */
+    protected function fractionalSeconds(ColumnSchemaData $column, ?DatabaseConnectionType $source): int
+    {
+        if ($column->declaredType !== null && preg_match('/\((\d+)\)/', $column->declaredType, $matches) === 1) {
+            return min(6, (int) $matches[1]);
+        }
+
+        return in_array($source, [DatabaseConnectionType::Mysql, DatabaseConnectionType::MariaDB], true) ? 0 : 6;
+    }
+
+    protected function isSameFamily(?DatabaseConnectionType $source): bool
+    {
+        $mysql = [DatabaseConnectionType::Mysql, DatabaseConnectionType::MariaDB];
+
+        return $source === null || $source === $this->engine() || (in_array($source, $mysql, true) && in_array($this->engine(), $mysql, true));
+    }
+
+    protected function isKeyColumn(TableSchemaData $table, string $column): bool
+    {
+        return in_array($column, $this->primaryKeyOf($table), true)
+            || array_any($table->indexes, fn (IndexSchemaData $index): bool => $index->unique && in_array($column, $index->columns, true));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function primaryKeyOf(TableSchemaData $table): array
+    {
+        return $table->primaryKey !== []
+            ? $table->primaryKey
+            : array_values(array_map(fn (ColumnSchemaData $column): string => $column->name, array_filter($table->columns, fn (ColumnSchemaData $column): bool => $column->isPrimary)));
+    }
+
+    /**
+     * La colonne générée par la base, quand elle forme seule la clé primaire et que cette base sait la générer.
+     *
+     * @param  list<string>  $primaryKey
+     */
+    private function identityColumn(TableSchemaData $table, array $primaryKey, ?DatabaseConnectionType $source): ?ColumnSchemaData
+    {
+        if (count($primaryKey) !== 1) {
+            return null;
+        }
+
+        $column = array_find($table->columns, fn (ColumnSchemaData $column): bool => $column->name === $primaryKey[0]);
+
+        return $column instanceof ColumnSchemaData && $column->autoIncrement && $this->identityType($this->columnType($column, $source, true)) !== null ? $column : null;
+    }
+
+    private function columnLine(ColumnSchemaData $column, TableSchemaData $table, ?DatabaseConnectionType $source, bool $identity): string
+    {
+        $type = $this->columnType($column, $source, $this->isKeyColumn($table, $column->name));
+
+        if ($identity) {
+            return $this->quoteIdentifier($column->name).' '.$this->identityType($type);
+        }
+
+        return $this->quoteIdentifier($column->name).' '.$type.$this->defaultClause($column, $type, $source).($column->nullable ? '' : ' NOT NULL');
     }
 
     public function insertBatch(TableSchemaData $table, array $columnNames, array $rows): string
@@ -180,14 +468,27 @@ abstract class AbstractDumpDialect implements SqlDumpDialect
             in_array($t, ['text', 'longtext', 'mediumtext', 'tinytext', 'ntext', 'clob'], true) => 'text',
             $t === 'date' => 'date',
             in_array($t, ['datetime', 'datetime2', 'smalldatetime'], true) => 'datetime',
-            in_array($t, ['timestamp', 'timestamp without time zone', 'timestamp with time zone', 'timestamptz', 'datetimeoffset'], true) => 'timestamp',
-            in_array($t, ['time', 'time without time zone'], true) => 'time',
+            in_array($t, ['timestamp', 'timestamp without time zone'], true) => 'timestamp',
+            in_array($t, ['timestamp with time zone', 'timestamptz', 'datetimeoffset'], true) => 'timestamptz',
+            in_array($t, ['time', 'time without time zone', 'time with time zone', 'timetz'], true) => 'time',
+            $t === 'year' => 'year',
+            $t === 'set' => 'enum',
             in_array($t, ['json', 'jsonb'], true) => 'json',
             in_array($t, ['blob', 'longblob', 'mediumblob', 'tinyblob', 'bytea', 'binary', 'varbinary', 'image'], true) => 'blob',
             in_array($t, ['uuid', 'uniqueidentifier'], true) => 'uuid',
             $t === 'enum' => 'enum',
             default => $t,
         };
+    }
+
+    /**
+     * Genre de la colonne pour mapColumnType() : un INTEGER de SQLite, sur 64 bits, devient un bigint.
+     */
+    protected function kind(ColumnSchemaData $column, ?DatabaseConnectionType $source): string
+    {
+        $kind = $this->normalize($column->type);
+
+        return $kind === 'int' && $source === DatabaseConnectionType::Sqlite ? 'bigint' : $kind;
     }
 
     protected function varcharLength(ColumnSchemaData $column): int
@@ -203,7 +504,8 @@ abstract class AbstractDumpDialect implements SqlDumpDialect
             return $column->precision.','.($column->scale ?? 0);
         }
 
-        return '20,6';
+        // Un NUMERIC sans précision (PostgreSQL) garde tous ses chiffres : le plus grand DECIMAL de MySQL.
+        return '65,30';
     }
 
     protected function isBinaryType(string $type): bool

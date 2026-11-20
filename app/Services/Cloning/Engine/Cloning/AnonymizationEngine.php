@@ -16,6 +16,13 @@ class AnonymizationEngine
 
     private readonly string $runSalt;
 
+    /**
+     * Motifs de regexify déjà analysés, false pour ceux laissés à Faker.
+     *
+     * @var array<string, RegexifyPattern|false>
+     */
+    private array $regexifyPatterns = [];
+
     public function __construct(string $locale = 'en_US', ?string $runSalt = null)
     {
         $this->faker = Factory::create($locale);
@@ -47,6 +54,14 @@ class AnonymizationEngine
 
         if ($method === null || $method === '') {
             return null;
+        }
+
+        if ($method === 'regexify' && is_string($config->fakerArguments[0] ?? null)) {
+            $pattern = $this->regexifyPatterns[$config->fakerArguments[0]] ??= RegexifyPattern::compile($config->fakerArguments[0]) ?? false;
+
+            if ($pattern !== false) {
+                return $pattern->generate();
+            }
         }
 
         $result = $this->faker->{$method}(...$config->fakerArguments);
@@ -106,7 +121,7 @@ class AnonymizationEngine
             $alphanumSeen = 0;
 
             foreach (str_split($value) as $char) {
-                if (! preg_match('/[a-zA-Z0-9]/', $char)) {
+                if (! ctype_alnum($char)) {
                     $result .= $char;
                 } elseif ($alphanumSeen < $visible) {
                     $result .= $char;

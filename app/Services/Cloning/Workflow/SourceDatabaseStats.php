@@ -27,7 +27,12 @@ class SourceDatabaseStats
         $ranges = [];
 
         foreach (array_filter($schema, fn (array $table): bool => count($table['primary_key'] ?? []) === 1) as $table) {
-            $row = (array) $connection->selectOne("select max({$quote((string) $table['primary_key'][0])}) as max_id, count(*) as row_count from {$quote($table['name'])}");
+            try {
+                $row = (array) $connection->selectOne("select max({$quote((string) $table['primary_key'][0])}) as max_id, count(*) as row_count from {$quote($table['name'])}");
+            } catch (QueryException) {
+                // PostgreSQL n'a pas de max() pour uuid : la clé n'est pas entière, donc pas remappée.
+                $row = ['max_id' => null, ...(array) $connection->selectOne("select count(*) as row_count from {$quote($table['name'])}")];
+            }
 
             $ranges[$table['name']] = [
                 'max' => $row['max_id'] !== null ? (string) $row['max_id'] : null,

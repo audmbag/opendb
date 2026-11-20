@@ -15,6 +15,7 @@ use App\Services\Cloning\Engine\Enums\KeyRemappingStrategy;
 use App\Services\Cloning\Engine\Exceptions\KeyRemappingExhaustedException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use PDO;
 use RuntimeException;
 
 class KeyRemappingService
@@ -138,15 +139,12 @@ class KeyRemappingService
                 default => '"'.$pkCol.'"',
             };
 
-            $rows = DB::connection($connName)->select(
-                sprintf('SELECT %s FROM %s', $quotedCol, $quotedTable)
-            );
+            // Une seule colonne, lue brute : la table entière peut compter des millions de lignes.
+            $ids = DB::connection($connName)->getPdo()->query(sprintf('SELECT %s FROM %s', $quotedCol, $quotedTable))->fetchAll(PDO::FETCH_COLUMN);
 
             $sourceIds = [];
             $existingIdsInt = [];
-            foreach ($rows as $row) {
-                $rowArray = (array) $row;
-                $rawValue = $rowArray[$pkCol] ?? null;
+            foreach ($ids as $rawValue) {
                 $oldValue = is_scalar($rawValue) ? (string) $rawValue : '';
                 $sourceIds[] = $oldValue;
                 if (is_numeric($oldValue)) {
@@ -203,30 +201,44 @@ class KeyRemappingService
 
     public function applyToRow(array $row, string $tableName, KeyRemappingConfigData $config): array
     {
+        return $this->remapRow($row, $this->columnsToRemap($tableName, $config));
+    }
 
+    /**
+     * Colonnes de `$tableName` à réécrire, avec la table remappée dont chacune reprend les identifiants : sa clé
+     * primaire, puis ses clés étrangères vers une table remappée.
+     *
+     * @return list<array{column: string, table: string}>
+     */
+    public function columnsToRemap(string $tableName, KeyRemappingConfigData $config): array
+    {
+        $columns = [];
         $tableConfig = $config->getTable($tableName);
+
         if ($tableConfig instanceof KeyRemappingTableData) {
-            $pkCol = $tableConfig->primaryKey;
-            if (array_key_exists($pkCol, $row)) {
-                $rawPk = $row[$pkCol];
-                $oldPk = is_scalar($rawPk) ? (string) $rawPk : '';
-                $row[$pkCol] = $this->store->lookup($tableName, $oldPk) ?? $row[$pkCol];
-            }
+            $columns[] = ['column' => $tableConfig->primaryKey, 'table' => $tableName];
         }
 
         foreach ($config->tables as $remappedTable) {
             foreach ($remappedTable->foreignKeys as $fk) {
-                if ($fk->table !== $tableName) {
-                    continue;
+                if ($fk->table === $tableName) {
+                    $columns[] = ['column' => $fk->column, 'table' => $remappedTable->table];
                 }
+            }
+        }
 
-                if (! array_key_exists($fk->column, $row)) {
-                    continue;
-                }
+        return $columns;
+    }
 
-                $rawFk = $row[$fk->column];
-                $fkValue = is_scalar($rawFk) ? (string) $rawFk : '';
-                $row[$fk->column] = $this->store->lookup($remappedTable->table, $fkValue) ?? $row[$fk->column];
+    /**
+     * @param  list<array{column: string, table: string}>  $columns  Retour de columnsToRemap().
+     */
+    public function remapRow(array $row, array $columns): array
+    {
+        foreach ($columns as ['column' => $column, 'table' => $table]) {
+            if (array_key_exists($column, $row)) {
+                $value = $row[$column];
+                $row[$column] = $this->store->lookup($table, is_scalar($value) ? (string) $value : '') ?? $value;
             }
         }
 

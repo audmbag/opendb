@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Services\Cloning\Engine\Cloning;
 
 use App\Services\Cloning\Engine\Audit\CloningAuditLog;
+use App\Services\Cloning\Engine\Cloning\Transfer\RowTransformer;
+use App\Services\Cloning\Engine\Cloning\Transfer\SameServerCopier;
+use App\Services\Cloning\Engine\Cloning\Transfer\TableTransfer;
 use App\Services\Cloning\Engine\Data\Cloning\CloningConfigData;
 use App\Services\Cloning\Engine\Data\Cloning\CloningOptionsData;
-use App\Services\Cloning\Engine\Data\Cloning\ColumnCloningConfigData;
 use App\Services\Cloning\Engine\Data\Cloning\KeyRemappingConfigData;
 use App\Services\Cloning\Engine\Data\Cloning\RunResultData;
 use App\Services\Cloning\Engine\Data\Cloning\TableCloningConfigData;
@@ -71,6 +73,8 @@ class CloningRunOrchestrator
         $sortedTables = $this->resolver->sort($sourceSchema, $remaining);
 
         $schemaFailures = [];
+        $createdTables = [];
+        $onSchemaWarning = fn (string $event, array $context) => $log->warning($event, $context);
 
         if (! $skipSchema) {
             $schemaFailures = $this->replicator->replicate(
@@ -81,6 +85,8 @@ class CloningRunOrchestrator
                 $config->options->enforceColumnTypes,
                 $config->options->dropUnknownTables,
                 $config->options->dropExtraColumns,
+                $onSchemaWarning,
+                $createdTables,
             );
 
             if ($schemaFailures === []) {
@@ -113,95 +119,127 @@ class CloningRunOrchestrator
             $log->info('table_skipped_by_cascade', ['table' => $tableName, 'reason' => $reason]);
         }
 
-        foreach (array_values($sortedTables) as $index => $tableName) {
-            $this->stopIfCancelled($monitor);
+        // Une connexion de chaque côté pour tout le clonage, plutôt que deux nouvelles par table.
+        $sourceConn = $this->connector->open($source);
+        $targetConn = $this->connector->open($target);
 
-            $tableConfig = $config->getTable($tableName);
-
-            if (! $tableConfig instanceof TableCloningConfigData) {
-                continue;
+        try {
+            if ($config->options->disableForeignKeyChecks) {
+                $this->disableFkChecks($targetConn, $target);
             }
 
-            if (array_key_exists($tableName, $schemaFailures)) {
-                $reason = $schemaFailures[$tableName];
-                $tableResults[] = new TableRunResultData($tableName, TableRunStatus::SkippedBySchemaFailure, 0, 0, 0.0, $reason);
-                $log->warning('table_skipped_schema_failure', ['table' => $tableName, 'reason' => $reason]);
-                $success = false;
-                ($onProgress)($tableName, TableRunStatus::SkippedBySchemaFailure, 0, 0, []);
+            $this->writeWithoutWaitingForDisk($targetConn, $target);
 
-                if ($breakOnFailure) {
+            // Les dates avec fuseau de PostgreSQL sont lues en UTC, que ValueAdapter écrit sans fuseau ailleurs.
+            if ($source->type === DatabaseConnectionType::PostgreSQL) {
+                DB::connection($sourceConn)->statement("SET TIME ZONE 'UTC'");
+            }
+            $copier = SameServerCopier::between($source, $target, DB::connection($targetConn)->getPdo(), $this->connector);
+
+            foreach (array_values($sortedTables) as $index => $tableName) {
+                $this->stopIfCancelled($monitor);
+
+                $tableConfig = $config->getTable($tableName);
+
+                if (! $tableConfig instanceof TableCloningConfigData) {
+                    continue;
+                }
+
+                if (array_key_exists($tableName, $schemaFailures)) {
+                    $reason = $schemaFailures[$tableName];
+                    $tableResults[] = new TableRunResultData($tableName, TableRunStatus::SkippedBySchemaFailure, 0, 0, 0.0, $reason);
+                    $log->warning('table_skipped_schema_failure', ['table' => $tableName, 'reason' => $reason]);
+                    $success = false;
+                    ($onProgress)($tableName, TableRunStatus::SkippedBySchemaFailure, 0, 0, []);
+
+                    if ($breakOnFailure) {
+                        break;
+                    }
+
+                    continue;
+                }
+
+                if (! $sourceSchema->hasTable($tableName)) {
+                    $tableResults[] = new TableRunResultData($tableName, TableRunStatus::NotFound, 0, 0, 0.0, null);
+                    $log->warning('table_not_found', ['table' => $tableName]);
+                    ($onProgress)($tableName, TableRunStatus::NotFound, 0, 0, []);
+
+                    continue;
+                }
+
+                if ($onTableStart !== null) {
+                    $onTableStart($tableName);
+                }
+
+                $tableStart = microtime(true);
+                $sourceTable = $sourceSchema->getTable($tableName);
+                $pkColumns = $sourceTable instanceof TableSchemaData
+                ? array_values(array_map(
+                    static fn (ColumnSchemaData $c): string => $c->name,
+                    array_filter($sourceTable->columns, static fn (ColumnSchemaData $c): bool => $c->isPrimary)
+                ))
+                : [];
+
+                [$rows, $skipped, $failed, $reason, $skippedRows] = $this->transferTable(
+                    $log,
+                    $config->options,
+                    $tableConfig,
+                    $sourceTable,
+                    $sourceConn,
+                    $source,
+                    $targetConn,
+                    $target,
+                    $pkColumns,
+                    $engine,
+                    $keyRemapping,
+                    $config->keyRemapping,
+                    $copier,
+                    $monitor,
+                    $index + 1,
+                    count($sortedTables),
+                );
+
+                $tableDuration = microtime(true) - $tableStart;
+
+                $status = $failed ? TableRunStatus::Failed : TableRunStatus::Transferred;
+
+                if ($failed) {
+                    $success = false;
+                    $log->error('table_transfer_failed', ['table' => $tableName, 'reason' => $reason]);
+                } else {
+                    $log->info('table_transferred', ['table' => $tableName, 'rows' => $rows, 'skipped' => $skipped]);
+                }
+
+                $tableResults[] = new TableRunResultData($tableName, $status, $rows, $skipped, $tableDuration, $reason);
+                $totalRows += $rows;
+                $totalSkipped += $skipped;
+                ($onProgress)($tableName, $status, $rows, $skipped, $skippedRows);
+
+                if ($failed && $breakOnFailure) {
                     break;
                 }
 
-                continue;
-            }
-
-            if (! $sourceSchema->hasTable($tableName)) {
-                $tableResults[] = new TableRunResultData($tableName, TableRunStatus::NotFound, 0, 0, 0.0, null);
-                $log->warning('table_not_found', ['table' => $tableName]);
-                ($onProgress)($tableName, TableRunStatus::NotFound, 0, 0, []);
-
-                continue;
-            }
-
-            if ($onTableStart !== null) {
-                $onTableStart($tableName);
-            }
-
-            $tableStart = microtime(true);
-            $sourceTable = $sourceSchema->getTable($tableName);
-            $pkColumns = $sourceTable instanceof TableSchemaData
-            ? array_values(array_map(
-                static fn (ColumnSchemaData $c): string => $c->name,
-                array_filter($sourceTable->columns, static fn (ColumnSchemaData $c): bool => $c->isPrimary)
-            ))
-            : [];
-
-            [$rows, $skipped, $failed, $reason, $skippedRows] = $this->transferTable(
-                $log,
-                $config->options,
-                $tableConfig,
-                $source,
-                $target,
-                $pkColumns,
-                $engine,
-                $keyRemapping,
-                $config->keyRemapping,
-                $monitor,
-                $index + 1,
-                count($sortedTables),
-            );
-
-            $tableDuration = microtime(true) - $tableStart;
-
-            $status = $failed ? TableRunStatus::Failed : TableRunStatus::Transferred;
-
-            if ($failed) {
-                $success = false;
-                $log->error('table_transfer_failed', ['table' => $tableName, 'reason' => $reason]);
-            } else {
-                $log->info('table_transferred', ['table' => $tableName, 'rows' => $rows, 'skipped' => $skipped]);
-            }
-
-            $tableResults[] = new TableRunResultData($tableName, $status, $rows, $skipped, $tableDuration, $reason);
-            $totalRows += $rows;
-            $totalSkipped += $skipped;
-            ($onProgress)($tableName, $status, $rows, $skipped, $skippedRows);
-
-            if ($failed && $breakOnFailure) {
-                break;
-            }
-
-            if (! $failed && $sourceTable instanceof TableSchemaData) {
-                $pkColumn = $this->findIntegerPkColumn($target, $sourceTable);
-                if ($pkColumn !== null) {
-                    try {
-                        $this->replicator->correctAutoIncrement($target, $tableName, $pkColumn);
-                    } catch (Throwable $e) {
-                        $log->warning('auto_increment_correction_failed', ['table' => $tableName, 'error' => $e->getMessage()]);
+                if (! $failed && $sourceTable instanceof TableSchemaData) {
+                    $pkColumn = $this->findIntegerPkColumn($target, $sourceTable);
+                    if ($pkColumn !== null) {
+                        try {
+                            $this->replicator->correctAutoIncrement($target, $tableName, $pkColumn, $targetConn);
+                        } catch (Throwable $e) {
+                            $log->warning('auto_increment_correction_failed', ['table' => $tableName, 'error' => $e->getMessage()]);
+                        }
                     }
                 }
             }
+
+            // Les clés étrangères viennent après les lignes : la copie n'a pas à suivre l'ordre de leurs dépendances.
+            $this->replicator->addForeignKeys($source, $target, $sourceSchema, $createdTables, $targetConn, $onSchemaWarning);
+        } finally {
+            if ($config->options->disableForeignKeyChecks) {
+                $this->enableFkChecks($targetConn, $target);
+            }
+
+            DB::purge($sourceConn);
+            DB::purge($targetConn);
         }
 
         $duration = microtime(true) - $start;
@@ -216,136 +254,79 @@ class CloningRunOrchestrator
         );
     }
 
+    /**
+     * Colonne dont la cible génère les valeurs et qu'il faut faire repartir après la copie : la clé primaire entière
+     * d'une table MySQL ou MariaDB, la clé auto-incrémentée d'une table PostgreSQL.
+     */
     private function findIntegerPkColumn(ConnectionData $target, TableSchemaData $table): ?string
     {
-        if (! in_array($target->type, [DatabaseConnectionType::Mysql, DatabaseConnectionType::MariaDB], true)) {
-            return null;
-        }
-
         $pkColumns = array_values(array_filter($table->columns, static fn (ColumnSchemaData $c): bool => $c->isPrimary));
 
         if (count($pkColumns) !== 1) {
             return null;
         }
 
-        $intTypes = ['int', 'bigint', 'mediumint', 'smallint', 'tinyint', 'integer'];
-
-        if (! in_array(strtolower($pkColumns[0]->type), $intTypes, true)) {
-            return null;
-        }
-
-        return $pkColumns[0]->name;
+        return match ($target->type) {
+            DatabaseConnectionType::Mysql, DatabaseConnectionType::MariaDB => in_array(strtolower($pkColumns[0]->type), ['int', 'bigint', 'mediumint', 'smallint', 'tinyint', 'integer'], true) ? $pkColumns[0]->name : null,
+            DatabaseConnectionType::PostgreSQL => $pkColumns[0]->autoIncrement ? $pkColumns[0]->name : null,
+            default => null,
+        };
     }
 
+    /**
+     * @param  list<string>  $pkColumns
+     * @return array{int, int, bool, ?string, list<SkippedRow>}
+     *
+     * @throws CloningCancelledException
+     */
     private function transferTable(
         CloningAuditLog $log,
         CloningOptionsData $options,
         TableCloningConfigData $tableConfig,
+        TableSchemaData $sourceTable,
+        string $sourceConn,
         ConnectionData $source,
+        string $targetConn,
         ConnectionData $target,
         array $pkColumns,
         AnonymizationEngine $engine,
-        ?KeyRemappingService $keyRemapping = null,
-        ?KeyRemappingConfigData $keyRemappingConfig = null,
-        ?CloningMonitor $monitor = null,
-        int $position = 0,
-        int $tableCount = 0,
+        ?KeyRemappingService $keyRemapping,
+        ?KeyRemappingConfigData $keyRemappingConfig,
+        ?SameServerCopier $copier,
+        ?CloningMonitor $monitor,
+        int $position,
+        int $tableCount,
     ): array {
-        $sourceConn = $this->connector->open($source);
-        $targetConn = $this->connector->open($target);
-
-        $rows = 0;
-        $skipped = 0;
-        $offset = 0;
-        $chunkSize = $options->chunkSize;
-        $firstInsertError = null;
-
-        $skippedRows = [];
-
         try {
-            if ($options->disableForeignKeyChecks) {
-                $this->disableFkChecks($targetConn, $target);
-            }
-
             if ($tableConfig->rows->clear !== ClearMode::None) {
                 $this->clearTable($targetConn, $tableConfig->tableName, $tableConfig->rows->clear, $target);
             }
 
-            $monitor?->tableStarted($tableConfig->tableName, $position, $tableCount, $this->expectedRows($sourceConn, $tableConfig));
+            $expectedRows = $this->expectedRows($sourceConn, $tableConfig);
+            $monitor?->tableStarted($tableConfig->tableName, $position, $tableCount, $expectedRows);
 
-            do {
-
-                $chunk = DB::connection($sourceConn)->select(
-                    $this->buildChunkQuery($tableConfig, $source, $offset, $chunkSize)
-                );
-
-                if ($chunk === []) {
-                    break;
-                }
-
-                $transformed = $this->transformChunk($chunk, $tableConfig, $engine, $keyRemapping, $keyRemappingConfig);
-
-                try {
-                    DB::connection($targetConn)->table($tableConfig->tableName)->insert($transformed);
-                    $rows += count($transformed);
-                } catch (Throwable $bulkError) {
-                    $firstInsertError ??= $bulkError->getMessage();
-
-                    foreach ($transformed as $rowIndexInChunk => $row) {
-                        try {
-                            DB::connection($targetConn)->table($tableConfig->tableName)->insert($row);
-                            $rows++;
-                        } catch (Throwable $rowError) {
-                            $skipped++;
-
-                            $sourceRow = (array) $chunk[$rowIndexInChunk];
-                            $pkSnapshot = $this->extractPkSnapshot($sourceRow, $pkColumns);
-                            $skippedRow = new SkippedRow(
-                                tableName: $tableConfig->tableName,
-                                chunkOffset: $offset,
-                                rowIndex: $rowIndexInChunk,
-                                pkSnapshot: $pkSnapshot,
-                                sqlError: $rowError->getMessage(),
-                            );
-                            $skippedRows[] = $skippedRow;
-                            $log->warning('row_skipped', [
-                                'table' => $skippedRow->tableName,
-                                'chunk_offset' => $skippedRow->chunkOffset,
-                                'row_index' => $skippedRow->rowIndex,
-                                'pk' => $skippedRow->pkSnapshot,
-                                'error' => $skippedRow->sqlError,
-                            ]);
-                        }
-                    }
-                }
-
-                $offset += count($chunk);
-
-                $monitor?->rowsCopied($offset);
-                $this->stopIfCancelled($monitor);
-            } while (count($chunk) === $chunkSize);
-
-            if ($rows === 0 && $skipped > 0) {
-                $reason = sprintf('All %d rows failed to insert', $skipped);
-                if ($firstInsertError !== null) {
-                    $reason .= sprintf(': %s', $firstInsertError);
-                }
-
-                return [0, $skipped, true, $reason, $skippedRows];
-            }
-
-            return [$rows, $skipped, false, null, $skippedRows];
+            return new TableTransfer(
+                log: $log,
+                config: $tableConfig,
+                schema: $sourceTable,
+                source: DB::connection($sourceConn)->getPdo(),
+                sourceType: $source->type,
+                target: DB::connection($targetConn)->getPdo(),
+                targetType: $target->type,
+                transformer: RowTransformer::for($tableConfig, $engine, $keyRemapping, $keyRemappingConfig),
+                copier: $copier,
+                chunkSize: $options->chunkSize,
+                expectedRows: $expectedRows,
+                primaryKey: $pkColumns,
+                afterChunk: function (int $rows) use ($monitor): void {
+                    $monitor?->rowsCopied($rows);
+                    $this->stopIfCancelled($monitor);
+                },
+            )->run();
         } catch (CloningCancelledException $cancelled) {
             throw $cancelled;
         } catch (Throwable $throwable) {
-            return [$rows, $skipped, true, $throwable->getMessage(), $skippedRows];
-        } finally {
-            if ($options->disableForeignKeyChecks) {
-                $this->enableFkChecks($targetConn, $target);
-            }
-
-            DB::purge($sourceConn);
-            DB::purge($targetConn);
+            return [0, 0, true, $throwable->getMessage(), []];
         }
     }
 
@@ -373,86 +354,6 @@ class CloningRunOrchestrator
         return $config->rows->strategy === 'full' || $config->rows->limit === null ? $count : min($count, $config->rows->limit);
     }
 
-    private function transformChunk(
-        array $chunk,
-        TableCloningConfigData $tableConfig,
-        AnonymizationEngine $engine,
-        ?KeyRemappingService $keyRemapping,
-        ?KeyRemappingConfigData $keyRemappingConfig,
-    ): array {
-
-        $transformed = [];
-
-        foreach ($chunk as $row) {
-            $rowArray = (array) $row;
-            $transformedRow = [];
-
-            foreach ($rowArray as $col => $val) {
-                if (! is_string($col)) {
-                    continue;
-                }
-
-                $colConfig = $tableConfig->getColumn($col);
-                $transformedRow[$col] = $colConfig instanceof ColumnCloningConfigData ? $engine->transform($val, $colConfig) : $val;
-            }
-
-            if ($keyRemapping instanceof KeyRemappingService && $keyRemappingConfig instanceof KeyRemappingConfigData) {
-                $transformedRow = $keyRemapping->applyToRow($transformedRow, $tableConfig->tableName, $keyRemappingConfig);
-            }
-
-            $transformed[] = $transformedRow;
-        }
-
-        return $transformed;
-    }
-
-    private function extractPkSnapshot(array $sourceRow, array $pkColumns): ?array
-    {
-        if ($pkColumns === []) {
-            return null;
-        }
-
-        $snapshot = [];
-        foreach ($pkColumns as $col) {
-            if (array_key_exists($col, $sourceRow)) {
-                $snapshot[$col] = $sourceRow[$col];
-            }
-        }
-
-        return $snapshot === [] ? null : $snapshot;
-    }
-
-    private function buildChunkQuery(TableCloningConfigData $config, ConnectionData $source, int $offset, int $limit): string
-    {
-        $table = $config->tableName;
-        $rows = $config->rows;
-        $driver = $source->type->value;
-
-        $quotedTable = $this->quoteTable($table, $source->type);
-
-        if ($rows->strategy === 'full') {
-            return match ($driver) {
-                'pgsql', 'sqlite' => sprintf('SELECT * FROM "%s" LIMIT %d OFFSET %d', $table, $limit, $offset),
-                default => sprintf('SELECT * FROM `%s` LIMIT %d OFFSET %d', $table, $limit, $offset),
-            };
-        }
-
-        $totalLimit = $rows->limit ?? PHP_INT_MAX;
-        $actualLimit = min($limit, max(0, $totalLimit - $offset));
-
-        if ($actualLimit <= 0) {
-            return sprintf('SELECT * FROM %s WHERE 1=0', $quotedTable);
-        }
-
-        $sortCol = $rows->sortBy ?? 'id';
-        $direction = $rows->strategy === 'last' ? 'DESC' : 'ASC';
-
-        return match ($driver) {
-            'pgsql', 'sqlite' => sprintf('SELECT * FROM "%s" ORDER BY "%s" %s LIMIT %d OFFSET %d', $table, $sortCol, $direction, $actualLimit, $offset),
-            default => sprintf('SELECT * FROM `%s` ORDER BY `%s` %s LIMIT %d OFFSET %d', $table, $sortCol, $direction, $actualLimit, $offset),
-        };
-    }
-
     private function quoteTable(string $name, DatabaseConnectionType $driver): string
     {
         return match ($driver) {
@@ -476,12 +377,31 @@ class CloningRunOrchestrator
         }
     }
 
+    /**
+     * La cible n'attend plus que chaque validation soit écrite sur le disque, pour cette seule connexion : sur un disque
+     * ordinaire, ces attentes prennent plus de la moitié du clonage d'une base SQLite. Sous SQLite, une coupure de courant
+     * ou un plantage du système pendant le clonage peut alors abîmer le fichier cible, pas un arrêt de PHP ; sous
+     * PostgreSQL, elle ne perd que les dernières validations. MySQL n'offre pas ce réglage à une session.
+     */
+    private function writeWithoutWaitingForDisk(string $connName, ConnectionData $connection): void
+    {
+        try {
+            match ($connection->type) {
+                DatabaseConnectionType::Sqlite => DB::connection($connName)->statement('PRAGMA synchronous = OFF'),
+                DatabaseConnectionType::PostgreSQL => DB::connection($connName)->statement('SET synchronous_commit = off'),
+                default => null,
+            };
+        } catch (Throwable) {
+        }
+    }
+
     private function disableFkChecks(string $connName, ConnectionData $connection): void
     {
         try {
             match ($connection->type->value) {
                 'mysql', 'mariadb' => DB::connection($connName)->statement('SET FOREIGN_KEY_CHECKS=0'),
                 'pgsql' => DB::connection($connName)->statement('SET session_replication_role = replica'),
+                'sqlite' => DB::connection($connName)->statement('PRAGMA foreign_keys = OFF'),
                 default => null,
             };
         } catch (Throwable) {

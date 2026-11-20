@@ -10,5 +10,11 @@ final readonly class TableSchemaData
         public string $name,
         public array $columns,
         public array $foreignKeys,
+        /** @var list<IndexSchemaData> */
+        public array $indexes = [],
+        /** @var list<string> Colonnes de la clé primaire, dans l'ordre de son index. */
+        public array $primaryKey = [],
+        /** @var list<ForeignKeyConstraintData> Clés étrangères complètes, à recréer dans la cible. */
+        public array $constraints = [],
     ) {}
 }
