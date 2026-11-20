@@ -115,6 +115,7 @@ class FileExplorerService
 
         $folders = [];
         $files = [];
+        $extensions = array_map(strtolower(...), $this->targetFileExtensions);
 
         foreach ($entries as $entry) {
             if ($entry === '.' || $entry === '..' || str_starts_with($entry, '.')) {
@@ -123,11 +124,13 @@ class FileExplorerService
 
             $childPath = $path.DIRECTORY_SEPARATOR.$entry;
 
-            if (! is_readable($childPath)) {
-                continue;
-            }
-
+            // Only the folders are checked for reading: Windows answers is_readable() by reading the permissions of the
+            // entry, which costs more than listing it, and a folder like Downloads holds thousands of files.
             if (is_dir($childPath)) {
+                if (! is_readable($childPath)) {
+                    continue;
+                }
+
                 $node = [
                     'id' => $childPath,
                     'name' => $entry,
@@ -146,11 +149,8 @@ class FileExplorerService
                     continue;
                 }
 
-                if (! empty($this->targetFileExtensions)) {
-                    $extension = pathinfo($entry, PATHINFO_EXTENSION);
-                    if (! in_array(strtolower($extension), array_map('strtolower', $this->targetFileExtensions))) {
-                        continue;
-                    }
+                if ($extensions !== [] && ! in_array(strtolower(pathinfo($entry, PATHINFO_EXTENSION)), $extensions, true)) {
+                    continue;
                 }
 
                 $files[] = [

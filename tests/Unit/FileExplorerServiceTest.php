@@ -82,3 +82,16 @@ it('ignores a revealed path outside of the explored folder', function () {
 
     expect(array_column($tree['children'], 'name'))->toBe(['projects', 'notes.txt']);
 });
+
+it('lists a file it cannot read, but not a folder it cannot open', function () {
+    $locked = $this->home.DIRECTORY_SEPARATOR.'locked';
+    mkdir($locked);
+    chmod($locked, 0);
+    chmod($this->home.DIRECTORY_SEPARATOR.'notes.txt', 0);
+
+    $tree = (new FileExplorerService(systemInfo: $this->systemInfo))->getFolderTree();
+
+    chmod($locked, 0700);
+
+    expect(array_column($tree['children'], 'name'))->toBe(['projects', 'notes.txt']);
+})->skip(PHP_OS_FAMILY === 'Windows' || posix_getuid() === 0, 'Permissions are not enforced for this user.');
