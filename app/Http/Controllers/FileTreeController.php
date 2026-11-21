@@ -10,6 +10,11 @@ use Illuminate\Support\Str;
 
 class FileTreeController extends Controller
 {
+    /**
+     * The entries of one folder, and of the folders leading to the revealed path: the picker loads a folder when it is
+     * opened. Telling a folder from a file reads each entry, which a hard disk does at a few milliseconds each the first
+     * time: preloading the subfolders of the home folder too took seconds on Windows.
+     */
     public function __invoke(Request $request): JsonResponse
     {
         $path = $request->input('path', null);
@@ -23,7 +28,7 @@ class FileTreeController extends Controller
 
         $service = new FileExplorerService(onlyFolders: $onlyFolders, targetFileExtensions: $extensionsArray);
 
-        return Response::json($service->getFolderTree($path, 2, $request->query('reveal')));
+        return Response::json($service->getFolderTree($path, 1, $request->query('reveal')));
     }
 
     public function getChildren(string $path): array

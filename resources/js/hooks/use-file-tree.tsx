@@ -232,11 +232,12 @@ const useFileTree = (
         return onlyFolders ? initialRootFolder.id : null;
     });
 
+    /**
+     * The folders whose entries the server sent: the root, and those leading to the initial value. Any other folder is
+     * read when it is opened.
+     */
     const resolvedRef = useRef<Set<string>>(
-        new Set([
-            ...(initialRootFolder.children ?? []).map((child) => child.id),
-            ...initialBranch.filter((node) => node.type === 'folder').map((node) => node.id),
-        ]),
+        new Set(initialBranch.filter((node) => node.type === 'folder').map((node) => node.id)),
     );
 
     const fileIndex = useMemo(() => buildIndex([rootFolder]), [rootFolder]);
@@ -268,10 +269,6 @@ const useFileTree = (
             }
 
             resolvedRef.current.add(itemId);
-
-            fresh.children?.forEach((child) =>
-                resolvedRef.current.add(child.id),
-            );
 
             setRootFolder((prev) => mergeNode(prev, fresh));
 
