@@ -1,7 +1,7 @@
+import type { FormDataErrors } from '@inertiajs/core';
 import { Form } from '@inertiajs/react';
 import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { PlugIcon } from 'lucide-react';
-import type { FormDataErrors } from 'node_modules/@inertiajs/core/types/types';
 import { Fragment } from 'react';
 import { toast } from 'sonner';
 import Button from '@/components/form/button';
@@ -10,7 +10,11 @@ import KeyValue from '@/components/form/key-value';
 import type { Provider } from '@/types/models/provider';
 import ProviderController from '@/wayfinder/actions/App/Http/Controllers/ProviderController';
 
-const CustomProviderFields = ({ errors }: { errors: FormDataErrors<Record<string, any>> }) => {
+const CustomProviderFields = ({
+    errors,
+}: {
+    errors: FormDataErrors<Record<string, any>>;
+}) => {
     const { t } = useLaravelReactI18n();
 
     return (
@@ -43,9 +47,11 @@ const CustomProviderFields = ({ errors }: { errors: FormDataErrors<Record<string
             <KeyValue
                 label={t('settings.providers.models')}
                 description={t('settings.providers.models_description')}
-                name={"models"}
+                name={'models'}
                 keyPlaceholder={t('settings.providers.model_id_placeholder')}
-                valuePlaceholder={t('settings.providers.model_label_placeholder')}
+                valuePlaceholder={t(
+                    'settings.providers.model_label_placeholder',
+                )}
                 addLabel={t('settings.providers.add_model')}
                 minItems={1}
                 error={errors.models}
@@ -73,12 +79,12 @@ const ConnectProviderForm = ({
         <Form
             className="flex flex-col gap-4"
             onSuccess={(page) => {
-                if(page.flash.error) {
+                if (page.flash.error) {
                     toast.error(page.flash.error as string, {
-                        duration: 10000
+                        duration: 10000,
                     });
 
-                    return
+                    return;
                 }
 
                 toast.success(page.flash.success as string);
@@ -96,17 +102,29 @@ const ConnectProviderForm = ({
                     {provider ? (
                         <>
                             <Input
-                                label={t(isOllama ? 'settings.providers.optional_api_key' : 'settings.providers.provider_api_key', { provider: provider.label })}
+                                label={t(
+                                    isOllama
+                                        ? 'settings.providers.optional_api_key'
+                                        : 'settings.providers.provider_api_key',
+                                    { provider: provider.label },
+                                )}
                                 name="api_key"
                                 error={errors.api_key}
                                 placeholder={t('settings.providers.paste_key')}
-                                description={t(isOllama ? 'settings.providers.api_key_optional_description' : 'settings.providers.api_key_description', { provider: provider.label })}
+                                description={t(
+                                    isOllama
+                                        ? 'settings.providers.api_key_optional_description'
+                                        : 'settings.providers.api_key_description',
+                                    { provider: provider.label },
+                                )}
                             />
                             {isOllama && (
                                 <Input
                                     label={t('settings.providers.api_url')}
                                     name="api_url"
-                                    placeholder={t('settings.providers.api_url_placeholder')}
+                                    placeholder={t(
+                                        'settings.providers.api_url_placeholder',
+                                    )}
                                     error={errors.api_url}
                                     defaultValue={provider.api_url}
                                 />
