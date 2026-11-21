@@ -147,6 +147,9 @@ build_macos_binary() {
     step "Binaire macOS $arch (FrankenPHP $frankenphp_version compilé sur cette machine, avec Homebrew)"
     [ -d "$source" ] || git clone --quiet --depth 1 --branch "$frankenphp_version" https://github.com/php/frankenphp "$source"
     # dist/, dans le dossier de FrankenPHP, garde ses téléchargements et ses bibliothèques d'un build à l'autre.
+    # static-php-cli skips FrankenPHP when the binary of the previous build is still there, with the previous
+    # application in it: it goes first.
+    rm -f "$source/dist/buildroot/bin/frankenphp" "$source/dist/frankenphp-mac-"*
     (cd "$source" && EMBED="$app" PHP_VERSION="${PHP_VERSION:-8.5}" PHP_EXTENSIONS="$extensions" XCADDY_ARGS="$xcaddy_args" ./build-static.sh)
     rm -rf "$output"
     mkdir -p "$output"
