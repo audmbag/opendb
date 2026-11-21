@@ -124,7 +124,7 @@ it('brings back the messages already sent with the arrows', function (array $key
     'the last one' => [[Key::UP, Key::ENTER], 'Second'],
     'an older one' => [[Key::UP, Key::UP, Key::UP, Key::ENTER], 'Premier'],
     'back to what was being written' => [['B', 'r', Key::UP, Key::UP, Key::DOWN, Key::DOWN, Key::ENTER], 'Br'],
-]);
+])->skipOnWindows('Laravel Prompts draws no prompt on Windows: the chat asks through its fallback, without history.');
 
 it('breaks a styled line at the given width and keeps its style on each piece', function () {
     $theme = new Theme(decorated: true);
