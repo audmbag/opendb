@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.0-beta.3](https://github.com/audmbag/opendb/compare/v0.1.0-beta.2...v0.1.0-beta.3) (2026-11-21)
+
+
+### Bug Fixes
+
+* **launcher:** run the artisan of OpenDB, not the one of the current folder ([2f1471b](https://github.com/audmbag/opendb/commit/2f1471b5fc21b83b348d4b1e4f21ca88a75def5d))
+
 ## [0.1.0-beta.2](https://github.com/audmbag/opendb/compare/v0.1.0-beta.1...v0.1.0-beta.2) (2026-11-21)
 
 
