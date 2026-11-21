@@ -44,16 +44,15 @@ jobs:
           key: composer-${{ hashFiles('composer.lock') }}
           restore-keys: composer-
 
+      # Sans .env, l'application se croit installée et refuse les commandes de Laravel, dont package:discover.
       - name: Install PHP dependencies
-        run: composer install --no-interaction --prefer-dist --no-progress
+        run: |
+          cp .env.example .env
+          composer install --no-interaction --prefer-dist --no-progress
+          php artisan key:generate
 
       - name: Install front dependencies
         run: bun install --frozen-lockfile
-
-      - name: Prepare the environment
-        run: |
-          cp .env.example .env
-          php artisan key:generate
 
       # Les pages rendues par les tests demandent le manifeste de Vite.
       - name: Build the front

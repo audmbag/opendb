@@ -37,9 +37,12 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
 
+      # Sans .env, l'application se croit installée et refuse les commandes de Laravel, dont package:discover.
       - name: Install dependencies
         run: |
+          cp .env.example .env
           composer install --no-interaction --prefer-dist --no-progress
+          php artisan key:generate
           bun install --frozen-lockfile
 
       - name: Pint
@@ -47,10 +50,7 @@ jobs:
 
       # Les routes de Wayfinder et les traductions qu'importe le code TypeScript sont générées par le build.
       - name: Generate the routes and the translations
-        run: |
-          cp .env.example .env
-          php artisan key:generate
-          bun run build
+        run: bun run build
 
       - name: TypeScript
         run: bun run types:check
