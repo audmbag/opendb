@@ -37,21 +37,17 @@ You choose where the model runs and what it can read.
 OpenDB ships as a single self-contained binary: no PHP, web server or Node.js to install. The installers run without
 administrator rights.
 
-<!-- x-release-please-start-version -->
-
 **Linux** (x86_64):
 
 ```sh
-curl -fsSL https://github.com/audmbag/opendb/releases/download/v0.1.0-beta.4/install.sh | OPENDB_VERSION=v0.1.0-beta.4 sh
+curl -fsSL https://github.com/audmbag/opendb/releases/latest/download/install.sh | sh
 ```
 
 **Windows** (x86_64, PowerShell):
 
 ```powershell
-$env:OPENDB_VERSION = 'v0.1.0-beta.4'; irm https://github.com/audmbag/opendb/releases/download/v0.1.0-beta.4/install.ps1 | iex
+irm https://github.com/audmbag/opendb/releases/latest/download/install.ps1 | iex
 ```
-
-<!-- x-release-please-end -->
 
 macOS builds (Apple Silicon and Intel) come with the next releases. You can also download an archive from the
 [releases page](https://github.com/audmbag/opendb/releases) and check it against `SHA256SUMS`.
@@ -73,7 +69,8 @@ Other useful commands:
 ```sh
 opendb app:help                # every command
 opendb chat                    # the chat, in the terminal
-opendb self-update --rollback  # go back to the previous version
+opendb self-update             # move to the latest version
+opendb self-update --rollback  # go back to the previous one
 ```
 
 Everything OpenDB writes (its configuration, its own database, logs) lives in `~/.opendb`.

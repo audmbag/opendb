@@ -296,3 +296,12 @@ jobs:
               --generate-notes \
               $prerelease
           fi
+
+      # Avant la 1.0, chaque version est une bêta. GitHub ne tient jamais une préversion pour la dernière : releases/latest,
+      # d'où install.sh, install.ps1 et opendb self-update téléchargent, n'en trouverait aucune. La version le devient
+      # ici, une fois ses fichiers en ligne : d'ici là, releases/latest mène encore à la précédente, complète.
+      - name: Make the release the latest one
+        if: ${{ startsWith(env.VERSION, 'v0.') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$VERSION" --repo "$GITHUB_REPOSITORY" --prerelease=false --latest
