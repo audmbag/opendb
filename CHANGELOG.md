@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.0-beta.5](https://github.com/audmbag/opendb/compare/v0.1.0-beta.4...v0.1.0-beta.5) (2026-11-21)
+
+
+### Bug Fixes
+
+* **release:** make each beta the latest release once its files are online ([0a19275](https://github.com/audmbag/opendb/commit/0a19275a85d127f0dd8839563c84201ad98fe76c))
+
 ## [0.1.0-beta.4](https://github.com/audmbag/opendb/compare/v0.1.0-beta.3...v0.1.0-beta.4) (2026-11-21)
 
 
