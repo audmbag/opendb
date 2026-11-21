@@ -14,10 +14,12 @@ it('tells how to change the password every installation starts with', function (
 it('names the command of the installed application', function () {
     config(['opendb.binary' => '/home/jane/.local/bin/opendb']);
     User::factory()->create(['name' => 'opendb', 'password' => 'opendb']);
+    // The name is quoted for the shell of the system: cmd and PowerShell take double quotes.
+    $quotedName = PHP_OS_FAMILY === 'Windows' ? '"opendb"' : "'opendb'";
 
     $this->artisan('ai:models', ['--name' => 'opendb'])
         ->expectsQuestion('Mot de passe', 'opendb')
-        ->expectsOutputToContain("Pour le changer : opendb user:update 'opendb'")
+        ->expectsOutputToContain("Pour le changer : opendb user:update {$quotedName}")
         ->assertSuccessful();
 });
 
