@@ -41,11 +41,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           persist-credentials: false
 
-      - uses: shivammathur/setup-php@7c071dfe9dc99bdf297fa79cb49ea005b9fcadbc # v2
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
         with:
           php-version: '8.5'
           extensions: intl, pdo_sqlite, sqlite3, zip, sodium
@@ -69,7 +69,7 @@ jobs:
       - name: Pack the application
         run: tar -C build/dist -cf app.tar app
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: app
           path: app.tar
@@ -86,23 +86,23 @@ jobs:
     # La première compilation de PHP et de ses bibliothèques prend près d'une heure.
     timeout-minutes: 180
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           persist-credentials: false
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: app
 
       - name: Unpack the application
         run: mkdir -p build/dist && tar -C build/dist -xf app.tar
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
       # Les téléchargements et les bibliothèques compilées par static-php-cli, gardés d'une publication à l'autre.
       - name: Restore the cache of static-php-cli
         id: cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: static-php-cache
           key: static-php-linux-${{ matrix.arch }}-${{ github.run_id }}
@@ -125,7 +125,7 @@ jobs:
       - name: Smoke test
         run: build/smoke-test.sh build/dist/release/opendb-linux-${{ matrix.arch }}.tar.xz
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-linux-${{ matrix.arch }}
           path: build/dist/release/opendb-linux-${{ matrix.arch }}.tar.xz
@@ -146,11 +146,11 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 180
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           persist-credentials: false
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: app
 
@@ -158,7 +158,7 @@ jobs:
         run: mkdir -p build/dist && tar -C build/dist -xf app.tar
 
       - name: Restore the cache of static-php-cli
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: build/cache/frankenphp-${{ env.FRANKENPHP_VERSION }}/dist
           key: static-php-macos-${{ matrix.arch }}-${{ github.run_id }}
@@ -170,7 +170,7 @@ jobs:
       - name: Smoke test
         run: build/smoke-test.sh build/dist/release/opendb-macos-${{ matrix.arch }}.tar.xz
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-macos-${{ matrix.arch }}
           path: build/dist/release/opendb-macos-${{ matrix.arch }}.tar.xz
@@ -182,11 +182,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           persist-credentials: false
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: app
 
@@ -196,7 +196,7 @@ jobs:
       - name: Assemble the package
         run: build/build.sh windows --reuse-app
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-windows-x86_64
           path: build/dist/release/opendb-windows-x86_64.zip
@@ -208,11 +208,11 @@ jobs:
     runs-on: windows-2025
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           persist-credentials: false
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: release-windows-x86_64
           path: release
@@ -260,11 +260,11 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           persist-credentials: false
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: release-*
           path: release
