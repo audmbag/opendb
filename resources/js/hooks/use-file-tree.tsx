@@ -124,26 +124,44 @@ function getDisplayPath(rootId: string, path: string): string {
     return `~${path.slice(rootId.length)}`;
 }
 
-const isSelectableNode = (node: Pick<FileNode, 'type'>, onlyFolders?: boolean) =>
-    onlyFolders ? node.type === 'folder' : node.type === 'file';
+const isSelectableNode = (
+    node: Pick<FileNode, 'type'>,
+    onlyFolders?: boolean,
+) => (onlyFolders ? node.type === 'folder' : node.type === 'file');
 
-const useFileFetch = (onlyFolders?: boolean, targetFileExtensions?: string[], initialPath?: string) => {
+const useFileFetch = (
+    onlyFolders?: boolean,
+    targetFileExtensions?: string[],
+    initialPath?: string,
+) => {
     const [rootFolder, setRootFolder] = useState<FileNode | null>(null);
     const [hasError, setHasError] = useState(false);
     const hasFetchedRef = useRef(false);
 
     const { get, processing } = useHttp<null, FileNode>();
-    const { get: getChild, processing: childProcessing } = useHttp<null, FileNode>();
+    const { get: getChild, processing: childProcessing } = useHttp<
+        null,
+        FileNode
+    >();
 
     const extensions = targetFileExtensions?.join(',');
 
     const fetchRootFolder = useCallback(() => {
         setHasError(false);
 
-        get(FileTreeController.url({ query: { onlyFolders, targetFileExtensions: extensions, reveal: initialPath || undefined } }), {
-            onHttpException: () => false,
-            onNetworkError: () => false,
-        })
+        get(
+            FileTreeController.url({
+                query: {
+                    onlyFolders,
+                    targetFileExtensions: extensions,
+                    reveal: initialPath || undefined,
+                },
+            }),
+            {
+                onHttpException: () => false,
+                onNetworkError: () => false,
+            },
+        )
             .then((response) => {
                 if (!response) {
                     setHasError(true);
@@ -168,10 +186,19 @@ const useFileFetch = (onlyFolders?: boolean, targetFileExtensions?: string[], in
 
     const fetchFolder = useCallback(
         async (path: string): Promise<FileNode> => {
-            const response = await getChild(FileTreeController.url({ query: { path, onlyFolders, targetFileExtensions: extensions } }), {
-                onHttpException: () => false,
-                onNetworkError: () => false,
-            });
+            const response = await getChild(
+                FileTreeController.url({
+                    query: {
+                        path,
+                        onlyFolders,
+                        targetFileExtensions: extensions,
+                    },
+                }),
+                {
+                    onHttpException: () => false,
+                    onNetworkError: () => false,
+                },
+            );
 
             if (!response) {
                 throw new Error(trans('files.read_folder_failed', { path }));
@@ -182,7 +209,14 @@ const useFileFetch = (onlyFolders?: boolean, targetFileExtensions?: string[], in
         [getChild, onlyFolders, extensions],
     );
 
-    return { rootFolder, isFetching: processing, hasError, retry: fetchRootFolder, fetchFolder, childProcessing };
+    return {
+        rootFolder,
+        isFetching: processing,
+        hasError,
+        retry: fetchRootFolder,
+        fetchFolder,
+        childProcessing,
+    };
 };
 
 function mergeNode(root: FileNode, updated: FileNode): FileNode {
@@ -210,22 +244,35 @@ interface UseFileTreeOptions {
 const useFileTree = (
     initialRootFolder: FileNode,
     fetchFolder: (path: string) => Promise<FileNode>,
-    { onlyFolders, initialPath, onConfirm, indent = INDENT }: UseFileTreeOptions = {},
+    {
+        onlyFolders,
+        initialPath,
+        onConfirm,
+        indent = INDENT,
+    }: UseFileTreeOptions = {},
 ) => {
     const [rootFolder, setRootFolder] = useState<FileNode>(initialRootFolder);
-    const [failedItemIds, setFailedItemIds] = useState<Set<string>>(() => new Set());
+    const [failedItemIds, setFailedItemIds] = useState<Set<string>>(
+        () => new Set(),
+    );
 
     /**
      * Chemin vers la valeur initiale, préchargé par le serveur via le paramètre `reveal`.
      */
     const [initialBranch] = useState(() =>
-        initialPath ? findPathToNode(initialRootFolder, initialPath) : [initialRootFolder],
+        initialPath
+            ? findPathToNode(initialRootFolder, initialPath)
+            : [initialRootFolder],
     );
 
     const [selectedItemId, setSelectedItemId] = useState<string | null>(() => {
         const target = initialBranch[initialBranch.length - 1];
 
-        if (initialPath && target.id === initialPath && isSelectableNode(target, onlyFolders)) {
+        if (
+            initialPath &&
+            target.id === initialPath &&
+            isSelectableNode(target, onlyFolders)
+        ) {
             return target.id;
         }
 
@@ -237,7 +284,11 @@ const useFileTree = (
      * read when it is opened.
      */
     const resolvedRef = useRef<Set<string>>(
-        new Set(initialBranch.filter((node) => node.type === 'folder').map((node) => node.id)),
+        new Set(
+            initialBranch
+                .filter((node) => node.type === 'folder')
+                .map((node) => node.id),
+        ),
     );
 
     const fileIndex = useMemo(() => buildIndex([rootFolder]), [rootFolder]);
@@ -305,7 +356,10 @@ const useFileTree = (
         initialState: {
             expandedItems: initialBranch
                 .slice(1)
-                .filter((node) => node.type === 'folder' && node.id !== selectedItemId)
+                .filter(
+                    (node) =>
+                        node.type === 'folder' && node.id !== selectedItemId,
+                )
                 .map((node) => node.id),
             focusedItem: selectedItemId,
         },
@@ -336,9 +390,14 @@ const useFileTree = (
                 isEnabled: (instance) => {
                     const focused = instance.getFocusedItem()?.getItemData();
 
-                    return !instance.isSearchOpen() && !!focused && isSelectableNode(focused, onlyFolders);
+                    return (
+                        !instance.isSearchOpen() &&
+                        !!focused &&
+                        isSelectableNode(focused, onlyFolders)
+                    );
                 },
-                handler: (_, instance) => onConfirm?.(instance.getFocusedItem().getItemData()),
+                handler: (_, instance) =>
+                    onConfirm?.(instance.getFocusedItem().getItemData()),
             },
         },
         features: [
@@ -349,14 +408,18 @@ const useFileTree = (
         ],
     });
 
-    const hasRevealedRef = useRef(!selectedItemId || selectedItemId === initialRootFolder.id);
+    const hasRevealedRef = useRef(
+        !selectedItemId || selectedItemId === initialRootFolder.id,
+    );
 
     useEffect(() => {
         if (hasRevealedRef.current || !selectedItemId) {
             return;
         }
 
-        const item = tree.getItems().find((candidate) => candidate.getId() === selectedItemId);
+        const item = tree
+            .getItems()
+            .find((candidate) => candidate.getId() === selectedItemId);
 
         if (!item) {
             return;
@@ -374,8 +437,17 @@ const useFileTree = (
         setSelectedItemId,
         selectedFolder,
         failedItemIds,
-        isSelectable: (node: Pick<FileNode, 'type'>) => isSelectableNode(node, onlyFolders),
+        isSelectable: (node: Pick<FileNode, 'type'>) =>
+            isSelectableNode(node, onlyFolders),
     };
 };
 
-export { type FileNode, useFileFetch, useFileTree, getFileIcon, getDisplayPath, buildIndex, isSameOrParentPath };
+export {
+    type FileNode,
+    useFileFetch,
+    useFileTree,
+    getFileIcon,
+    getDisplayPath,
+    buildIndex,
+    isSameOrParentPath,
+};
