@@ -242,14 +242,16 @@ jobs:
           foreach ($attempt in 1..30) {
               try { $status = (Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8123/login).StatusCode; break } catch { Start-Sleep 1 }
           }
-          if ($status -ne 200) { throw "La page de connexion répond $status." }
+          if ($status -ne 200) { throw "La page de connexion repond $status." }
           # Par curl, comme les SDK des fournisseurs d'IA : sans les certificats du paquet, l'appel échouerait.
           $runtime = "$env:LOCALAPPDATA\opendb\current\runtime"
           $env:OPENDB_RUNTIME = $runtime
           $env:PHPRC = $runtime
-          $code = '$c = curl_init("https://api.github.com/zen"); curl_setopt_array($c, [CURLOPT_RETURNTRANSFER => true, CURLOPT_USERAGENT => "opendb"]); curl_exec($c); echo curl_getinfo($c, CURLINFO_HTTP_CODE), " ", curl_error($c); exit(curl_getinfo($c, CURLINFO_HTTP_CODE) === 200 ? 0 : 1);'
-          & "$runtime\frankenphp.exe" php-cli -r $code
-          if ($LASTEXITCODE -ne 0) { throw 'L appel HTTPS a échoué.' }
+          # Dans un fichier : Windows PowerShell retire les guillemets doubles des arguments passés à un programme.
+          $script = Join-Path $env:RUNNER_TEMP 'https.php'
+          Set-Content -Path $script -Encoding ascii -Value '<?php $c = curl_init("https://api.github.com/zen"); curl_setopt_array($c, [CURLOPT_RETURNTRANSFER => true, CURLOPT_USERAGENT => "opendb"]); curl_exec($c); echo curl_getinfo($c, CURLINFO_HTTP_CODE), " ", curl_error($c); exit(curl_getinfo($c, CURLINFO_HTTP_CODE) === 200 ? 0 : 1);'
+          & "$runtime\frankenphp.exe" php-cli $script
+          if ($LASTEXITCODE -ne 0) { throw 'L appel HTTPS a echoue.' }
 
   publish:
     needs: [linux, macos, windows-smoke-test]
