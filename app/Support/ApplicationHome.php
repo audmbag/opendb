@@ -89,12 +89,18 @@ final readonly class ApplicationHome
      * The variables the configuration reads to find the database and the caches of the framework. Nobody runs a queue
      * worker beside an installed copy: its jobs, like the title of a new conversation, run once the response is sent.
      *
+     * The database is written ahead in a log: in its default mode, SQLite creates, syncs and deletes a journal file for
+     * each statement, which the antivirus of Windows scans every time. The first launch, which runs every migration,
+     * took minutes so on a hard disk instead of seconds.
+     *
      * @return array<string, string>
      */
     public function environmentVariables(): array
     {
         return [
             'DB_DATABASE' => $this->databasePath(),
+            'DB_JOURNAL_MODE' => 'wal',
+            'DB_SYNCHRONOUS' => 'normal',
             'QUEUE_CONNECTION' => 'deferred',
             ...array_map($this->bootstrapCachePath(...), self::BOOTSTRAP_CACHES),
         ];
