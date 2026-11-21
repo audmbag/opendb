@@ -146,7 +146,7 @@ it('removes the copies the previous versions of the binary unpacked', function (
     expect($unpacked.'/frankenphp_1000_previous')->not->toBeDirectory()
         ->and($unpacked.'/frankenphp_1000_current')->toBeDirectory()
         ->and($unpacked.'/export-2026-11-19')->toBeDirectory();
-});
+})->skipOnWindows('It simulates Linux on paths of Windows; on Windows the package never unpacks itself.');
 
 it('leaves alone what lies next to a copy outside the folder of the user', function () {
     mkdir($this->root.'/frankenphp_1000_other');

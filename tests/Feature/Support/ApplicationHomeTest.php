@@ -63,7 +63,9 @@ it('points an installed copy to the folder of the user', function () {
 });
 
 it('keeps the caches in the folder of a Windows user', function () {
-    $system = new SystemInfoService(OperatingSystemEnum::WINDOWS, ApplicationHome::NAME, ['USERPROFILE' => 'C:\Users\someone']);
+    // On Windows, C:\Users\someone would really be written to, outside the folder of the test.
+    $profile = PHP_OS_FAMILY === 'Windows' ? str_replace('/', '\\', $this->root).'\someone' : 'C:\Users\someone';
+    $system = new SystemInfoService(OperatingSystemEnum::WINDOWS, ApplicationHome::NAME, ['USERPROFILE' => $profile]);
     $app = installedApplication($this->base);
     $home = ApplicationHome::detect($this->base, null, $system);
     $directory = getcwd();
@@ -78,7 +80,7 @@ it('keeps the caches in the folder of a Windows user', function () {
     }
 
     expect($app->getCachedPackagesPath())->toBe($home->bootstrapCacheDirectory().'\packages.php')
-        ->and($app->getCachedConfigPath())->toStartWith('C:\Users\someone\.opendb\cache\bootstrap\\');
+        ->and($app->getCachedConfigPath())->toStartWith($profile.'\.opendb\cache\bootstrap\\');
 });
 
 it('draws the key once, readable by the user alone', function () {
@@ -89,7 +91,8 @@ it('draws the key once, readable by the user alone', function () {
 
     expect($environment)->toMatch('/^APP_KEY=base64:[A-Za-z0-9+\/]{43}=\R$/')
         ->and(file_get_contents($this->home.'/.opendb/config/.env'))->toBe($environment)
-        ->and(fileperms($this->home.'/.opendb/config/.env') & 0777)->toBe(0600);
+        // Windows has no such permissions: PHP reports 0666 for every file.
+        ->and(fileperms($this->home.'/.opendb/config/.env') & 0777)->when(PHP_OS_FAMILY !== 'Windows', fn ($permissions) => $permissions->toBe(0600));
 });
 
 it('lets the variables the process received win', function () {
