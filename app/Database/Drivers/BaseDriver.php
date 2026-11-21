@@ -429,8 +429,12 @@ class BaseDriver
                 ...config('database.connections.mariadb'),
                 ...$config,
             ],
+            // The journal of the database of OpenDB is no choice to make for a database of the user: SQLite keeps it in
+            // the file, for every program opening it afterwards.
             DriverLabEnum::SQLITE->value => [
                 ...config('database.connections.sqlite'),
+                'journal_mode' => null,
+                'synchronous' => null,
                 'database' => $config['database'],
             ],
             default => throw new RuntimeException('Unsupported driver: '.$driver),

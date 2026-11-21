@@ -6,6 +6,7 @@ namespace App\Services\Installation;
 
 use App\Support\ApplicationHome;
 use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\DB;
 
 /**
  * A copy of the database of the application taken before a new version changes it, kept next to it in
@@ -38,11 +39,31 @@ final readonly class DatabaseBackup
         }
 
         $copy = $directory.DIRECTORY_SEPARATOR.'database-'.Date::now()->format('Y-m-d_His').'.sqlite';
+        $this->checkpoint($database);
         copy($database, $copy);
 
         $this->prune($directory);
 
         return $copy;
+    }
+
+    /**
+     * The latest changes of a database written ahead in a log are still in the log, next to it: they go into the file
+     * first, or the copy would miss them.
+     */
+    private function checkpoint(string $database): void
+    {
+        if (! is_file($database.'-wal')) {
+            return;
+        }
+
+        $connection = DB::build(['driver' => 'sqlite', 'database' => $database, 'prefix' => '']);
+
+        try {
+            $connection->statement('PRAGMA wal_checkpoint(TRUNCATE)');
+        } finally {
+            $connection->disconnect();
+        }
     }
 
     private function prune(string $directory): void

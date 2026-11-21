@@ -17,7 +17,7 @@ beforeEach(function () {
 });
 
 afterEach(function () {
-    foreach (['DB_DATABASE', 'APP_CONFIG_CACHE', 'APP_ROUTES_CACHE', 'APP_EVENTS_CACHE', 'APP_SERVICES_CACHE', 'APP_PACKAGES_CACHE'] as $name) {
+    foreach (['DB_DATABASE', 'DB_JOURNAL_MODE', 'DB_SYNCHRONOUS', 'APP_CONFIG_CACHE', 'APP_ROUTES_CACHE', 'APP_EVENTS_CACHE', 'APP_SERVICES_CACHE', 'APP_PACKAGES_CACHE'] as $name) {
         unset($_SERVER[$name], $_ENV[$name]);
     }
 
@@ -55,7 +55,7 @@ it('points an installed copy to the folder of the user', function () {
     expect($app->environmentPath())->toBe($this->home.'/.opendb/config')
         ->and($app->storagePath())->toBe($this->home.'/.opendb/storage')
         ->and($app->make(ApplicationHome::class))->toBe($home)
-        ->and($home->environmentVariables())->toMatchArray(['DB_DATABASE' => $this->home.'/.opendb/database.sqlite', 'QUEUE_CONNECTION' => 'deferred'])
+        ->and($home->environmentVariables())->toMatchArray(['DB_DATABASE' => $this->home.'/.opendb/database.sqlite', 'DB_JOURNAL_MODE' => 'wal', 'DB_SYNCHRONOUS' => 'normal', 'QUEUE_CONNECTION' => 'deferred'])
         ->and($_SERVER['APP_CONFIG_CACHE'])->toBe($home->bootstrapCacheDirectory().'/config.php')
         ->and($home->bootstrapCacheDirectory())->toStartWith($this->home.'/.opendb/cache/bootstrap/')
         ->and($this->home.'/.opendb/storage/framework/views')->toBeDirectory()

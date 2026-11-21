@@ -7,6 +7,7 @@ use App\Services\Installation\DatabaseBackup;
 use App\Services\Installation\InstallationManager;
 use App\Services\SystemInfoService;
 use App\Support\ApplicationHome;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
 
@@ -75,6 +76,23 @@ it('copies the database before a new version changes it', function () {
     app(InstallationManager::class)->upgradeIfNeeded();
 
     expect(file_get_contents($this->root.'/home/.opendb/backups/database-'.now()->format('Y-m-d_His').'.sqlite'))->toBe('the data of the previous version');
+});
+
+it('copies the changes still in the log of a database written ahead', function () {
+    $this->freezeTime();
+    $database = databaseFile('');
+    $writer = DB::build(['driver' => 'sqlite', 'database' => $database, 'prefix' => '', 'journal_mode' => 'wal']);
+    $writer->statement('CREATE TABLE notes (body TEXT)');
+    $writer->table('notes')->insert(['body' => 'written last']);
+
+    app(InstallationManager::class)->upgradeIfNeeded();
+    $writer->disconnect();
+
+    $copy = DB::build(['driver' => 'sqlite', 'database' => $this->root.'/home/.opendb/backups/database-'.now()->format('Y-m-d_His').'.sqlite', 'prefix' => '']);
+
+    expect($copy->table('notes')->pluck('body')->all())->toBe(['written last']);
+
+    $copy->disconnect();
 });
 
 it('keeps the copies of the latest versions only', function () {
