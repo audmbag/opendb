@@ -10,7 +10,13 @@
     "changelog-path": "CHANGELOG.md",
     "packages": {
         ".": {
-            "version-file": "VERSION"
+            "version-file": "VERSION",
+            "extra-files": [
+                {
+                    "type": "generic",
+                    "path": "README.md"
+                }
+            ]
         }
     }
 }
