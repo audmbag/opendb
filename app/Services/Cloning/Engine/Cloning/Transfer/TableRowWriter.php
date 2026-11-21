@@ -150,7 +150,15 @@ final class TableRowWriter
             }
         }
 
-        $statement->execute();
+        try {
+            $statement->execute();
+        } catch (Throwable $throwable) {
+            // The statement is kept for the next rows: SQLite 3.53 refuses to run again a statement left failed, with
+            // "bad parameter or other API misuse", and every row after the first refused one would be lost.
+            $statement->closeCursor();
+
+            throw $throwable;
+        }
     }
 
     /**
