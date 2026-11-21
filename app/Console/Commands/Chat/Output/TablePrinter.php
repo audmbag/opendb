@@ -52,7 +52,8 @@ class TablePrinter
             ))
             ->render();
 
-        return explode("\n", rtrim($output->fetch(), "\n"));
+        // The output ends its lines with PHP_EOL, which is "\r\n" on Windows.
+        return preg_split('/\r?\n/', rtrim($output->fetch(), "\r\n"));
     }
 
     /**
