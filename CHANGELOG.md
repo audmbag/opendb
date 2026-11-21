@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.1.0-beta.4](https://github.com/audmbag/opendb/compare/v0.1.0-beta.3...v0.1.0-beta.4) (2026-11-21)
+
+
+### Bug Fixes
+
+* **build:** rebuild FrankenPHP so the binary embeds the current application ([cdddb0f](https://github.com/audmbag/opendb/commit/cdddb0f6ec1adf29ee1759f9f2fd2cbd362cda55))
+* **chat:** draw the tables of the terminal without a carriage return on Windows ([60b73e6](https://github.com/audmbag/opendb/commit/60b73e638464805d194e34c269005d9a34d1fa89))
+* **cloning:** keep copying the rows that follow a refused one ([8ac400f](https://github.com/audmbag/opendb/commit/8ac400fe22927d3be210c607a8046912cb98a325))
+* **cloning:** size the chunks of a sqlite source built without dbstat ([58411b7](https://github.com/audmbag/opendb/commit/58411b77318eea12ad6f1696c0b90e97fec45bea))
+* **windows:** remove the OPcache settings the package no longer reads ([e4e119e](https://github.com/audmbag/opendb/commit/e4e119e5c8963d9c0ef9b959a513c4b3cfc7ef7f))
+
+
+### Performance Improvements
+
+* **files:** load a folder of the picker when it is opened ([2322889](https://github.com/audmbag/opendb/commit/23228895a77658d5ae34de8b93b78f3b0bb461a6))
+* **install:** write the database of an installed copy ahead in a log ([affc53a](https://github.com/audmbag/opendb/commit/affc53ad0e42ba22cec24485cac89f2ad6067cef))
+* **windows:** stop compiling the scripts to disk ([0bd17fa](https://github.com/audmbag/opendb/commit/0bd17fafc6c46b69e63dd9b45c2a855c2207831d))
+
 ## [0.1.0-beta.3](https://github.com/audmbag/opendb/compare/v0.1.0-beta.1...v0.1.0-beta.3) (2026-11-21)
 
 La version 0.1.0-beta.2 n'a pas été publiée : ses changements sont ici.
