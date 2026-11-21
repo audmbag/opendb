@@ -283,7 +283,7 @@ it('tells how to come back to the conversation when the chat is left', function 
         ->expectsQuestion('Message', 'Salut')
         ->expectsOutputToContain('Conversation : Salutations')
         ->expectsQuestion('Message', '/quit')
-        ->expectsOutputToContain("chat --name='{$user->name}' --conversation=")
+        ->expectsOutputToContain('chat --name='.escapeshellarg($user->name).' --conversation=')
         ->assertSuccessful();
 });
 
@@ -294,7 +294,7 @@ it('tells to come back through opendb once the application is installed', functi
 
     openChat($user, $project)
         ->expectsQuestion('Message', '/quit')
-        ->expectsOutputToContain("opendb chat --name='{$user->name}' --project={$project->id}")
+        ->expectsOutputToContain('opendb chat --name='.escapeshellarg($user->name)." --project={$project->id}")
         ->assertSuccessful();
 });
 
@@ -307,13 +307,13 @@ it('tells how many rows a read query returned and leaves the rows to the answer'
         ->and($renderer->details($result))->toBe([]);
 });
 
-it('tells how to open the chat on the project again when no conversation was started', function () {
-    $user = User::factory()->create();
+it('tells how to open the chat on the project again when no conversation was started, quoting the name for the shell', function () {
+    $user = User::factory()->create(['name' => "Dana O'Neil"]);
     $project = chatProject($user);
 
     openChat($user, $project)
         ->expectsQuestion('Message', '/quit')
-        ->expectsOutputToContain("chat --name='{$user->name}' --project={$project->id}")
+        ->expectsOutputToContain('chat --name='.escapeshellarg($user->name)." --project={$project->id}")
         ->assertSuccessful();
 });
 
