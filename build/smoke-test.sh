@@ -24,6 +24,11 @@ cat "$home/.local/share/opendb/current/VERSION"
 check "version (opendb --version)"
 "$opendb" --version
 
+check "artisan d'un projet ignoré"
+mkdir -p "$home/projet"
+printf '<?php echo "artisan du projet\\n";' > "$home/projet/artisan"
+(cd "$home/projet" && "$opendb" --version) | grep '^OpenDB' || { echo "l'artisan du projet a été lancé"; exit 1; }
+
 check "commandes d'OpenDB (opendb)"
 "$opendb" | grep -q 'chat' && echo ok
 

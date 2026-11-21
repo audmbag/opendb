@@ -6,6 +6,11 @@ use Symfony\Component\Console\Input\ArgvInput;
 
 define('LARAVEL_START', microtime(true));
 
+// The launcher of the binary starts from its own folder, so that FrankenPHP runs this file: back to the folder of the user.
+if (is_string($workingDirectory = getenv('OPENDB_WORKING_DIRECTORY')) && is_dir($workingDirectory)) {
+    chdir($workingDirectory);
+}
+
 // Register the Composer autoloader...
 require __DIR__.'/vendor/autoload.php';
 

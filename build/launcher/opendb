@@ -79,4 +79,10 @@ if [ "${1:-}" = "serve" ]; then
 fi
 
 export APP_URL="${APP_URL:-http://127.0.0.1:${OPENDB_PORT:-8000}}"
+
+# FrankenPHP lance l'artisan du dossier courant s'il y en a un, et celui de l'application seulement à défaut : depuis un
+# projet Laravel, opendb lancerait celui du projet. La commande part donc du dossier du lanceur, qui n'en a pas, et
+# artisan revient au dossier de l'utilisateur, d'où se lisent par exemple les pièces jointes du chat.
+export OPENDB_WORKING_DIRECTORY="$PWD"
+cd "$directory"
 exec "$core" php-cli artisan "$@"
