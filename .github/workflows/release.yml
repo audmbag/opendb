@@ -119,7 +119,11 @@ jobs:
             }
           skip-extraction: ${{ steps.cache.outputs.cache-hit }}
 
+      # static-php-cli lit les versions des sources sur l'API de GitHub : sans jeton, 60 appels par heure et par adresse,
+      # partagée par bien des machines de GitHub Actions.
       - name: Build the binary
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: build/build.sh binary --reuse-app
 
       - name: Smoke test
@@ -165,6 +169,8 @@ jobs:
           restore-keys: static-php-macos-${{ matrix.arch }}-
 
       - name: Build the binary
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: build/build.sh binary --reuse-app
 
       - name: Smoke test

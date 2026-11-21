@@ -20,8 +20,10 @@ COPY . /go/src/opendb
 
 WORKDIR /go/src/app/
 # static-php-cli skips FrankenPHP when the binary of the previous build is still in dist/, and that one embeds the
-# previous application: it goes first.
+# previous application: it goes first. GITHUB_TOKEN, s'il est donné (secret github_token), lui ouvre l'API de GitHub
+# au-delà de 60 appels par heure ; il n'est écrit dans aucune couche de l'image.
 RUN --mount=type=cache,id=opendb-${BUILDER}-${TARGETARCH},target=/go/src/app/dist \
+    --mount=type=secret,id=github_token,env=GITHUB_TOKEN \
     rm -f dist/buildroot/bin/frankenphp dist/frankenphp-linux-* \
     && EMBED=/go/src/opendb PHP_VERSION=${PHP_VERSION} PHP_EXTENSIONS=${PHP_EXTENSIONS} XCADDY_ARGS="${XCADDY_ARGS}" ./build-static.sh \
     && cp dist/frankenphp-linux-* /go/src/opendb-core

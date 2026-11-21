@@ -131,6 +131,7 @@ build_linux_binary() {
         --build-arg PHP_VERSION="${PHP_VERSION:-8.5}" \
         --build-arg PHP_EXTENSIONS="$extensions" \
         --build-arg XCADDY_ARGS="$xcaddy_args" \
+        ${GITHUB_TOKEN:+--secret id=github_token,env=GITHUB_TOKEN} \
         --target export --output "type=local,dest=$output" \
         -f "$root/build/static.Dockerfile" "$app"
     cp "$root/build/launcher/opendb" "$output/opendb"
