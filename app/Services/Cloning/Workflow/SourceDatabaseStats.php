@@ -14,6 +14,11 @@ use Illuminate\Database\QueryException;
 class SourceDatabaseStats
 {
     /**
+     * Rows read to size the rows of a table when SQLite has no dbstat.
+     */
+    const int SAMPLED_ROWS = 100;
+
+    /**
      * Identifiant maximal et nombre de lignes des tables à clé primaire sur une colonne, pour CloningSourceConfig.
      * Les noms sont échappés à la main : la grammaire de Laravel lirait « 1.5e3 » comme « 1 ».« 5e3 ».
      *
@@ -65,10 +70,40 @@ class SourceDatabaseStats
         try {
             $rowBytes = ((array) $connection->selectOne($sql))['row_bytes'] ?? null;
         } catch (QueryException) {
-            return null;
+            $rowBytes = $connection->getDriverName() === 'sqlite' ? $this->sqliteSampledRowBytes($connection, $primaryKeyRanges) : null;
         }
 
         return $rowBytes !== null ? (int) ceil((float) $rowBytes) : null;
+    }
+
+    /**
+     * Average size of a row of the heaviest table, measured on its first rows, for a SQLite built without dbstat (the
+     * one of PHP for Windows): without it, a table of large blobs would be read by chunks of a thousand rows.
+     *
+     * @param  array<string, array{max: ?string, count: int}>  $primaryKeyRanges
+     */
+    protected function sqliteSampledRowBytes(Connection $connection, array $primaryKeyRanges): ?float
+    {
+        $quote = $this->quoter($connection);
+        $largest = null;
+
+        foreach (array_keys(array_filter($primaryKeyRanges, fn (array $range): bool => $range['count'] > 0)) as $table) {
+            $columns = array_column($connection->select('select name from pragma_table_info(?)', [(string) $table]), 'name');
+
+            if ($columns === []) {
+                continue;
+            }
+
+            $size = implode(' + ', array_map(fn (string $column): string => "coalesce(length({$quote($column)}), 0)", $columns));
+            $sample = implode(', ', array_map($quote, $columns));
+            $rowBytes = ((array) $connection->selectOne("select avg({$size}) as row_bytes from (select {$sample} from {$quote((string) $table)} limit ".self::SAMPLED_ROWS.')'))['row_bytes'] ?? null;
+
+            if ($rowBytes !== null && ($largest === null || (float) $rowBytes > $largest)) {
+                $largest = (float) $rowBytes;
+            }
+        }
+
+        return $largest;
     }
 
     /**

@@ -9,7 +9,9 @@ use App\Services\Cloning\Exception\CloningException;
 use App\Services\Cloning\Workflow\CloningConnections;
 use App\Services\Cloning\Workflow\CloningExecutor;
 use App\Services\Cloning\Workflow\CloningPreparer;
+use App\Services\Cloning\Workflow\SourceDatabaseStats;
 use App\Services\SystemInfoService;
+use Illuminate\Database\Connection;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Yaml\Yaml;
 
@@ -62,6 +64,26 @@ it('sizes the chunks from the sqlite page statistics', function () {
 
     expect($this->yaml['options']['chunk_size'])->toBe(1000)
         ->and($yaml['options']['chunk_size'])->toBeBetween(14, 16);
+});
+
+it('sizes the chunks from the first rows of the tables when sqlite is built without dbstat', function () {
+    $this->app->instance(SourceDatabaseStats::class, new class extends SourceDatabaseStats
+    {
+        protected function sqliteRowBytesQuery(Connection $connection, array $primaryKeyRanges): ?string
+        {
+            return 'select sum(pgsize) as row_bytes from dbstat_missing_from_this_build';
+        }
+    });
+    $pdo = new PDO('sqlite:'.$this->source);
+    $pdo->exec('CREATE TABLE documents (id INTEGER PRIMARY KEY, content BLOB)');
+    $pdo->exec('WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c WHERE x < 20) INSERT INTO documents SELECT x, randomblob(1048576) FROM c');
+    BaseDriver::for(['driver_id' => 'sqlite', 'database' => $this->source])->forgetSchema();
+
+    $cloningId = app(CloningPreparer::class)->clientPayload($this->sourceConnection)['cloningId'];
+
+    $yaml = Yaml::parseFile(app(SystemInfoService::class)->temporaryDirectory($cloningId)->path('source.cloning.yaml'));
+
+    expect($yaml['options']['chunk_size'])->toBeBetween(14, 16);
 });
 
 it('refuses before running clonio a remapping chosen by hand that exceeds its memory', function () {
