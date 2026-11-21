@@ -153,8 +153,8 @@ final class TableRowWriter
         try {
             $statement->execute();
         } catch (Throwable $throwable) {
-            // The statement is kept for the next rows: SQLite 3.53 refuses to run again a statement left failed, with
-            // "bad parameter or other API misuse", and every row after the first refused one would be lost.
+            // La requête est gardée pour les lignes suivantes : SQLite 3.53 refuse de relancer une requête restée en
+            // échec (« bad parameter or other API misuse »), et toutes les lignes après la 1re refusée seraient perdues.
             $statement->closeCursor();
 
             throw $throwable;

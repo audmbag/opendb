@@ -14,7 +14,7 @@ use Illuminate\Database\QueryException;
 class SourceDatabaseStats
 {
     /**
-     * Rows read to size the rows of a table when SQLite has no dbstat.
+     * Lignes lues pour estimer la taille des lignes d'une table quand SQLite n'a pas dbstat.
      */
     const int SAMPLED_ROWS = 100;
 
@@ -77,8 +77,8 @@ class SourceDatabaseStats
     }
 
     /**
-     * Average size of a row of the heaviest table, measured on its first rows, for a SQLite built without dbstat (the
-     * one of PHP for Windows): without it, a table of large blobs would be read by chunks of a thousand rows.
+     * Taille moyenne d'une ligne de la table la plus lourde, mesurée sur ses premières lignes, pour un SQLite compilé
+     * sans dbstat (celui de PHP pour Windows) : sans elle, une table de gros blobs serait lue par lots de mille lignes.
      *
      * @param  array<string, array{max: ?string, count: int}>  $primaryKeyRanges
      */
