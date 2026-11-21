@@ -93,9 +93,9 @@ build_app() {
 
     # Ce qui ne sert qu'au développement, ou que l'application crée elle-même dans ~/.opendb.
     rm -rf "$app/resources/js" "$app/resources/css" "$app/database/"*.sqlite "$app/lang/"php_*.json
-    # Les fichiers publiés par nimbus, un paquet qui n'est plus installé, et Adminer, qu'aucune page n'utilise : servi par
-    # opendb serve, il ouvrirait l'administration des bases à quiconque atteint le port.
-    rm -rf "$app/public/vendor/nimbus" "$app/public/adminer.php"
+    # Adminer, qu'aucune page n'utilise : servi par opendb serve, il ouvrirait l'administration des bases à quiconque
+    # atteint le port.
+    rm -f "$app/public/adminer.php"
     find "$app/bootstrap/cache" -name '*.php' -delete
 
     # Dans vendor : tests, documentation et fichiers de dépôt des paquets.
