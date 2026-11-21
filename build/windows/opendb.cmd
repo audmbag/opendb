@@ -14,11 +14,9 @@ set "PHPRC=%OPENDB_RUNTIME%"
 rem Ce qu'un client MCP lance : le raccourci de bin\ quand il a lancé ce fichier, sinon ce fichier lui-même.
 if not defined OPENDB_BINARY set "OPENDB_BINARY=%~f0"
 
-rem La console compile chaque fichier une seule fois : le cache sur disque d'OPcache sert d'une commande à l'autre.
-set "home=%USERPROFILE%\.opendb"
-if not exist "%home%\cache\opcache" mkdir "%home%\cache\opcache"
-if not exist "%home%\php\opendb.ini" call :opcache_ini
-set "PHP_INI_SCAN_DIR=%home%\php"
+rem No OPcache file cache here, unlike Linux and macOS: each compiled script would be a new file under a path longer
+rem than Windows allows, scanned by the antivirus as it is written. The first page took half a minute more so, to save
+rem half a second on the next commands. The web server keeps its compiled scripts in memory while it runs.
 
 if /i "%~1"=="serve" goto serve
 if /i "%~1"=="self-update" goto selfupdate
@@ -42,10 +40,3 @@ rem Le script est lu en UTF-8 explicitement : Windows PowerShell le décoderait 
 if /i "%~2"=="--rollback" set "OPENDB_ROLLBACK=1" & powershell -NoProfile -ExecutionPolicy Bypass -Command "iex ([IO.File]::ReadAllText('%OPENDB_ROOT%install.ps1', [Text.Encoding]::UTF8))" & exit /b
 if not defined OPENDB_RELEASES_URL set "OPENDB_RELEASES_URL=https://github.com/audmbag/opendb/releases"
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$r = Invoke-WebRequest -UseBasicParsing '%OPENDB_RELEASES_URL%/latest/download/install.ps1'; iex ([Text.Encoding]::UTF8.GetString($r.RawContentStream.ToArray()))" & exit /b
-
-:opcache_ini
-rem Hors d'un bloc entre parenthèses, qu'un dossier comme « C:\Users\Jean (Pro) » refermerait.
-if not exist "%home%\php" mkdir "%home%\php"
-> "%home%\php\opendb.ini" echo opcache.enable_cli = 1
->> "%home%\php\opendb.ini" echo opcache.file_cache = "%home%\cache\opcache"
-exit /b
