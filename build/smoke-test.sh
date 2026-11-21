@@ -10,7 +10,8 @@ archive=$(cd "$(dirname "$1")" && pwd)/$(basename "$1")
 root=$(cd "$(dirname "$0")/.." && pwd)
 home=$(mktemp -d)
 port=${SMOKE_PORT:-8123}
-trap 'kill "${server:-0}" 2> /dev/null || true; rm -rf "$home"' EXIT
+# Without a server yet, "kill 0" would stop the whole process group, the caller included.
+trap 'if [ -n "${server:-}" ]; then kill "$server" 2> /dev/null || true; fi; rm -rf "$home"' EXIT
 
 check() { printf '  %-34s' "$1"; }
 
@@ -22,7 +23,9 @@ check "installation"
 cat "$home/.local/share/opendb/current/VERSION"
 
 check "version (opendb --version)"
-"$opendb" --version
+# The application embedded in the binary, not only the launcher next to it, must be the one of the package.
+"$opendb" --version | grep -Fx "OpenDB $(cat "$home/.local/share/opendb/current/VERSION")" \
+    || { echo "the binary embeds another version"; exit 1; }
 
 check "artisan d'un projet ignoré"
 mkdir -p "$home/projet"
