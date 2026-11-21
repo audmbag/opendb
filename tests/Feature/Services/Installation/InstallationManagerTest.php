@@ -118,17 +118,20 @@ it('clears the caches of the previous versions', function () {
         ->and($this->home->bootstrapCacheDirectory())->toBeDirectory();
 });
 
-it('removes the scripts OPcache compiled to disk once no copy does so any more', function () {
+it('removes the scripts OPcache compiled to disk, and its settings, once no copy does so any more', function () {
     if ((string) ini_get('opcache.file_cache') !== '') {
         $this->markTestSkipped('This PHP compiles its scripts to disk.');
     }
 
     mkdir($this->root.'/home/.opendb/cache/opcache/system/C/Users/someone', recursive: true);
     touch($this->root.'/home/.opendb/cache/opcache/system/C/Users/someone/artisan.bin');
+    mkdir($this->root.'/home/.opendb/php');
+    file_put_contents($this->root.'/home/.opendb/php/opendb.ini', 'opcache.file_cache = "C:\\Users\\someone\\.opendb\\cache\\opcache"');
 
     app(InstallationManager::class)->upgradeIfNeeded();
 
-    expect($this->root.'/home/.opendb/cache/opcache')->not->toBeDirectory();
+    expect($this->root.'/home/.opendb/cache/opcache')->not->toBeDirectory()
+        ->and($this->root.'/home/.opendb/php/opendb.ini')->not->toBeFile();
 });
 
 it('removes the copies the previous versions of the binary unpacked', function () {

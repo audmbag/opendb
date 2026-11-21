@@ -29,18 +29,18 @@ final readonly class StaleCaches
     }
 
     /**
-     * The scripts OPcache compiled to disk, once the copies of the application stop doing so, as the package for
-     * Windows did: their paths, longer than Windows allows, would keep the Explorer from deleting the folder.
+     * The scripts OPcache compiled to disk, and the settings telling it to, once the copies of the application stop
+     * doing so, as the package for Windows did: their paths, longer than Windows allows, would keep the Explorer from
+     * deleting the folder.
      */
     private function clearUnusedCompiledScripts(): void
     {
-        $directory = $this->home->path('cache', 'opcache');
-
-        if ((string) ini_get('opcache.file_cache') !== '' || ! is_dir($directory)) {
+        if ((string) ini_get('opcache.file_cache') !== '') {
             return;
         }
 
-        File::deleteDirectory($directory);
+        File::deleteDirectory($this->home->path('cache', 'opcache'));
+        File::delete($this->home->path('php', 'opendb.ini'));
     }
 
     private function clearBootstrapCaches(): void
