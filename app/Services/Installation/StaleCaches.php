@@ -9,7 +9,8 @@ use Illuminate\Support\Facades\File;
 
 /**
  * What the previous versions left in the folder of the user, which no copy of the application reads any more: the
- * caches of the framework, and the copies of the code the binary unpacked into ~/.opendb/tmp.
+ * caches of the framework, the copies of the code the binary unpacked into ~/.opendb/tmp, and the scripts OPcache
+ * compiled to disk.
  */
 final readonly class StaleCaches
 {
@@ -24,6 +25,22 @@ final readonly class StaleCaches
     {
         $this->clearBootstrapCaches();
         $this->clearUnpackedVersions();
+        $this->clearUnusedCompiledScripts();
+    }
+
+    /**
+     * The scripts OPcache compiled to disk, once the copies of the application stop doing so, as the package for
+     * Windows did: their paths, longer than Windows allows, would keep the Explorer from deleting the folder.
+     */
+    private function clearUnusedCompiledScripts(): void
+    {
+        $directory = $this->home->path('cache', 'opcache');
+
+        if ((string) ini_get('opcache.file_cache') !== '' || ! is_dir($directory)) {
+            return;
+        }
+
+        File::deleteDirectory($directory);
     }
 
     private function clearBootstrapCaches(): void
