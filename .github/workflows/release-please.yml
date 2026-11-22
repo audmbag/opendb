@@ -2,7 +2,9 @@ name: release-please
 
 # À chaque push sur main, release-please tient à jour une pull request « chore: release » : la prochaine version, déduite
 # des messages de commit (feat: → mineure, fix: → corrective, feat!: → majeure), le fichier VERSION et CHANGELOG.md.
-# La fusionner crée le tag et la release, puis les binaires sont construits et ajoutés à la release.
+# La fusionner crée le tag et la release, en brouillon, puis les binaires sont construits : la release n'est publiée
+# qu'une fois tous les jobs réussis, avec tous ses fichiers. Après un échec, elle reste en brouillon : corriger, puis
+# relancer le workflow release à la main (onglet Actions) avec le même tag.
 on:
   push:
     branches:

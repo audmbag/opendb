@@ -176,6 +176,14 @@ jobs:
       - name: Smoke test
         run: build/smoke-test.sh build/dist/release/opendb-macos-${{ matrix.arch }}.tar.xz
 
+      # La console de static-php-cli ne montre pas l'erreur d'une compilation : elle est dans ses journaux.
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: static-php-log-macos-${{ matrix.arch }}
+          path: build/cache/frankenphp-${{ env.FRANKENPHP_VERSION }}/dist/log
+          retention-days: 7
+
       - uses: actions/upload-artifact@v7
         with:
           name: release-macos-${{ matrix.arch }}
@@ -259,10 +267,17 @@ jobs:
           & "$runtime\frankenphp.exe" php-cli $script
           if ($LASTEXITCODE -ne 0) { throw 'L appel HTTPS a echoue.' }
 
+  # Tout ou rien : la version n'est publiée que si chaque job a réussi. Seul macOS peut manquer, sauté sur un dépôt privé.
   publish:
-    needs: [linux, macos, windows-smoke-test]
-    # macOS peut avoir été sauté (dépôt privé) : seule une erreur ou une annulation empêche la publication.
-    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') }}
+    needs: [tests, app, linux, macos, windows, windows-smoke-test]
+    if: >-
+      ${{ !cancelled()
+      && needs.tests.result == 'success'
+      && needs.app.result == 'success'
+      && needs.linux.result == 'success'
+      && needs.windows.result == 'success'
+      && needs.windows-smoke-test.result == 'success'
+      && (needs.macos.result == 'success' || (github.event.repository.private && needs.macos.result == 'skipped')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -285,8 +300,9 @@ jobs:
           sha256sum -- opendb-* install.sh install.ps1 > SHA256SUMS
           cat SHA256SUMS
 
-      # release-please a déjà créé la release, avec ses notes : les fichiers s'y ajoutent. Un tag poussé à la main n'en a pas.
-      - name: Publish the release
+      # release-please a déjà créé la release, en brouillon, avec ses notes : les fichiers s'y ajoutent. Un tag poussé à
+      # la main n'en a pas : elle est créée ici, en brouillon elle aussi.
+      - name: Upload the files
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -297,17 +313,21 @@ jobs:
             case "$VERSION" in *-*) prerelease="--prerelease" ;; esac
             gh release create "$VERSION" release/* \
               --repo "$GITHUB_REPOSITORY" \
+              --draft \
               --target "$GITHUB_SHA" \
               --title "opendb $VERSION" \
               --generate-notes \
               $prerelease
           fi
 
-      # Avant la 1.0, chaque version est une bêta. GitHub ne tient jamais une préversion pour la dernière : releases/latest,
-      # d'où install.sh, install.ps1 et opendb self-update téléchargent, n'en trouverait aucune. La version le devient
-      # ici, une fois ses fichiers en ligne : d'ici là, releases/latest mène encore à la précédente, complète.
-      - name: Make the release the latest one
-        if: ${{ startsWith(env.VERSION, 'v0.') }}
+      # Le brouillon devient public, avec tous ses fichiers. Avant la 1.0, chaque version est une bêta, et GitHub ne tient
+      # jamais une préversion pour la dernière : releases/latest, d'où install.sh, install.ps1 et opendb self-update
+      # téléchargent, n'en trouverait aucune. Elle le devient donc ici ; d'ici là, releases/latest mène à la précédente.
+      - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release edit "$VERSION" --repo "$GITHUB_REPOSITORY" --prerelease=false --latest
+        run: |
+          case "$VERSION" in
+            v0.*) gh release edit "$VERSION" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease=false --latest ;;
+            *) gh release edit "$VERSION" --repo "$GITHUB_REPOSITORY" --draft=false ;;
+          esac
