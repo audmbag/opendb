@@ -7,6 +7,8 @@
     "prerelease": true,
     "versioning": "prerelease",
     "prerelease-type": "beta",
+    "draft": true,
+    "force-tag-creation": true,
     "changelog-path": "CHANGELOG.md",
     "packages": {
         ".": {
