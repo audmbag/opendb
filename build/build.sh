@@ -146,12 +146,24 @@ build_macos_binary() {
     output="$dist/macos-$arch"
     source="$cache/frankenphp-$frankenphp_version"
     step "Binaire macOS $arch (FrankenPHP $frankenphp_version compilé sur cette machine, avec Homebrew)"
-    [ -d "$source" ] || git clone --quiet --depth 1 --branch "$frankenphp_version" https://github.com/php/frankenphp "$source"
+    # Le cache de la CI ne rend que dist/ : le dossier existe alors, sans les sources de FrankenPHP.
+    if [ ! -f "$source/build-static.sh" ]; then
+        mkdir -p "$source"
+        git -C "$source" init --quiet
+        git -C "$source" fetch --quiet --depth 1 https://github.com/php/frankenphp "refs/tags/$frankenphp_version"
+        git -C "$source" checkout --quiet FETCH_HEAD
+    fi
     # dist/, dans le dossier de FrankenPHP, garde ses téléchargements et ses bibliothèques d'un build à l'autre.
     # static-php-cli skips FrankenPHP when the binary of the previous build is still there, with the previous
     # application in it: it goes first.
     rm -f "$source/dist/buildroot/bin/frankenphp" "$source/dist/frankenphp-mac-"*
-    (cd "$source" && EMBED="$app" PHP_VERSION="${PHP_VERSION:-8.5}" PHP_EXTENSIONS="$extensions" XCADDY_ARGS="$xcaddy_args" ./build-static.sh)
+    # static-php-cli liste les symboles de libphp.a avec nm, et lit sa sortie mêlée à ses erreurs : les « no symbols »
+    # de nm coupaient des noms de symboles, que l'édition de liens de FrankenPHP réclamait ensuite. Ce nm-là se tait.
+    local tools="$cache/macos-tools"
+    mkdir -p "$tools"
+    printf '#!/bin/sh\nexec %s "$@" 2> /dev/null\n' "'$(command -v nm)'" > "$tools/nm"
+    chmod +x "$tools/nm"
+    (cd "$source" && PATH="$tools:$PATH" EMBED="$app" PHP_VERSION="${PHP_VERSION:-8.5}" PHP_EXTENSIONS="$extensions" XCADDY_ARGS="$xcaddy_args" ./build-static.sh)
     rm -rf "$output"
     mkdir -p "$output"
     cp "$source/dist/frankenphp-mac-$arch" "$output/opendb-core"
