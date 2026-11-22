@@ -168,6 +168,13 @@ jobs:
           key: static-php-macos-${{ matrix.arch }}-${{ github.run_id }}
           restore-keys: static-php-macos-${{ matrix.arch }}-
 
+      # Sur un Mac Intel, Homebrew vit dans /usr/local, que clang lit avant les en-têtes de static-php-cli : curl était
+      # compilé avec l'OpenSSL 3 de Homebrew (et ses ENGINE), puis lié à l'OpenSSL 4 construit pour le binaire. Les
+      # bibliothèques viennent toutes de static-php-cli : les en-têtes de Homebrew sont écartés le temps du build.
+      - name: Hide the headers of Homebrew
+        if: ${{ matrix.arch == 'x86_64' }}
+        run: sudo mv /usr/local/include /usr/local/include.homebrew
+
       - name: Build the binary
         env:
           GITHUB_TOKEN: ${{ github.token }}
