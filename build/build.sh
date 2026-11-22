@@ -158,7 +158,12 @@ build_macos_binary() {
     cp "$root/build/launcher/opendb" "$output/opendb"
     chmod +x "$output/opendb" "$output/opendb-core"
     size "$output/opendb-core"
-    package macos "$(case $arch in arm64) echo aarch64 ;; *) echo "$arch" ;; esac)" "$output"
+    # Pas de case dans $(…) : le bash 3.2 de macOS prend la parenthèse de « arm64) » pour la fin de la substitution.
+    local package_arch=$arch
+    if [ "$arch" = arm64 ]; then
+        package_arch=aarch64
+    fi
+    package macos "$package_arch" "$output"
 }
 
 build_windows_package() {
