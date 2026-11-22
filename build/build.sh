@@ -146,12 +146,13 @@ build_macos_binary() {
     output="$dist/macos-$arch"
     source="$cache/frankenphp-$frankenphp_version"
     step "Binaire macOS $arch (FrankenPHP $frankenphp_version compilé sur cette machine, avec Homebrew)"
-    # Le cache de la CI ne rend que dist/ : le dossier existe alors, sans les sources de FrankenPHP.
+    # Le cache de la CI ne rend que dist/ : le dossier existe alors, sans les sources de FrankenPHP. Le tag est gardé
+    # sous son nom : build-static.sh fait lui-même « git checkout v<FRANKENPHP_VERSION> ».
     if [ ! -f "$source/build-static.sh" ]; then
         mkdir -p "$source"
         git -C "$source" init --quiet
-        git -C "$source" fetch --quiet --depth 1 https://github.com/php/frankenphp "refs/tags/$frankenphp_version"
-        git -C "$source" checkout --quiet FETCH_HEAD
+        git -C "$source" fetch --quiet --depth 1 https://github.com/php/frankenphp "refs/tags/$frankenphp_version:refs/tags/$frankenphp_version"
+        git -C "$source" checkout --quiet "$frankenphp_version"
     fi
     # dist/, dans le dossier de FrankenPHP, garde ses téléchargements et ses bibliothèques d'un build à l'autre.
     # static-php-cli skips FrankenPHP when the binary of the previous build is still there, with the previous
