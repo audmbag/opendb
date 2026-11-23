@@ -818,6 +818,18 @@
     }
 }
 
+/*
+ * Le contenu des menus du registre neutralise la couleur des actions destructives (`text-accent-foreground!` sur
+ * `data-variant=destructive`) : « Supprimer », « Archiver », « Vider la table »… retrouvent ici le rouge, texte et
+ * icône. Une déclaration `!important` d'une couche antérieure l'emporte sur celle de la couche `utilities`.
+ */
+@layer base {
+    [data-slot$="menu-item"][data-variant="destructive"],
+    [data-slot$="menu-item"][data-variant="destructive"] * {
+        color: var(--destructive) !important;
+    }
+}
+
 
 
 /*
