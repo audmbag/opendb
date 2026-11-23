@@ -1,7 +1,7 @@
 import type { DataUIPart, DynamicToolUIPart, FileUIPart, ToolUIPart, UIMessage as AiUIMessage } from 'ai';
 import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { CircleStopIcon, RefreshCcwIcon } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import ApprovalFormRenderer from '@/components/ai/approval-form-renderer';
 import ArtifactPanel from '@/components/ai/artifacts/artifact-panel';
@@ -84,19 +84,21 @@ const Conversation = () => {
 
     const hasSelectedModel = useAgentSettingsStore((state) => state.selectedModel !== null);
 
-    const hasAutoSent = useRef(false);
-
+    /**
+     * The message typed on the home page is sent once the page is mounted for good: an effect cleaned up before, as
+     * StrictMode does, stops the chat and would abort the request just made.
+     */
     useEffect(() => {
-        if (!pendingMessage || initialMessages.length > 0 || hasAutoSent.current) {
+        if (!pendingMessage || initialMessages.length > 0) {
             return;
         }
 
-        hasAutoSent.current = true;
+        const timeout = window.setTimeout(() => {
+            clearPendingMessage();
+            void submitPromptMessage(pendingMessage);
+        });
 
-        submitPromptMessage(pendingMessage).then(() => null);
-
-        clearPendingMessage();
-
+        return () => window.clearTimeout(timeout);
     }, [pendingMessage, initialMessages.length, clearPendingMessage, submitPromptMessage]);
 
 
