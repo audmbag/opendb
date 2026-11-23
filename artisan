@@ -11,8 +11,9 @@ if (is_string($workingDirectory = getenv('OPENDB_WORKING_DIRECTORY')) && is_dir(
     chdir($workingDirectory);
 }
 
-// Register the Composer autoloader...
-require __DIR__.'/vendor/autoload.php';
+// Register the Composer autoloader: in a package, with the classes of a first command read from a few files rather than
+// one each (App\Support\ClassBundle\ClassBundler)...
+require is_file($bundle = __DIR__.'/bootstrap/bundle/console.php') ? $bundle : __DIR__.'/vendor/autoload.php';
 
 // Bootstrap Laravel and handle the command...
 /** @var Application $app */
