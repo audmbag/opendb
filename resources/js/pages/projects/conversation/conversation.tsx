@@ -16,7 +16,8 @@ import { H6 } from '@/components/typograpfy/typography';
 import {
     Editable,
     EditableArea,
-    EditableInput, EditablePreview,
+    EditableInput,
+    EditablePreview,
 } from '@/components/ui/editable';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -30,7 +31,13 @@ const ChatDiscussion = () => {
     const { t } = useLaravelReactI18n();
     const { dataPreviewOpen, toggleDataPreview } = useChatLayout();
 
-    const { conversation, archive, remove, update, updateConversationsRequest: { processing } } = useConversation();
+    const {
+        conversation,
+        archive,
+        remove,
+        update,
+        updateConversationsRequest: { processing },
+    } = useConversation();
 
     const [isEditingTitle, setIsEditingTitle] = useState(false);
 
@@ -68,34 +75,39 @@ const ChatDiscussion = () => {
 
     return (
         <>
-            <Head title={generatedTitle ?? t('conversations.new_conversation')} />
+            <Head
+                title={generatedTitle ?? t('conversations.new_conversation')}
+            />
             <div className="absolute top-0 left-0 z-10 flex w-full justify-between bg-background/5 py-2 pr-6 pl-4 backdrop-blur-xs">
                 <div className="flex items-center gap-2">
-                    <SidebarTrigger className="md:hidden" aria-label={t('common.toggle_sidebar')} />
+                    <SidebarTrigger
+                        className="md:hidden"
+                        aria-label={t('common.toggle_sidebar')}
+                    />
                     {generatedTitle === null ? (
                         <Skeleton
                             className="h-5 w-48"
                             aria-label={t('conversations.generating_title')}
                         />
                     ) : (
-                    <Editable
-                        value={title}
-                        onValueChange={setTitle}
-                        onSubmit={handleEditTitle}
-                        placeholder={t('conversations.title_placeholder')}
-                        autosize
-                        editing={isEditingTitle}
-                    >
-                        <EditableArea>
-                            <H6>
-                                <EditablePreview />
-                            </H6>
-                            <EditableInput
-                                className="px-1"
-                                autoComplete="off"
-                            />
-                        </EditableArea>
-                    </Editable>
+                        <Editable
+                            value={title}
+                            onValueChange={setTitle}
+                            onSubmit={handleEditTitle}
+                            placeholder={t('conversations.title_placeholder')}
+                            autosize
+                            editing={isEditingTitle}
+                        >
+                            <EditableArea>
+                                <H6>
+                                    <EditablePreview />
+                                </H6>
+                                <EditableInput
+                                    className="px-1"
+                                    autoComplete="off"
+                                />
+                            </EditableArea>
+                        </Editable>
                     )}
 
                     {!isEditingTitle && generatedTitle !== null && (
@@ -147,10 +159,8 @@ const ChatDiscussion = () => {
             </div>
         </>
     );
-}
-
+};
 
 ChatDiscussion.layout = [AppLayout, ChatLayout];
-
 
 export default ChatDiscussion;

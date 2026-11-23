@@ -10,7 +10,6 @@ import ChatLayout from '@/layouts/chat-layout';
 import { useAgentSettingsStore } from '@/store/use-agent-settings-store';
 
 const Home = () => {
-
     const { t } = useLaravelReactI18n();
     const { startConversationRequest, startConversation } = useConversation();
     const agentSettings = usePage().props.auth.user.settings.agent;
@@ -27,9 +26,7 @@ const Home = () => {
         <div className="flex h-full flex-col items-center gap-8 p-4 pt-[min(8rem,15dvh)]">
             <Head title={t('projects.menu.chat')} />
             <AppLogo />
-            <H3 className="font-normal">
-                {t('conversations.welcome')}
-            </H3>
+            <H3 className="font-normal">{t('conversations.welcome')}</H3>
             <PromptInput
                 onSubmit={startConversation}
                 className="[view-transition-name:prompt-input]"
@@ -37,11 +34,8 @@ const Home = () => {
             />
         </div>
     );
-}
+};
 
 Home.layout = [AppLayout, ChatLayout];
 
 export default Home;
-
-
-
