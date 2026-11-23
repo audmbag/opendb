@@ -235,7 +235,7 @@ export default function ExportDialog({
 
                         <div className="min-h-40 flex-1 overflow-y-auto rounded-md border">
                             <table className="w-full text-sm">
-                                <thead className="sticky top-0 bg-muted text-left text-xs text-muted-foreground">
+                                <thead className="sticky top-0 z-10 bg-muted text-left text-xs text-muted-foreground">
                                     <tr>
                                         <th className="px-3 py-1.5 font-medium">
                                             {t('tables.import.table')}
