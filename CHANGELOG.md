@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.1.0-beta.6](https://github.com/audmbag/opendb/compare/v0.1.0-beta.5...v0.1.0-beta.6) (2026-11-23)
+
+
+### Features
+
+* **chat:** title the tab of the chat home and of a conversation ([fb6edbc](https://github.com/audmbag/opendb/commit/fb6edbc1f7e969d4aabe73608d94bc3cd8f803db))
+
+
+### Bug Fixes
+
+* **build:** give static-php-cli the token of GitHub Actions ([ccac70a](https://github.com/audmbag/opendb/commit/ccac70ac40d4d00e161b761c3d514f066afc4b98))
+* **build:** keep the tag of FrankenPHP when fetching its sources ([b8c0727](https://github.com/audmbag/opendb/commit/b8c07277b7aafbb364fe94f79b200274b94e4c5f))
+* **build:** name the macOS archive without a case in a command substitution ([f12fe37](https://github.com/audmbag/opendb/commit/f12fe37e8104d4d90dab4b40eaccd13ebb55cd16))
+* **build:** silence nm for static-php-cli and fetch FrankenPHP next to a restored cache ([fc88dfb](https://github.com/audmbag/opendb/commit/fc88dfbc3565f582503cacfdfe57709314c74f7f))
+* **chat:** send the message of the home page once the conversation is mounted for good ([ea3df32](https://github.com/audmbag/opendb/commit/ea3df32c2ab7b4da22f165fbbfd4e44db037645c))
+* **menus:** show the destructive actions of the menus in red, the archiving of a conversation included ([e5b03c8](https://github.com/audmbag/opendb/commit/e5b03c806aa41748192bd5ea5f6a1566edf9afde))
+* **release:** keep the headers of Homebrew out of the macOS Intel build ([dd43e92](https://github.com/audmbag/opendb/commit/dd43e929b54806a73df4a6138207f4c5e1d8085b))
+* **release:** publish a release only once every job has succeeded ([0aa78c3](https://github.com/audmbag/opendb/commit/0aa78c3183f92805c6f1b0633c59d0e67edf23f5))
+* **tables:** keep the header of the export list above its rows ([4a235f0](https://github.com/audmbag/opendb/commit/4a235f0218e2d44e54e633d4fda995ed8e6b0405))
+* **toaster:** keep the open dialogs and menus open when a toast is pressed ([9de745f](https://github.com/audmbag/opendb/commit/9de745fd5215c03a3243d2ae6fea2d31354a4868))
+
+
+### Performance Improvements
+
+* **build:** read the classes of a first page from a few bundled files ([8b4bdd4](https://github.com/audmbag/opendb/commit/8b4bdd477c1e5dd5462bfbb44c9f597eb4b50fea))
+
 ## [0.1.0-beta.5](https://github.com/audmbag/opendb/compare/v0.1.0-beta.4...v0.1.0-beta.5) (2026-11-21)
 
 
