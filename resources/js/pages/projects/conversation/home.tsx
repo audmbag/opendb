@@ -1,4 +1,4 @@
-import { usePage } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { useEffect } from 'react';
 import PromptInput from '@/components/ai/prompt-input';
@@ -25,6 +25,7 @@ const Home = () => {
 
     return (
         <div className="flex h-full flex-col items-center gap-8 p-4 pt-[min(8rem,15dvh)]">
+            <Head title={t('projects.menu.chat')} />
             <AppLogo />
             <H3 className="font-normal">
                 {t('conversations.welcome')}
