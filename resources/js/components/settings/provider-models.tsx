@@ -74,11 +74,11 @@ export default function ProviderModels({ provider }: { provider: Provider }) {
     return (
         <div className="flex flex-1 flex-col overflow-hidden">
             <div className="flex items-center gap-4 p-2">
-                <SearchIcon className="size-5 shrink-0 text-muted-foreground" />
                 <Input
                     placeholder={t('settings.models.search')}
                     value={inputValue}
                     onChange={(e) => onInputValueChange(e.target.value)}
+                    icon={SearchIcon}
                 />
                 {!!inputValue && (
                     <Button
