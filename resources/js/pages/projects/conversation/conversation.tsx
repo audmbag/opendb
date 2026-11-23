@@ -1,3 +1,4 @@
+import { Head } from '@inertiajs/react';
 import { useLaravelReactI18n } from 'laravel-react-i18n';
 import {
     ArchiveIcon,
@@ -67,6 +68,7 @@ const ChatDiscussion = () => {
 
     return (
         <>
+            <Head title={generatedTitle ?? t('conversations.new_conversation')} />
             <div className="absolute top-0 left-0 z-10 flex w-full justify-between bg-background/5 py-2 pr-6 pl-4 backdrop-blur-xs">
                 <div className="flex items-center gap-2">
                     <SidebarTrigger className="md:hidden" aria-label={t('common.toggle_sidebar')} />
