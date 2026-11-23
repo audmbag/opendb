@@ -202,6 +202,6 @@ class AppServiceProvider extends ServiceProvider
             : null,
         );
 
-        DevCommands::only('server', 'vite', 'queue');
+        DevCommands::only('server', 'vite');
     }
 }
