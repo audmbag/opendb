@@ -244,6 +244,7 @@ jobs:
           $env:OPENDB_ARCHIVE = (Resolve-Path release\opendb-windows-x86_64.zip).Path
           powershell -NoProfile -ExecutionPolicy Bypass -File build\install.ps1
           if (-not (Test-Path "$env:LOCALAPPDATA\opendb\bin\opendb.cmd")) { throw 'opendb.cmd est absent.' }
+          if (-not (Test-Path "$env:LOCALAPPDATA\opendb\current\app\bootstrap\bundle\web.php")) { throw 'bootstrap\bundle manque au paquet.' }
 
       - name: Console
         shell: cmd

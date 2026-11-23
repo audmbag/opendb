@@ -109,8 +109,12 @@ build_app() {
         -regex '.*/[a-z]{2}_[A-Za-z_]+' ! -regex ".*/($kept_locales)_[A-Z]{2}" -exec rm -rf {} +
     find "$app/vendor/nesbot/carbon/src/Carbon/Lang" -type f -regextype posix-extended ! -regex ".*/($kept_locales)(_.*)?\.php" -delete
 
-    # Le classmap ne doit plus mentionner les classes retirées.
-    (cd "$app" && composer dump-autoload --no-dev --classmap-authoritative --no-scripts --quiet)
+    # Le classmap ne doit plus mentionner les classes retirées. Composer n'a pas à vérifier la version de PHP : le
+    # paquet embarque la sienne, et ce fichier de moins compte à froid sous Windows.
+    (cd "$app" && composer config platform-check false && composer dump-autoload --no-dev --classmap-authoritative --no-scripts --quiet)
+
+    step "Classes regroupées (bootstrap/bundle)"
+    php "$root/build/bundle-classes.php" "$app"
 
     step "Tailles"
     for part in vendor public/build .; do size "$app/$part"; done

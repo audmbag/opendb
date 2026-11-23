@@ -27,6 +27,11 @@ check "version (opendb --version)"
 "$opendb" --version | grep -Fx "OpenDB $(cat "$home/.local/share/opendb/current/VERSION")" \
     || { echo "the binary embeds another version"; exit 1; }
 
+check "classes regroupées"
+# Le binaire décompresse l'application dans ~/.opendb/tmp à sa première commande.
+ls "$home"/.opendb/tmp/frankenphp_*/bootstrap/bundle/web.php "$home"/.opendb/tmp/frankenphp_*/bootstrap/bundle/console.php > /dev/null \
+    && echo ok || { echo "bootstrap/bundle manque au paquet"; exit 1; }
+
 check "artisan d'un projet ignoré"
 mkdir -p "$home/projet"
 printf '<?php echo "artisan du projet\\n";' > "$home/projet/artisan"

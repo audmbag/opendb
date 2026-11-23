@@ -82,6 +82,8 @@ final readonly class ApplicationHome
             }
         }
 
+        new FrameworkCaches()->attach($app);
+
         $app->instance(self::class, $this);
     }
 

@@ -82,8 +82,21 @@ class AppServiceProvider extends ServiceProvider
 
         $this->configurePrivileges();
         $this->configureErrorPages();
+        $this->configureDevCommands();
+    }
+
+    /**
+     * The servers "php artisan dev" starts. An installed copy has no development command: its console refuses those of
+     * Laravel.
+     */
+    protected function configureDevCommands(): void
+    {
+        if ($this->app->bound(ApplicationHome::class)) {
+            return;
+        }
 
         DevCommands::artisan('serve --host=localhost --no-reload', 'server');
+        DevCommands::only('server', 'vite');
     }
 
     /**
@@ -201,7 +214,5 @@ class AppServiceProvider extends ServiceProvider
                 ->uncompromised()
             : null,
         );
-
-        DevCommands::only('server', 'vite');
     }
 }

@@ -10,8 +10,9 @@ if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php'))
     require $maintenance;
 }
 
-// Register the Composer autoloader...
-require __DIR__.'/../vendor/autoload.php';
+// Register the Composer autoloader: in a package, with the classes of a first page read from a few files rather than
+// one each (App\Support\ClassBundle\ClassBundler)...
+require is_file($bundle = __DIR__.'/../bootstrap/bundle/web.php') ? $bundle : __DIR__.'/../vendor/autoload.php';
 
 // Bootstrap Laravel and handle the request...
 /** @var Application $app */
