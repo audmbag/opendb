@@ -104,6 +104,7 @@ const Conversations = () => {
                                     {
                                         label: t('common.edit'),
                                         icon: PencilIcon,
+                                        separator: true,
                                         onClick: () =>
                                             setEditingConversation(
                                                 conversation,
@@ -112,7 +113,7 @@ const Conversations = () => {
                                     {
                                         label: t('conversations.archive'),
                                         icon: ArchiveIcon,
-                                        separator: true,
+                                        destructive: true,
                                         onClick: () => archive(conversation),
                                     },
                                     {

@@ -102,12 +102,13 @@ const ChatDiscussion = () => {
                                 {
                                     label: t('common.edit'),
                                     icon: PencilIcon,
+                                    separator: true,
                                     onClick: () => setIsEditingTitle(true),
                                 },
                                 {
                                     label: t('conversations.archive'),
                                     icon: ArchiveIcon,
-                                    separator: true,
+                                    destructive: true,
                                     onClick: () => archive(conversation),
                                 },
                                 {
