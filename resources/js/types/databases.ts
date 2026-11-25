@@ -27,6 +27,11 @@ export interface Table {
     cloningIncludingEnabled: boolean;
 }
 
+/**
+ * Where the database is: on this machine, on another server, or behind an SSH tunnel.
+ */
+export type ConnectionLocation = 'local' | 'remote' | 'ssh';
+
 export interface DriverConfig extends BaseModel<number> {
     driver?: Driver;
     driver_id?: string;
@@ -37,6 +42,7 @@ export interface DriverConfig extends BaseModel<number> {
     password?: string;
     connection_string?: string;
     ssh?: SSHConfiguration;
+    connection_location?: ConnectionLocation;
     create_database_if_not_exists?: boolean;
     tables_info?: Table[];
 }

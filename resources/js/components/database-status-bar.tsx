@@ -10,6 +10,8 @@ import {
     FolderIcon,
     FolderOpenIcon,
     CheckIcon,
+    GlobeIcon,
+    LockKeyholeIcon,
 } from 'lucide-react';
 import React, { useCallback } from 'react';
 import DatabaseIconHelper from '@/components/database-icon-helper';
@@ -24,7 +26,7 @@ import {
 } from '@/hooks/use-driver-config';
 import { useOpenProjectFolder } from '@/hooks/use-project';
 import { cn } from '@/lib/utils';
-import type { DriverConfig } from '@/types/databases';
+import type { ConnectionLocation, DriverConfig } from '@/types/databases';
 import type { Project } from '@/types/models/project';
 
 const DatabaseConnectionStatus = () => {
@@ -40,6 +42,54 @@ const DatabaseConnectionStatus = () => {
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
                     <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
                 </span>
+            </Badge>
+        </Tooltip>
+    );
+};
+
+const LOCATION_BADGES: Partial<
+    Record<
+        ConnectionLocation,
+        { icon: typeof GlobeIcon; label: string; hint: string }
+    >
+> = {
+    remote: {
+        icon: GlobeIcon,
+        label: 'projects.status.location.remote',
+        hint: 'projects.status.location.remote_hint',
+    },
+    ssh: {
+        icon: LockKeyholeIcon,
+        label: 'projects.status.location.ssh',
+        hint: 'projects.status.location.ssh_hint',
+    },
+};
+
+/**
+ * Tells at a glance a database on another server or behind an SSH tunnel, where every query costs a round trip: a
+ * database on this machine shows nothing.
+ */
+const DatabaseConnectionLocation = ({
+    location,
+}: {
+    location?: ConnectionLocation;
+}) => {
+    const { t } = useLaravelReactI18n();
+    const badge = location && LOCATION_BADGES[location];
+
+    if (!badge) {
+        return null;
+    }
+
+    return (
+        <Tooltip value={t(badge.hint)}>
+            <Badge
+                variant="outline"
+                tabIndex={0}
+                className="gap-1 text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            >
+                <badge.icon className="size-3" aria-hidden="true" />
+                {t(badge.label)}
             </Badge>
         </Tooltip>
     );
@@ -99,6 +149,9 @@ export function DatabaseStatusBar({
                     </H6>
                 </div>
                 <DatabaseConnectionStatus />
+                <DatabaseConnectionLocation
+                    location={driver_config.connection_location}
+                />
                 <div className="flex flex-1 scrollbar-none items-center gap-4 overflow-x-auto text-xs whitespace-nowrap">
                     {path && (
                         <>

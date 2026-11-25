@@ -12,6 +12,12 @@ return [
         'configuration_copied' => 'Configuration copiée',
         'copy_configuration' => 'Copier la configuration',
         'disconnect' => 'Déconnecter',
+        'location' => [
+            'remote' => 'Distante',
+            'remote_hint' => 'La base de données est sur un autre serveur.',
+            'ssh' => 'SSH',
+            'ssh_hint' => 'La base de données est jointe par un tunnel SSH.',
+        ],
     ],
     'disconnection' => [
         'title' => 'Se déconnecter de :project ?',
