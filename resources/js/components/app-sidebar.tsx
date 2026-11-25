@@ -1,10 +1,6 @@
 import { usePage } from '@inertiajs/react';
 import { useLaravelReactI18n } from 'laravel-react-i18n';
-import {
-    FileTextIcon,
-    FolderCogIcon,
-    FolderPlusIcon,
-} from 'lucide-react';
+import { FileTextIcon, FolderCogIcon, FolderPlusIcon } from 'lucide-react';
 import * as React from 'react';
 import type { SidebarMenuItemType } from '@/components/sidebar-menu-item';
 import { SidebarMenuItem } from '@/components/sidebar-menu-item';
@@ -25,7 +21,10 @@ import {
 import { usePrivileges } from '@/hooks/use-privileges';
 import { useCreateProject } from '@/hooks/use-project-modal';
 import { useProjectNavigation } from '@/hooks/use-project-navigation';
-import { useProjectSettingsDialog, useProjectSettingsNavItems } from '@/hooks/use-project-settings-modal';
+import {
+    useProjectSettingsDialog,
+    useProjectSettingsNavItems,
+} from '@/hooks/use-project-settings-modal';
 import { DOCUMENTATION_URL } from '@/lib/links';
 import { cn, limit } from '@/lib/utils';
 import type { Project } from '@/types/models/project';
@@ -113,7 +112,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 : []),
             ...projectPages.map((page, index) => ({
                 ...page,
-                separator: index === projectPages.length - 1 && hasProjectSettings,
+                separator:
+                    index === projectPages.length - 1 && hasProjectSettings,
             })),
             ...(hasProjectSettings
                 ? [
@@ -125,7 +125,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   ]
                 : []),
         ],
-        [canCreateProject, createProject, hasProjectSettings, openProjectSettings, projectPages, t],
+        [
+            canCreateProject,
+            createProject,
+            hasProjectSettings,
+            openProjectSettings,
+            projectPages,
+            t,
+        ],
     );
 
     return (

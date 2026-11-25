@@ -72,7 +72,10 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     {
         label: 'shortcuts.groups.diagrams',
         shortcuts: [
-            { description: 'shortcuts.exit_fullscreen', keys: [['shortcuts.keys.escape']] },
+            {
+                description: 'shortcuts.exit_fullscreen',
+                keys: [['shortcuts.keys.escape']],
+            },
         ],
     },
 ];

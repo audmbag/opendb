@@ -18,7 +18,10 @@ import Tooltip from '@/components/tooltip';
 import { H6, Muted, Small } from '@/components/typograpfy/typography';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { useCopyConfig, useDriverConfigTestConnection } from '@/hooks/use-driver-config';
+import {
+    useCopyConfig,
+    useDriverConfigTestConnection,
+} from '@/hooks/use-driver-config';
 import { useOpenProjectFolder } from '@/hooks/use-project';
 import { cn } from '@/lib/utils';
 import type { DriverConfig } from '@/types/databases';
@@ -68,7 +71,8 @@ export function DatabaseStatusBar({
     const { t } = useLaravelReactI18n();
     const { processing, testConnection } = useDriverConfigTestConnection();
     const { copying, handleCopy } = useCopyConfig(driver_config, 5000);
-    const { openFolder, processing: openingFolder } = useOpenProjectFolder(projectId);
+    const { openFolder, processing: openingFolder } =
+        useOpenProjectFolder(projectId);
 
     const handleTestConnection = useCallback(async () => {
         await testConnection(driver_config);
@@ -90,7 +94,8 @@ export function DatabaseStatusBar({
                         className="size-8"
                     />
                     <H6>
-                        {driver_config.driver?.name || driver_config?.driver_id?.toUpperCase()}
+                        {driver_config.driver?.name ||
+                            driver_config?.driver_id?.toUpperCase()}
                     </H6>
                 </div>
                 <DatabaseConnectionStatus />
@@ -109,24 +114,34 @@ export function DatabaseStatusBar({
                         <>
                             <div className="flex items-center gap-2">
                                 <ComputerIcon className="size-4 text-muted-foreground" />
-                                {showLabels && <Muted>{t('projects.status.host')}</Muted>}
+                                {showLabels && (
+                                    <Muted>{t('projects.status.host')}</Muted>
+                                )}
                                 <Small>{driver_config.host}</Small>
                             </div>
                             <div className="flex items-center gap-2">
                                 <EthernetPortIcon className="size-4 text-muted-foreground" />
-                                {showLabels && <Muted>{t('projects.status.port')}</Muted>}
+                                {showLabels && (
+                                    <Muted>{t('projects.status.port')}</Muted>
+                                )}
                                 <Small>{driver_config.port}</Small>
                             </div>
                             <div className="flex items-center gap-2">
                                 <UserIcon className="size-4 text-muted-foreground" />
-                                {showLabels && <Muted>{t('projects.status.username')}</Muted>}
+                                {showLabels && (
+                                    <Muted>
+                                        {t('projects.status.username')}
+                                    </Muted>
+                                )}
                                 <Small>{driver_config.username}</Small>
                             </div>
                         </>
                     )}
                     <div className="flex items-center gap-2">
                         <DatabaseIcon className="size-4 text-muted-foreground" />
-                        {showLabels && <Muted>{t('projects.status.database')}</Muted>}
+                        {showLabels && (
+                            <Muted>{t('projects.status.database')}</Muted>
+                        )}
                         <Small>{driver_config.database}</Small>
                     </div>
                 </div>

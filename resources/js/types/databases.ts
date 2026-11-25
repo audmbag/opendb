@@ -13,15 +13,12 @@ export type Driver = {
     icon?: string;
 };
 
-
 export interface SSHConfiguration {
     host: string;
     port: number;
     user: string;
     id_file: string;
 }
-
-
 
 export interface Table {
     name: string;
