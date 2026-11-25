@@ -125,6 +125,7 @@ it('keeps the secrets of the connection for who manages the project', function (
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('project.driver_config.database')
+            ->where('project.driver_config.connection_location', 'local')
             ->missing('project.driver_config.password')
             ->missing('project.driver_config.ssh')
             ->missing('project.driver_config.disabled_tables'));

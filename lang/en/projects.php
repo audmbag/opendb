@@ -12,6 +12,12 @@ return [
         'configuration_copied' => 'Configuration copied',
         'copy_configuration' => 'Copy the configuration',
         'disconnect' => 'Disconnect',
+        'location' => [
+            'remote' => 'Remote',
+            'remote_hint' => 'The database is on another server.',
+            'ssh' => 'SSH',
+            'ssh_hint' => 'The database is reached through an SSH tunnel.',
+        ],
     ],
     'disconnection' => [
         'title' => 'Disconnect from :project?',

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Database\Contracts\DriverContract;
 use App\Database\Drivers\BaseDriver;
+use App\Enums\ConnectionLocationEnum;
 use App\Services\Privileges\PrivilegeManager;
 use App\Services\SSH\SshTunnel;
 use Illuminate\Database\Eloquent\Attributes\Appends;
@@ -14,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use InvalidArgumentException;
 
 #[Fillable(['driver_id', 'host', 'port', 'database', 'username', 'password', 'ssh', 'disabled_tables', 'read_only'])]
-#[Appends(['connection_string'])]
+#[Appends(['connection_string', 'connection_location'])]
 #[WithoutTimestamps]
 class DriverConfig extends Model
 {
@@ -116,6 +117,15 @@ class DriverConfig extends Model
     public function getConnectionStringAttribute(): string
     {
         return $this->getDriver()->getConnectionString();
+    }
+
+    /**
+     * Whether the database is on this machine, on another server or behind an SSH tunnel: shown to every member of the
+     * project, even to those who may not see the SSH configuration itself.
+     */
+    public function getConnectionLocationAttribute(): ConnectionLocationEnum
+    {
+        return ConnectionLocationEnum::of($this->driver_id, $this->host, $this->ssh);
     }
 
     public function getTablesInfoAttribute(): array
