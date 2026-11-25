@@ -11,6 +11,8 @@ use RuntimeException;
 
 /**
  * Passerelle entre l'application et l'import de données : un script SQL dans la base, un fichier CSV dans une table.
+ * Un import lève la limite de temps des requêtes web, comme le clonage : un gros fichier vers une base distante
+ * dépasse vite 30 secondes.
  */
 final readonly class ImporterManager
 {
@@ -30,6 +32,8 @@ final readonly class ImporterManager
     {
         $driver->assertPrivilege(PrivilegeEnum::Import);
 
+        set_time_limit(0);
+
         $statements = $this->splitter->split($sql, $driver->getConnection()->getDriverName());
 
         if ($statements === []) {
@@ -46,6 +50,8 @@ final readonly class ImporterManager
      */
     public function importSqlFile(DriverContract $driver, string $path, string $name, ImportMode $mode): array
     {
+        set_time_limit(0);
+
         return $this->importSql($driver, $this->files->read($path, $name, 'sql'), $mode);
     }
 
@@ -61,6 +67,8 @@ final readonly class ImporterManager
         foreach ([PrivilegeEnum::Import, PrivilegeEnum::Insert, ...($options['replace'] ? [PrivilegeEnum::Delete] : [])] as $privilege) {
             $driver->assertPrivilege($privilege, $table);
         }
+
+        set_time_limit(0);
 
         return $this->csv->import($driver, $table, $this->files->read($path, $name, 'csv'), $mapping, $options);
     }
