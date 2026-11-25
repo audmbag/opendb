@@ -1,7 +1,8 @@
 import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { ChevronDownIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import ChartView from '@/components/ai/artifacts/chart-view';
+import ChartDownloadButton from '@/components/charts/chart-download-button';
 import Button from '@/components/form/button';
 import {
     DropdownMenu,
@@ -67,6 +68,7 @@ export default function ResultChart({ columns, rows }: Props) {
             .slice(0, 4),
     );
     const [stacked, setStacked] = useState(false);
+    const chartRef = useRef<HTMLDivElement>(null);
 
     const points = rows
         .slice(0, MAX_POINTS)
@@ -167,6 +169,15 @@ export default function ResultChart({ columns, rows }: Props) {
                         })}
                     </span>
                 )}
+                <ChartDownloadButton
+                    chartRef={chartRef}
+                    title={t('ai.artifacts.chart_title', {
+                        y: series.join(', '),
+                        x: xColumn,
+                    })}
+                    disabled={series.length === 0 || points.length === 0}
+                    className={rows.length > MAX_POINTS ? undefined : 'ml-auto'}
+                />
             </div>
             <div className="min-h-0 flex-1 overflow-auto p-3">
                 {series.length === 0 ? (
@@ -175,6 +186,7 @@ export default function ResultChart({ columns, rows }: Props) {
                     </p>
                 ) : (
                     <ChartView
+                        ref={chartRef}
                         chartType={chartType}
                         xColumn={xColumn}
                         yColumns={series}
