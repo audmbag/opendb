@@ -1,4 +1,5 @@
 import { useLaravelReactI18n } from 'laravel-react-i18n';
+import type { Ref } from 'react';
 import {
     Area,
     AreaChart,
@@ -31,6 +32,10 @@ export type ChartViewProps = {
     stacked: boolean;
     rows: Record<string, CellValue>[];
     className?: string;
+    /**
+     * The element holding the chart and its legend, to save it as an image.
+     */
+    ref?: Ref<HTMLDivElement>;
 };
 
 /**
@@ -49,6 +54,7 @@ export default function ChartView({
     stacked,
     rows,
     className,
+    ref,
 }: ChartViewProps) {
     const { t } = useLaravelReactI18n();
     const config: ChartConfig = Object.fromEntries(
@@ -174,6 +180,7 @@ export default function ChartView({
 
     return (
         <ChartContainer
+            ref={ref}
             config={config}
             className={cn('max-h-96 w-full', className)}
         >

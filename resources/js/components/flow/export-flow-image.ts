@@ -1,6 +1,7 @@
 import { getNodesBounds, getViewportForBounds } from '@xyflow/react';
 import type { Node } from '@xyflow/react';
 import { toBlob } from 'html-to-image';
+import { saveBlob, waitForPaint } from '@/lib/save-file';
 
 const inlinedSvgProperties = [
     'display',
@@ -155,15 +156,6 @@ const renderedStyleProperties = [
 ];
 
 /**
- * Resolve once the browser has painted, so that a pending state such as a spinner shows before the heavy work starts.
- */
-function waitForPaint(): Promise<void> {
-    return new Promise((resolve) => {
-        requestAnimationFrame(() => setTimeout(resolve, 0));
-    });
-}
-
-/**
  * Download every node of a React Flow canvas as a PNG, whatever part of it is currently in view.
  */
 export async function exportFlowImage(
@@ -243,16 +235,9 @@ export async function exportFlowImage(
             },
         });
 
-        if (!blob) {
-            return;
+        if (blob) {
+            saveBlob(blob, `${fileName}.png`);
         }
-
-        const objectUrl = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.download = `${fileName}.png`;
-        link.href = objectUrl;
-        link.click();
-        setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
     } finally {
         svgElements.forEach((element, index) => {
             const originalStyle = originalStyles[index];

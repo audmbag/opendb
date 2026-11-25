@@ -1,8 +1,9 @@
 import { useLaravelReactI18n } from 'laravel-react-i18n';
 import { ChartColumnIcon } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import CardFrame from '@/components/card-frame';
+import ChartDownloadButton from '@/components/charts/chart-download-button';
 import {
     formatPointDate,
     formatTokens,
@@ -101,6 +102,7 @@ export default function UsageTimelineChart({
     );
 
     const isMonthly = statistics.timeline.bucket === 'month';
+    const chartRef = useRef<HTMLDivElement>(null);
 
     return (
         <CardFrame
@@ -111,8 +113,19 @@ export default function UsageTimelineChart({
                     : t('settings.usage.timeline_daily')
             }
             icon={ChartColumnIcon}
+            actions={
+                <ChartDownloadButton
+                    chartRef={chartRef}
+                    title={t('settings.usage.timeline')}
+                    disabled={points.length === 0}
+                />
+            }
         >
-            <ChartContainer config={config} className="aspect-auto h-56 w-full">
+            <ChartContainer
+                ref={chartRef}
+                config={config}
+                className="aspect-auto h-56 w-full"
+            >
                 <BarChart
                     data={points}
                     accessibilityLayer
