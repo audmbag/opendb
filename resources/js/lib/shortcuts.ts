@@ -16,6 +16,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
                 keys: [['Ctrl', 'K']],
             },
             { description: 'shortcuts.settings', keys: [['Ctrl', ',']] },
+            { description: 'shortcuts.open_project', keys: [['Ctrl', 'O']] },
             {
                 description: 'shortcuts.new_project',
                 keys: [['Ctrl', 'Shift', 'N']],
