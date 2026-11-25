@@ -95,7 +95,9 @@ export default function ResultChart({ columns, rows }: Props) {
                         </NativeSelectOption>
                     ))}
                 </NativeSelect>
-                <span className="text-muted-foreground">{t('tables.chart.axis')}</span>
+                <span className="text-muted-foreground">
+                    {t('tables.chart.axis')}
+                </span>
                 <NativeSelect
                     size="sm"
                     value={xColumn}
@@ -159,7 +161,10 @@ export default function ResultChart({ columns, rows }: Props) {
                     )}
                 {rows.length > MAX_POINTS && (
                     <span className="ml-auto text-muted-foreground">
-                        {t('tables.chart.first_points', { count: MAX_POINTS, total: rows.length })}
+                        {t('tables.chart.first_points', {
+                            count: MAX_POINTS,
+                            total: rows.length,
+                        })}
                     </span>
                 )}
             </div>

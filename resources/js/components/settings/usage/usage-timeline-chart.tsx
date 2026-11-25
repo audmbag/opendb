@@ -3,9 +3,18 @@ import { ChartColumnIcon } from 'lucide-react';
 import { useMemo } from 'react';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import CardFrame from '@/components/card-frame';
-import { formatPointDate, formatTokens } from '@/components/settings/usage/format';
+import {
+    formatPointDate,
+    formatTokens,
+} from '@/components/settings/usage/format';
 import type { ChartConfig } from '@/components/ui/chart';
-import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import {
+    ChartContainer,
+    ChartLegend,
+    ChartLegendContent,
+    ChartTooltip,
+    ChartTooltipContent,
+} from '@/components/ui/chart';
 import { trans } from '@/lib/i18n';
 import type { ProviderUsage, UsageStatistics } from '@/types/models/usage';
 
@@ -20,28 +29,57 @@ const MAX_SERIES = 5;
  * The series of the chart, one per provider. A provider keeps its color whatever the period shown: the colors follow
  * the order of the names, not the tokens used.
  */
-export const providerSeries = (providers: ProviderUsage[]): { key: string; label: string; ids: string[] }[] => {
+export const providerSeries = (
+    providers: ProviderUsage[],
+): { key: string; label: string; ids: string[] }[] => {
     const sorted = [...providers].sort((a, b) => a.id.localeCompare(b.id));
-    const shown = sorted.length > MAX_SERIES ? sorted.slice(0, MAX_SERIES - 1) : sorted;
+    const shown =
+        sorted.length > MAX_SERIES ? sorted.slice(0, MAX_SERIES - 1) : sorted;
     const folded = sorted.slice(shown.length);
 
     return [
-        ...shown.map((provider) => ({ key: provider.id, label: provider.label, ids: [provider.id] })),
-        ...(folded.length > 0 ? [{ key: OTHERS, label: trans('settings.usage.others'), ids: folded.map((provider) => provider.id) }] : []),
+        ...shown.map((provider) => ({
+            key: provider.id,
+            label: provider.label,
+            ids: [provider.id],
+        })),
+        ...(folded.length > 0
+            ? [
+                  {
+                      key: OTHERS,
+                      label: trans('settings.usage.others'),
+                      ids: folded.map((provider) => provider.id),
+                  },
+              ]
+            : []),
     ];
 };
 
-export const seriesColor = (index: number): string => `var(--chart-${index + 1})`;
+export const seriesColor = (index: number): string =>
+    `var(--chart-${index + 1})`;
 
 /**
  * The tokens used each day, or each month of a long period, stacked by provider.
  */
-export default function UsageTimelineChart({ statistics }: { statistics: UsageStatistics }) {
+export default function UsageTimelineChart({
+    statistics,
+}: {
+    statistics: UsageStatistics;
+}) {
     const { t } = useLaravelReactI18n();
-    const series = useMemo(() => providerSeries(statistics.providers), [statistics.providers, t]);
+    const series = useMemo(
+        () => providerSeries(statistics.providers),
+        [statistics.providers, t],
+    );
 
     const config: ChartConfig = useMemo(
-        () => Object.fromEntries(series.map((item, index) => [item.key, { label: item.label, color: seriesColor(index) }])),
+        () =>
+            Object.fromEntries(
+                series.map((item, index) => [
+                    item.key,
+                    { label: item.label, color: seriesColor(index) },
+                ]),
+            ),
         [series],
     );
 
@@ -50,7 +88,13 @@ export default function UsageTimelineChart({ statistics }: { statistics: UsageSt
             statistics.timeline.points.map((point) => ({
                 date: point.date,
                 ...Object.fromEntries(
-                    series.map((item) => [item.key, item.ids.reduce((sum, id) => sum + (point.providers[id] ?? 0), 0)]),
+                    series.map((item) => [
+                        item.key,
+                        item.ids.reduce(
+                            (sum, id) => sum + (point.providers[id] ?? 0),
+                            0,
+                        ),
+                    ]),
                 ),
             })),
         [statistics.timeline.points, series],
@@ -61,11 +105,19 @@ export default function UsageTimelineChart({ statistics }: { statistics: UsageSt
     return (
         <CardFrame
             title={t('settings.usage.timeline')}
-            description={isMonthly ? t('settings.usage.timeline_monthly') : t('settings.usage.timeline_daily')}
+            description={
+                isMonthly
+                    ? t('settings.usage.timeline_monthly')
+                    : t('settings.usage.timeline_daily')
+            }
             icon={ChartColumnIcon}
         >
             <ChartContainer config={config} className="aspect-auto h-56 w-full">
-                <BarChart data={points} accessibilityLayer barCategoryGap={points.length > 40 ? 1 : '20%'}>
+                <BarChart
+                    data={points}
+                    accessibilityLayer
+                    barCategoryGap={points.length > 40 ? 1 : '20%'}
+                >
                     <CartesianGrid vertical={false} />
                     <XAxis
                         dataKey="date"
@@ -75,16 +127,30 @@ export default function UsageTimelineChart({ statistics }: { statistics: UsageSt
                         minTickGap={24}
                         tickFormatter={(date: string) => formatPointDate(date)}
                     />
-                    <YAxis tickLine={false} axisLine={false} width={48} tickFormatter={(value: number) => formatTokens(value)} />
+                    <YAxis
+                        tickLine={false}
+                        axisLine={false}
+                        width={48}
+                        tickFormatter={(value: number) => formatTokens(value)}
+                    />
                     <ChartTooltip
                         cursor={{ fillOpacity: 0.4 }}
                         content={
                             <ChartTooltipContent
-                                labelFormatter={(_, payload) => formatPointDate(String(payload?.[0]?.payload?.date ?? ''), true)}
+                                labelFormatter={(_, payload) =>
+                                    formatPointDate(
+                                        String(
+                                            payload?.[0]?.payload?.date ?? '',
+                                        ),
+                                        true,
+                                    )
+                                }
                             />
                         }
                     />
-                    {series.length > 1 && <ChartLegend content={<ChartLegendContent />} />}
+                    {series.length > 1 && (
+                        <ChartLegend content={<ChartLegendContent />} />
+                    )}
                     {series.map((item, index) => (
                         <Bar
                             key={item.key}
@@ -93,7 +159,9 @@ export default function UsageTimelineChart({ statistics }: { statistics: UsageSt
                             fill={`var(--color-${item.key})`}
                             stroke="var(--background)"
                             strokeWidth={series.length > 1 ? 1 : 0}
-                            radius={index === series.length - 1 ? [4, 4, 0, 0] : 0}
+                            radius={
+                                index === series.length - 1 ? [4, 4, 0, 0] : 0
+                            }
                         />
                     ))}
                 </BarChart>
