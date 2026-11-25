@@ -58,9 +58,10 @@ export default function ChartView({
         ]),
     );
 
+    // A color per point only for the slices of a pie: Recharts would also paint each bar with it, unlike its series.
     const points = rows.map((row, rowIndex) => ({
         x: formatCell(row[xColumn]),
-        fill: chartColor(rowIndex),
+        ...(chartType === 'pie' && { fill: chartColor(rowIndex) }),
         ...Object.fromEntries(
             yColumns.map((column, index) => [
                 seriesKey(index),
