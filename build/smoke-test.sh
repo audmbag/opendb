@@ -57,11 +57,13 @@ done
 curl -fs -o /dev/null -w '%{http_code}\n' "http://127.0.0.1:$port/login"
 
 check "appel HTTPS (certificats)"
-# Par curl, comme les SDK des fournisseurs d'IA, avec le PHP du binaire et le dossier d'extraction du lanceur.
+# Par curl, comme les SDK des fournisseurs d'IA, avec le PHP du binaire et le dossier d'extraction du lanceur. Toute
+# réponse HTTP prouve que les certificats ont été vérifiés : GitHub limite les appels anonymes des runners partagés
+# (403), sans rapport avec TLS.
 TMPDIR="$home/.opendb/tmp" "$home/.local/share/opendb/current/opendb-core" php-cli -r '
     $request = curl_init("https://api.github.com/zen");
     curl_setopt_array($request, [CURLOPT_RETURNTRANSFER => true, CURLOPT_USERAGENT => "opendb"]);
     curl_exec($request);
     echo curl_getinfo($request, CURLINFO_HTTP_CODE), " ", curl_error($request), PHP_EOL;
-    exit(curl_getinfo($request, CURLINFO_HTTP_CODE) === 200 ? 0 : 1);
+    exit(curl_errno($request) === 0 && curl_getinfo($request, CURLINFO_HTTP_CODE) > 0 ? 0 : 1);
 '
