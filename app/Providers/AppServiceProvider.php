@@ -2,9 +2,14 @@
 
 namespace App\Providers;
 
+use AlbertoArena\Truss\Cache\SchemaCacheRepository;
+use AlbertoArena\Truss\Export\Contracts\CommentReader;
 use AlbertoArena\Truss\Introspection\SnapshotBuilder as TrussSnapshotBuilder;
+use App\Database\Schema\CachedCommentReader;
+use App\Database\Schema\SchemaSnapshotCache;
 use App\Database\Schema\SnapshotBuilder;
 use App\Services\Cloning\Workflow\CloningWorkspaceFactory;
+use App\Services\SSH\TunnelPool;
 use App\Services\SSH\TunnelUsage;
 use App\Services\SystemInfoService;
 use Carbon\CarbonImmutable;
@@ -28,9 +33,12 @@ class AppServiceProvider extends ServiceProvider
             ->give(resource_path('app/clonio.pii-matchers.yaml'));
 
         $this->app->bind(TrussSnapshotBuilder::class, SnapshotBuilder::class);
+        $this->app->bind(CommentReader::class, CachedCommentReader::class);
+        $this->app->scoped(SchemaCacheRepository::class, SchemaSnapshotCache::class);
 
         // The masters held by this process are counted until it ends, whatever request or command opened them.
         $this->app->singleton(TunnelUsage::class);
+        $this->app->singleton(TunnelPool::class);
     }
 
     /**

@@ -2,7 +2,6 @@
 
 namespace App\Database\Drivers;
 
-use AlbertoArena\Truss\Cache\SchemaCacheRepository;
 use AlbertoArena\Truss\Export\ExportBuilder;
 use AlbertoArena\Truss\TrussManager;
 use App\Database\Contracts\DriverContract;
@@ -12,12 +11,13 @@ use App\Database\Exceptions\HiddenTableException;
 use App\Database\Exceptions\PrivilegeException;
 use App\Database\HiddenTableGuard;
 use App\Database\QueryPrivilegeGuard;
+use App\Database\Schema\SchemaCache;
 use App\Database\Schema\TableDefinitionBuilder;
 use App\Enums\PrivilegeEnum;
 use App\Services\Privileges\Data\TablePrivileges;
 use App\Services\SSH\Remote;
 use App\Services\SSH\SshTunnel;
-use App\Services\SSH\TunnelUsage;
+use App\Services\SSH\TunnelPool;
 use Closure;
 use Exception;
 use Illuminate\Database\Connection;
@@ -25,7 +25,6 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use RuntimeException;
-use Throwable;
 
 class BaseDriver
 {
@@ -85,7 +84,7 @@ class BaseDriver
         }
 
         if ($this->has_ssh_tunnel) {
-            $this->startSSHTunnel();
+            $this->ssh_tunnel_forward_port = app(TunnelPool::class)->port($this->sshTunnelKey());
         }
 
         $this->connect();
@@ -126,24 +125,48 @@ class BaseDriver
     }
 
     /**
-     * Forward a local port to the database through the SSH master of its server, held until the process ends so that
-     * the master is not closed while it is in use.
+     * Forward the reserved local port to the database through the SSH master of its server, unless it already is.
+     * The forward is shared by every driver of the database in this process, and held until the process ends so
+     * that the master is not closed while it is in use.
+     *
+     * @return int the local port
      */
-    protected function startSSHTunnel(): void
+    protected function openSshTunnel(): int
     {
-        $tunnel = static::sshTunnelFor($this->databaseConfig);
+        return app(TunnelPool::class)->open(
+            $this->sshTunnelKey(),
+            fn (int $port): SshTunnel => static::sshTunnelFor($this->databaseConfig, $port),
+        );
+    }
 
-        $this->ssh_tunnel_forward_port = $tunnel->start();
+    /**
+     * The database and the SSH server it is reached through, which one tunnel serves.
+     */
+    protected function sshTunnelKey(): string
+    {
+        $ssh = $this->databaseConfig['ssh'];
 
-        $usage = app(TunnelUsage::class);
-        $usage->hold($tunnel->target());
+        return implode('|', [$ssh['user'] ?? '', $ssh['host'] ?? '', $ssh['port'] ?? '', $ssh['id_file'] ?? '', $this->databaseConfig['host'], $this->databaseConfig['port']]);
+    }
 
-        register_shutdown_function(static function () use ($usage, $tunnel): void {
-            try {
-                $usage->release($tunnel->target());
-            } catch (Throwable) {
-                // The cache is gone with the process: the hold is forgotten after its delay.
-            }
+    /**
+     * The connection asks for its tunnel only when it opens: a driver made for a page answered from the cached schema
+     * starts no ssh process. A connection lost and opened again asks again, should the master have been lost too.
+     */
+    protected function openSshTunnelBeforeConnecting(Connection $connection): void
+    {
+        $pdo = $connection->getRawPdo();
+
+        $connection->setPdo(function () use ($pdo): mixed {
+            $this->openSshTunnel();
+
+            return $pdo instanceof Closure ? $pdo() : $pdo;
+        });
+
+        $connection->setReconnector(function (Connection $connection): void {
+            DB::reconnect($this->connection_name);
+
+            $this->openSshTunnelBeforeConnecting($connection);
         });
     }
 
@@ -151,10 +174,11 @@ class BaseDriver
      * The tunnel to the database through its SSH server, not started yet.
      *
      * @param  array<string, mixed>  $config
+     * @param  int|null  $localPort  the local port to forward, a free one when null
      *
      * @throws InvalidArgumentException when the SSH configuration is incomplete, or its key cannot be read
      */
-    public static function sshTunnelFor(array $config): SshTunnel
+    public static function sshTunnelFor(array $config, ?int $localPort = null): SshTunnel
     {
         $sshConfig = $config['ssh'];
 
@@ -175,6 +199,7 @@ class BaseDriver
             sshUser: $sshConfig['user'],
             sshPort: (int) $sshConfig['port'],
             identityFile: $sshConfig['id_file'],
+            localPort: $localPort,
             autoDisconnectTimeout: '15m'
         );
     }
@@ -197,9 +222,20 @@ class BaseDriver
         };
     }
 
+    /**
+     * Configure the connection of the database. Another driver of the same database already connected it in this
+     * process when its settings are the same: the connection is shared rather than opened again, which costs a
+     * handshake with a remote server.
+     */
     public function connect(): void
     {
-        Config::set('database.connections.'.$this->connection_name, $this->getConfig());
+        $config = $this->getConfig();
+
+        if (config('database.connections.'.$this->connection_name) === $config && array_key_exists($this->connection_name, DB::getConnections())) {
+            return;
+        }
+
+        Config::set('database.connections.'.$this->connection_name, $config);
 
         Config::set('truss.connections.'.$this->connection_name, [
             'excluded_tables' => [],
@@ -210,6 +246,10 @@ class BaseDriver
         DB::purge($this->connection_name);
 
         DB::reconnect($this->connection_name);
+
+        if ($this->has_ssh_tunnel) {
+            $this->openSshTunnelBeforeConnecting(DB::connection($this->connection_name));
+        }
     }
 
     /**
@@ -346,6 +386,10 @@ class BaseDriver
         $name = $this->serverConnectionName();
         $firstError = null;
 
+        if ($this->has_ssh_tunnel) {
+            $this->openSshTunnel();
+        }
+
         foreach ($this->serverDatabases() as $database) {
             Config::set('database.connections.'.$name, [...$this->getConfig(), 'database' => $database]);
 
@@ -391,7 +435,7 @@ class BaseDriver
 
     public function sshTunnelPort(): ?int
     {
-        return $this->has_ssh_tunnel ? $this->ssh_tunnel_forward_port : null;
+        return $this->has_ssh_tunnel ? $this->openSshTunnel() : null;
     }
 
     public function disconnect(): void
@@ -542,7 +586,7 @@ class BaseDriver
     {
         return array_values(array_map(
             fn (array $table): string => (string) $table['name'],
-            app(TrussManager::class)->snapshot()->connection($this->connection_name)->toArray(),
+            app(TrussManager::class)->snapshot()->connection($this->connection_name)->withoutAnnotations()->toArray(),
         ));
     }
 
@@ -651,7 +695,7 @@ class BaseDriver
 
     public function forgetSchema(): void
     {
-        app(SchemaCacheRepository::class)->forget($this->connection_name);
+        app(SchemaCache::class)->forget($this->connection_name);
     }
 
     public function getSchema($withoutAnnotations = true): array

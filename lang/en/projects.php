@@ -158,6 +158,7 @@ return [
         'accessible_count' => '[0,*] :count accessible',
         'clonable_count' => '[0,*] :count clonable',
         'make_accessible_to_agent' => 'Make the :table table accessible to the agent',
+        'loading' => 'Reading the tables of the database…',
     ],
     'messages' => [
         'same_database' => 'The database cannot be the same as the one already configured on ":host".',

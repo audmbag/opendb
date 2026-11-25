@@ -83,6 +83,24 @@ it('creates a project for the user who holds CREATE PROJECT', function () {
     expect($user->projects()->sole()->name)->toBe('Boutique');
 });
 
+it('saves the connection of a new project without reading its tables, read by the next step', function () {
+    $user = User::factory()->create();
+    $project = Project::factory()->for($user)->create();
+    $database = sys_get_temp_dir().'/'.uniqid('opendb-new-project-').'.sqlite';
+    $pdo = new PDO('sqlite:'.$database);
+    $pdo->exec('CREATE TABLE customers (id INTEGER PRIMARY KEY, email VARCHAR(191))');
+
+    $response = $this->actingAs($user)->postJson("/projects/{$project->id}/store-driver-config", ['driver_id' => 'sqlite', 'database' => $database]);
+
+    $response->assertOk()->assertJsonMissingPath('driverConfig.tables_info');
+
+    $this->actingAs($user)->getJson("/projects/{$project->id}/settings/agent-tables")
+        ->assertOk()
+        ->assertJsonPath('data', [['name' => 'customers', 'columns' => 2, 'agentAccessEnabled' => true, 'cloningIncludingEnabled' => true]]);
+
+    unlink($database);
+});
+
 it('refuses to create a project without CREATE PROJECT', function () {
     $this->actingAs(User::factory()->create())->postJson('/projects/store-infos', [
         'name' => 'Boutique',

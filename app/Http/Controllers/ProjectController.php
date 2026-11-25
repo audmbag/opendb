@@ -41,14 +41,17 @@ class ProjectController extends Controller
         return response()->json($projectRepository->storeInfo($data));
     }
 
+    /**
+     * Save the connection once the database answers. Its tables are not read here: the wizard moves on to the next
+     * step at once, and asks for them afterwards, which takes long with a remote database.
+     */
     public function storeDriverConfig(Project $project, DriverConfigRequest $request, ProjectRepository $projectRepository): JsonResponse
     {
-        $request->connectedDriver();
+        $request->connectedDriver()->forgetSchema();
 
         return response()->json([
             'driverConfig' => $projectRepository
                 ->storeDriverConfig($project, $request->driverData())
-                ->setAppends(['tables_info'])
                 ->setHidden(['disabled_tables']),
         ]);
     }

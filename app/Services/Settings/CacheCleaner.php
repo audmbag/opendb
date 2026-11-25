@@ -2,9 +2,9 @@
 
 namespace App\Services\Settings;
 
-use AlbertoArena\Truss\Cache\SchemaCacheRepository;
 use App\Ai\Services\ModelRegistry;
 use App\Database\Drivers\BaseDriver;
+use App\Database\Schema\SchemaCache;
 use App\Models\DriverConfig;
 use App\Models\User;
 
@@ -15,7 +15,7 @@ use App\Models\User;
 class CacheCleaner
 {
     public function __construct(
-        protected SchemaCacheRepository $schemas,
+        protected SchemaCache $schemas,
         protected ModelRegistry $models,
     ) {}
 

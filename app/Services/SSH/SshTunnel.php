@@ -105,6 +105,14 @@ final class SshTunnel
         return $this->command()->destination().':'.$this->sshPort;
     }
 
+    /**
+     * Whether the tunnel was started and the connection to its server still runs.
+     */
+    public function isOpen(): bool
+    {
+        return $this->usedPort !== null && $this->transport()->isRunning();
+    }
+
     public function __destruct()
     {
         if ($this->disconnectAfterTunnelDestroyed) {

@@ -12,8 +12,10 @@ use App\Services\Cloning\Workflow\CloningConnections;
 use App\Services\Cloning\Workflow\CloningExecutor;
 use App\Services\Cloning\Workflow\SourceDatabaseStats;
 use App\Services\SystemInfoService;
+use Illuminate\Process\PendingProcess;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Process;
 
 beforeEach(function () {
     $this->home = realpath(sys_get_temp_dir()).'/'.uniqid('opendb-cloning-ssh-');
@@ -112,15 +114,39 @@ it('encrypts the password given to the cloning engine', function () {
 it('connects the driver to the local end of the ssh tunnel', function () {
     $driver = new class(['driver_id' => 'mysql', 'host' => 'mysql.internal', 'port' => 3306, 'database' => 'remote_db', 'username' => 'remote_user', 'password' => 'secret', 'ssh' => ['host' => '203.0.113.10']]) extends MySQLDriver
     {
-        protected function startSSHTunnel(): void
+        protected function openSshTunnel(): int
         {
-            $this->ssh_tunnel_forward_port = 50123;
+            return (int) $this->ssh_tunnel_forward_port;
         }
     };
 
-    expect($driver->sshTunnelPort())->toBe(50123)
-        ->and($driver->getConnection()->getConfig('host'))->toBe('127.0.0.1')
-        ->and($driver->getConnection()->getConfig('port'))->toBe(50123);
+    expect($driver->getConnection()->getConfig('host'))->toBe('127.0.0.1')
+        ->and($driver->getConnection()->getConfig('port'))->toBe($driver->sshTunnelPort());
+});
+
+it('opens the ssh tunnel only once the connection opens, and shares it between the drivers of the database', function () {
+    Process::fake();
+    $config = ['driver_id' => 'mysql', 'host' => 'mysql.internal', 'port' => 3306, 'database' => 'remote_db', 'username' => 'remote_user', 'password' => 'secret', 'ssh' => $this->ssh];
+    $identityFile = tempnam(sys_get_temp_dir(), 'opendb-key-');
+    $config['ssh']['id_file'] = $identityFile;
+
+    $driver = BaseDriver::for($config);
+    $other = BaseDriver::for($config);
+
+    Process::assertNothingRan();
+    expect($other->getConnection())->toBe($driver->getConnection());
+
+    try {
+        $driver->getConnection()->getPdo();
+    } catch (PDOException) {
+        // Nothing listens on the local end of the faked tunnel.
+    }
+
+    Process::assertRanTimes(fn (PendingProcess $process): bool => in_array('forward', (array) $process->command, true), 1);
+    expect($other->sshTunnelPort())->toBe($driver->sshTunnelPort());
+    Process::assertRanTimes(fn (PendingProcess $process): bool => in_array('forward', (array) $process->command, true), 1);
+
+    unlink($identityFile);
 });
 
 it('reports no tunnel port for a direct connection', function () {
