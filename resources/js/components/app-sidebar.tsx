@@ -1,6 +1,11 @@
 import { usePage } from '@inertiajs/react';
 import { useLaravelReactI18n } from 'laravel-react-i18n';
-import { FileTextIcon, FolderCogIcon, FolderPlusIcon } from 'lucide-react';
+import {
+    CommandIcon,
+    FileTextIcon,
+    FolderCogIcon,
+    FolderPlusIcon,
+} from 'lucide-react';
 import * as React from 'react';
 import type { SidebarMenuItemType } from '@/components/sidebar-menu-item';
 import { SidebarMenuItem } from '@/components/sidebar-menu-item';
@@ -18,6 +23,7 @@ import {
     SidebarTrigger,
     useSidebar,
 } from '@/components/ui/sidebar';
+import { useCommandModal } from '@/hooks/use-command-modal';
 import { usePrivileges } from '@/hooks/use-privileges';
 import { useCreateProject } from '@/hooks/use-project-modal';
 import { useProjectNavigation } from '@/hooks/use-project-navigation';
@@ -29,7 +35,16 @@ import { DOCUMENTATION_URL } from '@/lib/links';
 import { cn, limit } from '@/lib/utils';
 import type { Project } from '@/types/models/project';
 
-const footerItems = (t: (key: string) => string): SidebarMenuItemType[] => [
+const footerItems = (
+    t: (key: string) => string,
+    openCommands: () => void,
+): SidebarMenuItemType[] => [
+    {
+        label: t('commands.button'),
+        icon: CommandIcon,
+        shortcut: ['Ctrl', 'K'],
+        onClick: openCommands,
+    },
     {
         label: t('projects.menu.documentation'),
         icon: FileTextIcon,
@@ -89,6 +104,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const { open } = useSidebar();
 
     const { open: openProjectSettings } = useProjectSettingsDialog();
+    const { toggle: toggleCommands } = useCommandModal();
     const createProject = useCreateProject();
     const projectPages = useProjectNavigation();
     const projectSettingsPages = useProjectSettingsNavItems();
@@ -161,7 +177,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             </SidebarContent>
             <SidebarFooter>
                 <SidebarMenu>
-                    {footerItems(t).map((item) => (
+                    {footerItems(t, () => toggleCommands()).map((item) => (
                         <SidebarMenuItem key={item.label} {...item} />
                     ))}
                 </SidebarMenu>

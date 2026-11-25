@@ -12,6 +12,7 @@ return [
     ],
     'command_palette' => 'Open the command palette',
     'settings' => 'Open the settings',
+    'open_project' => 'Open a project',
     'new_project' => 'New project',
     'new_conversation' => 'New conversation',
     'search_conversation' => 'Search a conversation',

@@ -44,6 +44,7 @@ import { Kbd, KbdGroup } from '@/components/ui/kbd';
 import { useAppearance } from '@/hooks/use-apparence';
 import { COLOR_THEMES, useColorTheme } from '@/hooks/use-color-theme';
 import { useCommandModal } from '@/hooks/use-command-modal';
+import type { PalettePage } from '@/hooks/use-command-modal';
 import {
     useCopyConfig,
     useDriverConfigTestConnection,
@@ -70,11 +71,6 @@ import LoginController from '@/wayfinder/actions/App/Http/Controllers/Auth/Login
 import ConversationController from '@/wayfinder/actions/App/Http/Controllers/ConversationController';
 import HomeController from '@/wayfinder/actions/App/Http/Controllers/HomeController';
 import ProjectController from '@/wayfinder/actions/App/Http/Controllers/ProjectController';
-
-/**
- * The lists of the palette: the commands, then the choices of the commands ending with « ... ».
- */
-type PalettePage = 'root' | 'projects' | 'theme' | 'color-theme' | 'language';
 
 type PaletteCommand = {
     id: string;
@@ -344,7 +340,7 @@ const CommandContent = ({
         props: { project },
     } = usePage<{ project?: Project }>();
 
-    const [page, setPage] = useState<PalettePage>('root');
+    const { page, setPage, toggle } = useCommandModal();
     const [search, setSearch] = useState('');
 
     const { open: openSettings } = useSettingsDialog();
@@ -378,6 +374,7 @@ const CommandContent = ({
                     id: 'open-project',
                     label: t('commands.open_project'),
                     icon: FoldersIcon,
+                    shortcut: ['Ctrl', 'O'],
                     keepOpen: true,
                     action: () => showPage('projects'),
                 },
@@ -535,6 +532,20 @@ const CommandContent = ({
     };
 
     const handleKeyDown = (event: React.KeyboardEvent) => {
+        // Ctrl+K works from the search field as from the page, rather than moving up the list as cmdk would do. Stopped
+        // here, it does not reach the shortcut of the page too when the back button has the focus.
+        if (
+            (event.ctrlKey || event.metaKey) &&
+            event.key.toLowerCase() === 'k'
+        ) {
+            event.preventDefault();
+            event.stopPropagation();
+            setSearch('');
+            toggle('root');
+
+            return;
+        }
+
         if (event.key === 'Backspace' && search === '' && page !== 'root') {
             event.preventDefault();
             showPage('root');
@@ -559,7 +570,9 @@ const CommandContent = ({
                             <Kbd className="ml-1">⌫</Kbd>
                         </button>
                     )}
+                    {/* Focused rather than the back button before it, when the palette opens on one of its lists. */}
                     <CommandInput
+                        autoFocus
                         placeholder={t(
                             page === 'root'
                                 ? 'commands.placeholder'
@@ -615,8 +628,9 @@ const CommandContent = ({
 };
 
 /**
- * The command palette, opened with Ctrl+K on every page: the commands of the open project, the other projects, the
- * preferences of the interface and the settings. It also holds the shortcut creating a project, which works everywhere.
+ * The command palette, opened with Ctrl+K on every page, or with Ctrl+O on the projects to open: the commands of the
+ * open project, the other projects, the preferences of the interface and the settings. It also holds the shortcut
+ * creating a project, which works everywhere.
  */
 export default function CommandModal() {
     const { t } = useLaravelReactI18n();
