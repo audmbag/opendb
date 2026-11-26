@@ -20,6 +20,12 @@ final class ChatSession
     public bool $finished = false;
 
     /**
+     * True while the conversation bears its first message as a title, until an answer is read and the model titles it.
+     * The web chat, which may show the conversation meanwhile, never waits for a title that may not come.
+     */
+    public bool $awaitsTitle = false;
+
+    /**
      * The last message sent when its answer failed or was stopped: such a message is not saved in the conversation.
      */
     public ?string $unansweredMessage = null;

@@ -10,7 +10,6 @@ use App\Console\Commands\Chat\Output\Terminal;
 use App\Jobs\GenerateConversationTitle;
 use App\Repository\ConversationRepository;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
 use Laravel\Ai\Approvals\Decisions;
 use Laravel\Ai\Approvals\PendingApproval;
 use Laravel\Ai\Files\File;
@@ -37,9 +36,10 @@ class TurnRunner
      */
     public function send(ChatSession $session, string $message, ?int $regenerateFrom = null): void
     {
-        $startsConversation = $session->conversation === null;
-
-        $session->conversation ??= $this->conversationRepository->start($session->project);
+        if ($session->conversation === null) {
+            $session->conversation = $this->conversationRepository->start($session->project, GenerateConversationTitle::titleFromMessage($message));
+            $session->awaitsTitle = true;
+        }
 
         $position = $regenerateFrom ?? $this->userMessages($session)->count() + 1;
 
@@ -52,8 +52,9 @@ class TurnRunner
             $session->attachments = [];
         }
 
-        if ($startsConversation && $session->unansweredMessage === null) {
-            $this->title($session, $message);
+        // A first answer that failed or was stopped leaves the title to the one that comes after it.
+        if ($session->awaitsTitle && $session->unansweredMessage === null) {
+            $this->title($session, $this->userMessages($session)->first() ?? $message);
         }
     }
 
@@ -140,6 +141,8 @@ class TurnRunner
 
     /**
      * The console has no queue worker, so the title is written here, once the first answer is read.
+     *
+     * @param  string  $message  the first message of the conversation, which the title sums up
      */
     private function title(ChatSession $session, string $message): void
     {
@@ -148,10 +151,12 @@ class TurnRunner
         try {
             GenerateConversationTitle::dispatchSync($session->conversation, $message, $session->settings->provider->id, $session->settings->model);
         } catch (Throwable) {
-            $session->conversation->update(['title' => Str::limit($message, 100, preserveWords: true)]);
+            // The conversation keeps its first message as a title.
         } finally {
             $this->indicator->stop();
         }
+
+        $session->awaitsTitle = false;
 
         $session->conversation->refresh();
 

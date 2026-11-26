@@ -28,10 +28,33 @@ import {
     useSidebar,
 } from '@/components/ui/sidebar';
 import { useConversation } from '@/hooks/use-conversation';
+import { useConversationTitle } from '@/hooks/use-conversation-title';
 import { useConversationStore } from '@/store/use-conversation-store';
 import type { Conversation } from '@/types/models/conversation';
 import type { Project } from '@/types/models/project';
 import ConversationController from '@/wayfinder/actions/App/Http/Controllers/ConversationController';
+
+/**
+ * A conversation of the list, whose title is waited for while it is being generated.
+ */
+const ConversationMenuItem = ({
+    conversation,
+    ...props
+}: { conversation: Conversation } & Omit<
+    SidebarMenuItemType,
+    'label' | 'loading'
+>) => {
+    const { t } = useLaravelReactI18n();
+    const title = useConversationTitle(conversation);
+
+    return (
+        <SidebarMenuItem
+            {...props}
+            label={title ?? t('conversations.generating_title')}
+            loading={title === null}
+        />
+    );
+};
 
 const Conversations = () => {
     const { t } = useLaravelReactI18n();
@@ -78,13 +101,9 @@ const Conversations = () => {
                     </SidebarGroupLabel>
                     <SidebarMenu className="no-scrollbar min-h-0 flex-1 overflow-y-auto">
                         {conversations.map((conversation) => (
-                            <SidebarMenuItem
+                            <ConversationMenuItem
                                 key={conversation.id}
-                                label={
-                                    conversation.title ||
-                                    t('conversations.generating_title')
-                                }
-                                loading={!conversation.title}
+                                conversation={conversation}
                                 hiddenOnSidebarClosed
                                 viewTransition
                                 editing={

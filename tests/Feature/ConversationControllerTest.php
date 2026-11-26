@@ -343,6 +343,41 @@ it('starts a conversation without waiting for its title', function () {
         && $job->model === 'claude-opus-5-5');
 });
 
+it('keeps the first line of the title the model wrote, without its quotes', function (string $answer, string $title) {
+    $user = User::factory()->create();
+    $project = Project::factory()->for($user)->create();
+    connectAnthropic();
+    AnonymousAgent::fake([$answer]);
+
+    $response = $this->actingAs($user)->postJson("/{$project->id}/conversations", [
+        'message' => 'Quelles sont les tables ?',
+        'provider' => 'anthropic',
+        'model' => 'claude-opus-5-5',
+    ]);
+
+    expect(Conversation::find($response->json('conversation.id'))->title)->toBe($title);
+})->with([
+    'quoted' => ['« Liste des tables ».', 'Liste des tables'],
+    'followed by a correction' => ["Liste des tables\n\nWait, let me make this shorter", 'Liste des tables'],
+    'after blank lines, in Markdown' => ["\n\n**Liste des tables**", 'Liste des tables'],
+    'ending with an accented capital' => ['Café À', 'Café À'],
+]);
+
+it('titles a new conversation with its message when the model answers nothing', function () {
+    $user = User::factory()->create();
+    $project = Project::factory()->for($user)->create();
+    connectAnthropic();
+    AnonymousAgent::fake(["  \n "]);
+
+    $response = $this->actingAs($user)->postJson("/{$project->id}/conversations", [
+        'message' => 'Quelles sont les tables ?',
+        'provider' => 'anthropic',
+        'model' => 'claude-opus-5-5',
+    ]);
+
+    expect(Conversation::find($response->json('conversation.id'))->title)->toBe('Quelles sont les tables ?');
+});
+
 it('titles a conversation with its message when the title job fails', function () {
     $user = User::factory()->create();
     $project = Project::factory()->for($user)->create();

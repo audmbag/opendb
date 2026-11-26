@@ -39,12 +39,15 @@ class ConversationRepository
 
     /**
      * Start a conversation whose title is left to the caller, like the console, which has no queue worker to write it.
+     *
+     * @param  string|null  $title  the title it bears until the caller writes its own, null for none
      */
-    public function start(Project $project): Conversation
+    public function start(Project $project, ?string $title = null): Conversation
     {
         return $this->user->conversations()->create([
             'id' => (string) Str::uuid(),
             'project_id' => $project->id,
+            'title' => $title,
         ]);
     }
 
