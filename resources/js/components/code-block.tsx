@@ -142,12 +142,7 @@ const getTokensCacheKey = (
     code: string,
     language: BundledLanguage,
     theme: SyntaxThemeDefinition,
-): string => {
-    const start = code.slice(0, 100);
-    const end = code.length > 100 ? code.slice(-100) : '';
-
-    return `${theme.value}:${language}:${code.length}:${start}:${end}`;
-};
+): string => `${theme.value}:${language}:${code}`;
 
 const getHighlighter = async (
     language: BundledLanguage,
