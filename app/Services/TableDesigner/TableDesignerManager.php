@@ -9,6 +9,8 @@ use App\Database\Exceptions\PrivilegeException;
 use App\Database\Exceptions\TableNotFoundException;
 use App\Enums\PrivilegeEnum;
 use Closure;
+use Laravel\Ai\Enums\Lab;
+use RuntimeException;
 
 /**
  * Passerelle entre l'application et la conception des tables : créer une table, modifier sa structure, la renommer,
@@ -23,6 +25,8 @@ final readonly class TableDesignerManager
         private TableBlueprintBuilder $builder,
         private TableDesignApplier $applier,
         private TableOperations $operations,
+        private ColumnMover $mover,
+        private TableDesignAssistant $assistant,
     ) {}
 
     /**
@@ -64,7 +68,33 @@ final readonly class TableDesignerManager
     {
         $this->assertDesignAllowed($driver, $table);
 
-        return $this->applier->apply($driver, $this->phases($driver, $table, $design));
+        return $this->applier->applyAtomically($driver, $this->phases($driver, $table, $design));
+    }
+
+    /**
+     * The statements that would move the column after another one, or first when `$after` is null.
+     *
+     * @return list<string>
+     *
+     * @throws TableNotFoundException|TableDesignFailedException|PrivilegeException
+     */
+    public function previewColumnMove(DriverContract $driver, string $table, string $column, ?string $after): array
+    {
+        $driver->assertPrivilege(PrivilegeEnum::Alter, $table);
+
+        return $this->mover->preview($driver, $table, $column, $after);
+    }
+
+    /**
+     * @return list<string> the statements that ran
+     *
+     * @throws TableNotFoundException|TableDesignFailedException|PrivilegeException
+     */
+    public function moveColumn(DriverContract $driver, string $table, string $column, ?string $after): array
+    {
+        $driver->assertPrivilege(PrivilegeEnum::Alter, $table);
+
+        return $this->mover->move($driver, $table, $column, $after);
     }
 
     /**
@@ -106,6 +136,21 @@ final readonly class TableDesignerManager
         $driver->assertPrivilege(PrivilegeEnum::Select, $table);
 
         $this->operations->duplicate($driver, $table, $name, $withRows);
+    }
+
+    /**
+     * The new table the assistant proposes from a sentence of the user, to fill the form of the designer. Nothing runs.
+     *
+     * @param  array<string, mixed>  $form  what the form of the designer holds
+     * @return array{design: ?TableDesign, explanation: string} no design when the agent explains why it proposes none
+     *
+     * @throws PrivilegeException|RuntimeException
+     */
+    public function suggest(DriverContract $driver, string $prompt, array $form, Lab|string $provider, string $model): array
+    {
+        $driver->assertPrivilege(PrivilegeEnum::Create);
+
+        return $this->assistant->suggest($driver, $prompt, $form, $provider, $model);
     }
 
     /**

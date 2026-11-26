@@ -641,6 +641,9 @@ export default function TablesIndex({
                                                             onOpenConsole={
                                                                 openConsole
                                                             }
+                                                            onSchemaChanged={
+                                                                reloadTables
+                                                            }
                                                         />
                                                     </TableGridContext.Provider>
                                                 </TableChangesContext.Provider>

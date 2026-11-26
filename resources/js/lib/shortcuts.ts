@@ -68,6 +68,10 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
                 description: 'shortcuts.open_referenced_row',
                 keys: [['Ctrl', 'shortcuts.keys.click']],
             },
+            {
+                description: 'shortcuts.design_assistant',
+                keys: [['Ctrl', 'I']],
+            },
         ],
     },
     {

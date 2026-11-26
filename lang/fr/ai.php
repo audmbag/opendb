@@ -15,6 +15,7 @@ return [
         'table_filter' => 'Filtres IA',
         'table_insights' => 'Analyses de table',
         'table_indexes' => 'Conseils d\'index',
+        'table_design' => 'Conception de tables',
         'query_writer' => 'Rédaction de requêtes',
         'query_reviewer' => 'Revue de requêtes',
         'conversation_title' => 'Titres des conversations',

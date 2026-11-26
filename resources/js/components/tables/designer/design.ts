@@ -155,13 +155,20 @@ const DEFINITION_FIELDS: (keyof ColumnDesign)[] = [
     'options',
 ];
 
-export const definitionChanged = (column: DesignerColumn): boolean =>
-    column.initial === null ||
+/**
+ * Whether two columns are defined differently, whatever their names.
+ */
+export const definitionDiffers = (
+    column: ColumnDesign,
+    other: ColumnDesign,
+): boolean =>
     DEFINITION_FIELDS.some(
         (field) =>
-            JSON.stringify(column[field]) !==
-            JSON.stringify(column.initial![field]),
+            JSON.stringify(column[field]) !== JSON.stringify(other[field]),
     );
+
+export const definitionChanged = (column: DesignerColumn): boolean =>
+    column.initial === null || definitionDiffers(column, column.initial);
 
 export function fromDesign(design: TableDesign): {
     columns: DesignerColumn[];
@@ -178,6 +185,36 @@ export function fromDesign(design: TableDesign): {
         indexes: design.indexes.map((index) => ({ ...index, id: localId() })),
         foreignKeys: design.foreignKeys.map((foreignKey) => ({
             ...foreignKey,
+            id: localId(),
+        })),
+    };
+}
+
+/**
+ * The new table proposed by the assistant, as rows of the designer: none of its elements is in the database yet.
+ */
+export function fromProposal(design: TableDesign): {
+    columns: DesignerColumn[];
+    indexes: DesignerIndex[];
+    foreignKeys: DesignerForeignKey[];
+} {
+    return {
+        columns: design.columns.map((column) => ({
+            ...column,
+            original: null,
+            changed: false,
+            id: localId(),
+            initial: null,
+            removed: false,
+        })),
+        indexes: design.indexes.map((index) => ({
+            ...index,
+            original: null,
+            id: localId(),
+        })),
+        foreignKeys: design.foreignKeys.map((foreignKey) => ({
+            ...foreignKey,
+            original: null,
             id: localId(),
         })),
     };

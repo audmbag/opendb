@@ -161,3 +161,91 @@ it('adds a row filled in the form, checked against the columns', function () {
         ->assertUnprocessable()
         ->assertJsonValidationErrors('name');
 });
+
+it('moves a column of a SQLite table, keeping its rows, constraints, indexes, triggers, views and counter', function () {
+    $connection = designConnection();
+    $connection->statement(<<<'SQL'
+        create table "notes" (
+            "id" integer primary key autoincrement not null,
+            "title, with comma" varchar not null default 'a, (b)', -- a comment, with a comma
+            body text check (length(body) > 0) collate nocase,
+            [score] integer default (1 + 2),
+            words integer generated always as (length(body)) virtual,
+            constraint notes_title_unique unique ("title, with comma")
+        )
+        SQL);
+    $connection->statement('create index notes_score_index on notes (score)');
+    $connection->statement('create view long_notes as select id, body from notes where words > 3');
+    $connection->statement('create trigger notes_score_trigger after insert on notes begin update notes set score = score + 1 where id = new.id; end');
+    $connection->table('notes')->insert([['title, with comma' => 'One', 'body' => 'first'], ['title, with comma' => 'Two', 'body' => 'hi'], ['title, with comma' => 'Three', 'body' => 'last']]);
+    $connection->table('notes')->where('id', 3)->delete();
+
+    $move = ['column' => 'score', 'after' => 'id'];
+
+    $this->actingAs($this->user)->postJson(tablesUri('/notes/columns/move/preview'), $move)
+        ->assertOk()
+        ->assertJsonPath('data.statements', fn (array $statements) => str_starts_with($statements[1], 'create table "__temp__notes"'));
+    expect($connection->getSchemaBuilder()->getColumnListing('notes'))->toBe(['id', 'title, with comma', 'body', 'score', 'words']);
+
+    $this->actingAs($this->user)->postJson(tablesUri('/notes/columns/move'), $move)->assertOk();
+
+    expect($connection->getSchemaBuilder()->getColumnListing('notes'))->toBe(['id', 'score', 'title, with comma', 'body', 'words'])
+        ->and($connection->table('notes')->get(['id', 'score', 'body', 'words'])->map(fn ($row) => (array) $row)->all())->toBe([
+            ['id' => 1, 'score' => 4, 'body' => 'first', 'words' => 5],
+            ['id' => 2, 'score' => 4, 'body' => 'hi', 'words' => 2],
+        ])
+        ->and($connection->table('long_notes')->pluck('id')->all())->toBe([1])
+        ->and($connection->scalar("select sql from sqlite_master where name = 'notes'"))->toContain('check (length(body) > 0) collate nocase', 'a comment, with a comma')
+        ->and($connection->getSchemaBuilder()->getIndexListing('notes'))->toContain('notes_score_index')
+        ->and(fn () => $connection->table('notes')->insert(['title, with comma' => 'One', 'body' => 'again']))->toThrow(Exception::class)
+        ->and(fn () => $connection->table('notes')->insert(['title, with comma' => 'Empty', 'body' => '']))->toThrow(Exception::class);
+
+    $connection->table('notes')->insert(['title, with comma' => 'Four', 'body' => 'next']);
+    expect($connection->table('notes')->where('body', 'next')->first())->id->toBe(4)->score->toBe(4);
+});
+
+it('moves a column first, keeping the foreign keys from and to the table', function () {
+    $connection = designConnection();
+
+    $this->actingAs($this->user)->postJson(tablesUri('/orders/columns/move'), ['column' => 'status', 'after' => null])->assertOk();
+    $this->actingAs($this->user)->postJson(tablesUri('/customers/columns/move'), ['column' => 'id', 'after' => 'city'])->assertOk();
+
+    expect($connection->getSchemaBuilder()->getColumnListing('orders'))->toBe(['status', 'id', 'customer_id', 'total'])
+        ->and($connection->getSchemaBuilder()->getColumnListing('customers'))->toBe(['name', 'city', 'id'])
+        ->and($connection->getSchemaBuilder()->getForeignKeys('orders'))->sequence(fn ($foreignKey) => $foreignKey->foreign_table->toBe('customers'))
+        ->and($connection->select('pragma foreign_key_check'))->toBe([])
+        ->and((int) $connection->scalar('pragma foreign_keys'))->toBe(1)
+        ->and($connection->table('orders')->where('customer_id', 1)->sum('total'))->toBe(200);
+});
+
+it('runs nothing when the column is already in place', function () {
+    $this->actingAs($this->user)->postJson(tablesUri('/customers/columns/move'), ['column' => 'name', 'after' => 'id'])
+        ->assertOk()
+        ->assertJsonPath('data.statements', []);
+});
+
+it('refuses to move a column the table does not have', function () {
+    $this->actingAs($this->user)->postJson(tablesUri('/customers/columns/move/preview'), ['column' => 'email', 'after' => null])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('design');
+
+    $this->actingAs($this->user)->postJson(tablesUri('/customers/columns/move'), ['column' => 'name'])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('after');
+});
+
+it('puts the columns in the order of the design, new ones included, keeping the rows', function () {
+    $design = $this->actingAs($this->user)->getJson(tablesUri('/customers/design'))->json('data');
+    [$id, $name, $city] = $design['columns'];
+    $design['columns'] = [$id, $city, designColumn('email', 'string', ['nullable' => true]), [...$name, 'name' => 'full_name']];
+
+    $this->actingAs($this->user)->postJson(tablesUri('/customers/design/preview'), $design)->assertOk();
+    expect(designConnection()->getSchemaBuilder()->getColumnListing('customers'))->toBe(['id', 'name', 'city']);
+
+    $this->actingAs($this->user)->putJson(tablesUri('/customers/design'), $design)->assertOk();
+
+    $connection = designConnection();
+    expect($connection->getSchemaBuilder()->getColumnListing('customers'))->toBe(['id', 'city', 'email', 'full_name'])
+        ->and($connection->table('customers')->pluck('full_name', 'city')->all())->toBe(['Paris' => 'Ada', 'Lyon' => 'Grace', '' => 'Alan'])
+        ->and($connection->getSchemaBuilder()->getForeignKeys('orders'))->toHaveCount(1);
+});

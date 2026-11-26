@@ -48,4 +48,12 @@ return [
     'remove' => 'Retirer',
     'back' => 'Retour',
     'toggle_sidebar' => 'Afficher ou masquer la barre latérale',
+    'sortable' => [
+        'instructions' => 'Pour déplacer un élément, appuyez sur Espace ou Entrée, déplacez-le avec les flèches haut et bas, puis appuyez sur Espace ou Entrée pour le déposer, ou sur Échap pour annuler.',
+        'picked_up' => ':item saisi.',
+        'moved_over' => ':item est au-dessus de :over.',
+        'dropped' => ':item déposé à la place de :over.',
+        'dropped_in_place' => ':item déposé à sa place.',
+        'cancelled' => 'Déplacement de :item annulé.',
+    ],
 ];

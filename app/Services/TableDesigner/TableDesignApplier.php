@@ -66,6 +66,31 @@ class TableDesignApplier
     }
 
     /**
+     * Run the phases all or none where the engine can: SQLite then runs them in a transaction too, its foreign keys
+     * set aside before it starts, so that a table it rebuilds is never left half copied. MySQL and MariaDB commit
+     * each statement at once.
+     *
+     * @param  list<Closure(): list<string>>  $phases
+     * @return list<string> the statements that ran
+     *
+     * @throws TableDesignFailedException
+     */
+    public function applyAtomically(DriverContract $driver, array $phases): array
+    {
+        $connection = $driver->getConnection();
+
+        if ($connection->getDriverName() !== 'sqlite') {
+            return $this->apply($driver, $phases);
+        }
+
+        try {
+            return $this->withoutForeignKeysOnSqlite($connection, fn (): array => $connection->transaction(fn (): array => $this->run($connection, $phases)));
+        } finally {
+            $driver->forgetSchema();
+        }
+    }
+
+    /**
      * @param  list<Closure(): list<string>>  $phases
      * @return list<string>
      *

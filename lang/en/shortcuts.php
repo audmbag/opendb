@@ -25,6 +25,7 @@ return [
     'format_script' => 'Format the script',
     'copy_cells' => 'Copy the selected cells',
     'open_referenced_row' => 'Open the referenced row',
+    'design_assistant' => 'Open the assistant of the table designer',
     'exit_fullscreen' => 'Exit full screen',
     'keys' => [
         'enter' => 'Enter',

@@ -92,6 +92,7 @@ import {
 } from '@/store/use-table-changes-store';
 import { useTableGridApi } from '@/store/use-table-grid-store';
 import type { CellValue, RecordKey } from '@/types/agent';
+import { DefaultDrivers } from '@/types/databases';
 import type { Project } from '@/types/models/project';
 import TableBrowserController from '@/wayfinder/actions/App/Http/Controllers/Tables/TableBrowserController';
 
@@ -136,6 +137,10 @@ type Props = {
     onOpenTable: (table: string, focus?: Omit<TableFocus, 'nonce'>) => void;
     onAction: (action: TableAction, table: string) => void;
     onOpenConsole: (sql: string) => void;
+    /**
+     * Called once the structure of the table changed from the tab, to read the structure of the database again.
+     */
+    onSchemaChanged: () => void;
 };
 
 type Tab = 'data' | 'structure' | 'definition';
@@ -173,6 +178,7 @@ export default function Workspace({
     onOpenTable,
     onAction,
     onOpenConsole,
+    onSchemaChanged,
 }: Props) {
     const { t, tChoice } = useLaravelReactI18n();
     const [view, setView] = useState<TableView>(initialView);
@@ -1037,6 +1043,16 @@ export default function Workspace({
                             structure={structure}
                             onOpenTable={(next) => onOpenTable(next)}
                             onEditStructure={canOnProject('alter', table) ? () => onAction('design', table) : undefined}
+                            driver={project.driver_config?.driver_id ?? ''}
+                            onColumnMoved={
+                                canOnProject('alter', table) &&
+                                project.driver_config?.driver_id !== DefaultDrivers.POSTGRESQL
+                                    ? () => {
+                                          setRefreshKey(refreshKey + 1);
+                                          onSchemaChanged();
+                                      }
+                                    : undefined
+                            }
                         />
                     ) : (
                         <Skeleton className="m-4 h-64" />

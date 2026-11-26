@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Tables;
 
+use App\Http\Requests\Tables\ColumnMoveRequest;
 use App\Http\Requests\Tables\TableDesignRequest;
 use App\Http\Requests\Tables\TableNameRequest;
 use App\Models\Project;
@@ -52,6 +53,19 @@ class TableDesignController extends TableController
     public function update(Project $project, string $table, TableDesignRequest $request): JsonResponse
     {
         return $this->respond(fn (): array => ['statements' => $this->designer->apply($this->driver($project), $table, $request->design())]);
+    }
+
+    /**
+     * The statements moving a column of the table, shown before they run.
+     */
+    public function previewColumnMove(Project $project, string $table, ColumnMoveRequest $request): JsonResponse
+    {
+        return $this->respond(fn (): array => ['statements' => $this->designer->previewColumnMove($this->driver($project), $table, $request->movedColumn(), $request->previousColumn())]);
+    }
+
+    public function moveColumn(Project $project, string $table, ColumnMoveRequest $request): JsonResponse
+    {
+        return $this->respond(fn (): array => ['statements' => $this->designer->moveColumn($this->driver($project), $table, $request->movedColumn(), $request->previousColumn())]);
     }
 
     public function rename(Project $project, string $table, TableNameRequest $request): JsonResponse
