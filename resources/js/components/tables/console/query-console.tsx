@@ -31,6 +31,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Kbd } from '@/components/ui/kbd';
 import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
+import {
     ResizableHandle,
     ResizablePanel,
     ResizablePanelGroup,
@@ -281,6 +286,8 @@ export default function QueryConsole({
     // Read when the assistant answers: the user may have typed meanwhile.
     const sqlRef = useValueAsRef(sql);
     const [writerOpen, setWriterOpen] = useState(false);
+    // Kept while the popover is closed: a click aside does not lose what was described.
+    const [writerPrompt, setWriterPrompt] = useState('');
     const [writtenRange, setWrittenRange] = useState<{
         from: number;
         to: number;
@@ -385,6 +392,7 @@ export default function QueryConsole({
 
         setSql(next);
         setWrittenRange({ from: before.length, to: next.length });
+        setWriterOpen(false);
 
         return true;
     };
@@ -749,16 +757,41 @@ export default function QueryConsole({
                 >
                     {t('tables.console.format')}
                 </Button>
-                <Button
-                    variant={writerOpen ? 'secondary' : 'ghost'}
-                    size="sm"
-                    onClick={() => setWriterOpen(!writerOpen)}
-                    aria-pressed={writerOpen}
-                    icon={SparklesIcon}
-                    tooltip={t('tables.console.write_tooltip')}
-                >
-                    {t('tables.console.write_with_ai')}
-                </Button>
+                <Popover open={writerOpen} onOpenChange={setWriterOpen}>
+                    <PopoverTrigger asChild>
+                        <Button
+                            variant={writerOpen ? 'secondary' : 'ghost'}
+                            size="sm"
+                            icon={SparklesIcon}
+                            processing={writer.processing}
+                            tooltip={
+                                writerOpen
+                                    ? undefined
+                                    : t('tables.console.write_tooltip')
+                            }
+                        >
+                            {t('tables.console.write_with_ai')}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                        align="start"
+                        className="w-[min(28rem,calc(100vw-2rem))] gap-2 p-2"
+                    >
+                        <AiPromptInput
+                            icon={SparklesIcon}
+                            placeholder={t('tables.console.write_placeholder')}
+                            label={t('tables.console.write_label')}
+                            onSubmit={writeQuery}
+                            processing={writer.processing}
+                            error={writer.error}
+                            prompt={writerPrompt}
+                            onPromptChange={setWriterPrompt}
+                            maxLength={1000}
+                            multiline
+                            autoFocus
+                        />
+                    </PopoverContent>
+                </Popover>
                 {reviewUrl && (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -864,20 +897,6 @@ export default function QueryConsole({
                     minSize="72px"
                     className="flex min-h-0 flex-col"
                 >
-                    {writerOpen && (
-                        <div className="shrink-0 border-b px-3 py-2">
-                            <AiPromptInput
-                                icon={SparklesIcon}
-                                placeholder={t('tables.console.write_placeholder')}
-                                label={t('tables.console.write_label')}
-                                onSubmit={writeQuery}
-                                processing={writer.processing}
-                                error={writer.error}
-                                autoFocus
-                            />
-                        </div>
-                    )}
-
                     {(review || reviewer.error) && (
                         <div className="flex max-h-[60%] shrink-0 flex-col gap-2 overflow-y-auto border-b px-3 py-2 text-sm">
                             {reviewer.error ? (
