@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.1.0-beta.7](https://github.com/audmbag/opendb/compare/v0.1.0-beta.6...v0.1.0-beta.7) (2026-11-26)
+
+
+### Features
+
+* **charts:** download the charts as PNG ([90012a1](https://github.com/audmbag/opendb/commit/90012a1790972c83cdb8adcddd045647c69b3418))
+* **commands:** open the projects with Ctrl+O and the palette from the sidebar ([29f3127](https://github.com/audmbag/opendb/commit/29f3127150cfe68639db05582e002dbadd023452))
+* **console:** describe the query to write in a popover, on several lines ([bdd0a66](https://github.com/audmbag/opendb/commit/bdd0a66bc55b77402f01b33d7d0949f3b07052b5))
+* **projects:** show a remote or SSH database in the status bar ([06c004a](https://github.com/audmbag/opendb/commit/06c004a6a1ce0256975fd6cb89753ffc5a0089dc))
+* **tables:** design a new table with an assistant, and move columns by dragging them ([f6ccedc](https://github.com/audmbag/opendb/commit/f6ccedc5571240ff95c121e1284398b84e06f929))
+
+
+### Bug Fixes
+
+* **charts:** paint the bars with the color of their series ([a445a76](https://github.com/audmbag/opendb/commit/a445a76284595ca704ed3119ecf6b73e26c40ddd))
+* **chat:** always title a conversation, even when the model answers nothing usable ([e10de9f](https://github.com/audmbag/opendb/commit/e10de9f4144e643a77e45902843460584fc05d64))
+* **code-block:** highlight again a code that changes only in its middle ([1844497](https://github.com/audmbag/opendb/commit/184449767e09d2ddc524a98ef820f72da20a252c))
+* **import:** accept the files the imports allow in the standalone binary ([3cb9144](https://github.com/audmbag/opendb/commit/3cb91449c33e09fd27a5cdeb03f9b39b72873ab0))
+* **sql:** write the action after ON UPDATE in capitals ([2e0e3b4](https://github.com/audmbag/opendb/commit/2e0e3b4ad65df47e30940046319e88c690554340))
+
+
+### Performance Improvements
+
+* **database:** read remote schemas in one pass and keep them cached ([efc89a2](https://github.com/audmbag/opendb/commit/efc89a2e6fef2f50c9deb73293cb8f6b737a7929))
+
 ## [0.1.0-beta.6](https://github.com/audmbag/opendb/compare/v0.1.0-beta.5...v0.1.0-beta.6) (2026-11-23)
 
 
