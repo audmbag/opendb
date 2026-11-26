@@ -135,9 +135,13 @@ export function uppercaseSqlKeywords(sql: string): string {
 
             result += capitalized ? word.toUpperCase() : word;
             index += word.length;
+            // `ON UPDATE` is followed by an action of a foreign key or CURRENT_TIMESTAMP, not by a table.
+            const namesTable: boolean =
+                BEFORE_TABLE.has(lower) &&
+                !(lower === 'update' && previous?.word === 'on');
             expectsTable = isTableName
                 ? false
-                : BEFORE_TABLE.has(lower) ||
+                : namesTable ||
                   (expectsTable && AFTER_TABLE_KEYWORDS.has(lower));
             previous = isNamePart
                 ? null
