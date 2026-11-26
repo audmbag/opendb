@@ -57,7 +57,9 @@ export default function ColumnPicker({
                                 'font-sans text-muted-foreground',
                         )}
                     >
-                        {value.length ? value.join(', ') : (placeholder ?? t('tables.designer.choose'))}
+                        {value.length
+                            ? value.join(', ')
+                            : (placeholder ?? t('tables.designer.choose'))}
                     </span>
                     <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground" />
                 </button>

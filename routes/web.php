@@ -214,12 +214,15 @@ Route::middleware(['auth'])->group(function () {
                 Route::get('/{table}/design', 'show');
                 Route::post('/{table}/design/preview', 'previewUpdate');
                 Route::put('/{table}/design', 'update');
+                Route::post('/{table}/columns/move/preview', 'previewColumnMove');
+                Route::post('/{table}/columns/move', 'moveColumn');
                 Route::post('/{table}/rename', 'rename');
                 Route::post('/{table}/duplicate', 'duplicate');
                 Route::post('/{table}/truncate', 'truncate');
                 Route::delete('/{table}', 'destroy');
             });
 
+            Route::post('/ai/design', [TableAssistantController::class, 'design']);
             Route::post('/{table}/import', TableImportController::class);
 
             Route::controller(TableBrowserController::class)->group(function () {

@@ -845,6 +845,32 @@
 }
 
 /*
+ * Ligne qui vient d'être déposée à sa nouvelle place (colonnes de la structure et du designer) : elle s'éclaire puis
+ * revient à la normale, sans rien d'autre quand le système demande de limiter les animations.
+ */
+@keyframes sortable-settled {
+    from {
+        background-color: color-mix(
+            in oklab,
+            var(--color-primary) 14%,
+            transparent
+        );
+    }
+
+    /* Sans « to », la ligne revient à son propre fond : celui d'une colonne ajoutée ou modifiée reste. */
+}
+
+.sortable-settled {
+    animation: sortable-settled 1.2s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sortable-settled {
+        animation: none;
+    }
+}
+
+/*
  * Barre fine qui traverse l'en-tête de la grille de l'onglet Tables pendant qu'une page de lignes se charge.
  */
 @keyframes table-loading {

@@ -48,4 +48,12 @@ return [
     'remove' => 'Remove',
     'back' => 'Back',
     'toggle_sidebar' => 'Toggle the sidebar',
+    'sortable' => [
+        'instructions' => 'To move an item, press Space or Enter, move it with the up and down arrows, then press Space or Enter to drop it, or Escape to cancel.',
+        'picked_up' => ':item picked up.',
+        'moved_over' => ':item is over :over.',
+        'dropped' => ':item dropped in place of :over.',
+        'dropped_in_place' => ':item dropped back in place.',
+        'cancelled' => 'Moving :item cancelled.',
+    ],
 ];

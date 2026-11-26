@@ -21,7 +21,7 @@ use Illuminate\Database\Schema\ForeignKeyDefinition;
  */
 class TableBlueprintBuilder
 {
-    public function __construct(protected ColumnTypeCatalog $types) {}
+    public function __construct(protected ColumnTypeCatalog $types, protected ColumnPositioner $positioner) {}
 
     /**
      * @param  TableDesign  $design
@@ -49,6 +49,8 @@ class TableBlueprintBuilder
      * @param  TableDesign&array{primaryKeyName: ?string}  $current  the table as the database describes it
      * @param  TableDesign  $design  the table as the user wants it
      * @return list<Closure(): list<string>>
+     *
+     * @throws TableDesignFailedException
      */
     public function alter(Connection $connection, array $current, array $design): array
     {
@@ -118,6 +120,16 @@ class TableBlueprintBuilder
             $this->addForeignKeys($blueprint, array_filter($design['foreignKeys'], fn (array $foreignKey): bool => $foreignKey['original'] === null));
         })->toSql();
 
+        // The columns kept stay where they are and the new ones come last, unless the design puts them elsewhere.
+        $natural = [
+            ...array_map(fn (string $column): string => $renames[$column] ?? $column, array_values(array_diff(array_column($current['columns'], 'name'), $dropped))),
+            ...array_column(array_filter($design['columns'], fn (array $column): bool => $column['original'] === null), 'name'),
+        ];
+
+        if ($natural !== array_column($design['columns'], 'name')) {
+            $phases[] = $this->reorder($connection, $table, $design, $natural);
+        }
+
         if ($design['name'] !== $table) {
             $phases[] = fn (): array => $this->blueprint($connection, $table, function (Blueprint $blueprint) use ($design): void {
                 $blueprint->rename($design['name']);
@@ -125,6 +137,46 @@ class TableBlueprintBuilder
         }
 
         return $phases;
+    }
+
+    /**
+     * The statements putting the columns in the order of the design, once they are all added, changed and renamed.
+     * MySQL moves the fewest columns it can, each from the definition it has once changed: the one MySQL gives of
+     * the columns left as they were, read before anything changes, and the design for the others.
+     *
+     * @param  TableDesign  $design
+     * @param  list<string>  $natural  the order of the columns once changed, before they are put in order
+     * @return Closure(): list<string>
+     *
+     * @throws TableDesignFailedException
+     */
+    protected function reorder(Connection $connection, string $table, array $design, array $natural): Closure
+    {
+        $order = array_column($design['columns'], 'name');
+
+        if (! $this->positioner->supports($connection)) {
+            throw new TableDesignFailedException('', __('tables.errors.column_move_unsupported'));
+        }
+
+        if ($connection->getDriverName() === 'sqlite') {
+            return fn (): array => $this->positioner->rebuildSqliteTable($connection, $table, $order);
+        }
+
+        $definitions = $this->positioner->mysqlDefinitions($connection, $table);
+        $columns = array_column($design['columns'], null, 'name');
+
+        return fn (): array => array_merge(...array_map(function (array $move) use ($connection, $table, $definitions, $columns): array {
+            $column = $columns[$move['column']];
+
+            if ($column['original'] !== null && ! $column['changed'] && isset($definitions[$column['original']])) {
+                return [$this->positioner->mysqlMove($connection, $table, $column['name'], $definitions[$column['original']], $move['after'])];
+            }
+
+            return $this->blueprint($connection, $table, function (Blueprint $blueprint) use ($column, $move): void {
+                $definition = $this->types->define($blueprint, $column)->change();
+                $move['after'] === null ? $definition->first() : $definition->after($move['after']);
+            })->toSql();
+        }, $this->positioner->moves($natural, $order)));
     }
 
     /**

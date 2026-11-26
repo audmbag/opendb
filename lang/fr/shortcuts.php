@@ -25,6 +25,7 @@ return [
     'format_script' => 'Formater le script',
     'copy_cells' => 'Copier les cellules sélectionnées',
     'open_referenced_row' => 'Ouvrir la ligne référencée',
+    'design_assistant' => 'Ouvrir l\'assistant du concepteur de table',
     'exit_fullscreen' => 'Quitter le plein écran',
     'keys' => [
         'enter' => 'Entrée',

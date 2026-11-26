@@ -3,6 +3,7 @@
 namespace App\Ai\Tools\Erd;
 
 use App\Ai\Enums\SchemaChangeApplyModeEnum;
+use App\Ai\Tools\Concerns\DescribesTableDesigns;
 use App\Ai\Tools\Database\BaseTool;
 use App\Database\Contracts\DriverContract;
 use App\Services\Erd\Assistant\SchemaChange;
@@ -10,8 +11,6 @@ use App\Services\Erd\Assistant\SchemaChangeFailedException;
 use App\Services\Erd\Assistant\SchemaChangePlan;
 use App\Services\Erd\Assistant\SchemaChangePlanner;
 use App\Services\Erd\Assistant\SchemaChangeRunner;
-use App\Services\TableDesigner\ColumnTypeCatalog;
-use App\Services\TableDesigner\TableDesignValidator;
 use App\Support\TranslatableMessage;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Approvals\Approval;
@@ -28,7 +27,7 @@ use Stringable;
  */
 class ProposeSchemaChanges extends BaseTool implements Approvable, Tool
 {
-    use InteractsWithApprovals;
+    use DescribesTableDesigns, InteractsWithApprovals;
 
     public function __construct(
         public readonly DriverContract $driver,
@@ -73,33 +72,9 @@ class ProposeSchemaChanges extends BaseTool implements Approvable, Tool
 
     public function schema(JsonSchema $schema): array
     {
-        $column = fn (bool $isChange): array => [
-            'name' => $schema->string()->required()->description($isChange ? 'Current name of the column.' : 'Name of the column.'),
-            ...($isChange ? ['newName' => $schema->string()->description('New name, to rename the column.')] : []),
-            'type' => $schema->string()->enum(ColumnTypeCatalog::TYPES)->description('Type of the column.'),
-            'length' => $schema->integer()->description('Length of a string or char column (255 by default).'),
-            'precision' => $schema->integer()->description('Total digits of a decimal column.'),
-            'scale' => $schema->integer()->description('Digits after the point of a decimal column.'),
-            'unsigned' => $schema->boolean()->description('Unsigned number (MySQL and MariaDB).'),
-            'nullable' => $schema->boolean()->description('Accepts NULL. False by default.'),
-            'default' => $schema->string()->description('Default value, or the SQL expression when defaultKind is "expression".'),
-            'defaultKind' => $schema->string()->enum(ColumnTypeCatalog::DEFAULT_KINDS)->description('"value" (the default when a default is given), "current" for CURRENT_TIMESTAMP, "expression" for an SQL expression.'),
-            'autoIncrement' => $schema->boolean()->description('Auto-incremented integer: it alone is the primary key.'),
-            'options' => $schema->array()->items($schema->string())->description('Values of an enum column.'),
-        ];
-        $index = $schema->object([
-            'columns' => $schema->array()->items($schema->string())->required(),
-            'unique' => $schema->boolean(),
-            'name' => $schema->string()->description('Leave empty for the default name.'),
-        ]);
-        $foreignKey = $schema->object([
-            'columns' => $schema->array()->items($schema->string())->required()->description('Columns of this table.'),
-            'referencesTable' => $schema->string()->required(),
-            'referencesColumns' => $schema->array()->items($schema->string())->required(),
-            'onDelete' => $schema->string()->enum(TableDesignValidator::FOREIGN_KEY_ACTIONS),
-            'onUpdate' => $schema->string()->enum(TableDesignValidator::FOREIGN_KEY_ACTIONS),
-            'name' => $schema->string()->description('Leave empty for the default name.'),
-        ]);
+        $column = fn (bool $isChange): array => $this->columnSchema($schema, $isChange);
+        $index = $this->indexSchema($schema);
+        $foreignKey = $this->foreignKeySchema($schema);
 
         return [
             'changes' => $schema->array()->min(1)->required()->description('The changes, in any order.')->items($schema->object([

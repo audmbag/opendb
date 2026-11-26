@@ -6,6 +6,7 @@ use App\Ai\Agents\SQLDatabaseAgent;
 use App\Ai\Agents\Tables\QueryReviewerAgent;
 use App\Ai\Agents\Tables\QueryWriterAgent;
 use App\Ai\Agents\Tables\TableChatAgent;
+use App\Ai\Agents\Tables\TableDesignAgent;
 use App\Ai\Agents\Tables\TableFilterAgent;
 use App\Ai\Agents\Tables\TableIndexAdvisorAgent;
 use App\Ai\Agents\Tables\TableInsightsAgent;
@@ -26,6 +27,8 @@ enum AiFeatureEnum: string
     case TableInsights = 'table_insights';
 
     case TableIndexes = 'table_indexes';
+
+    case TableDesign = 'table_design';
 
     case QueryWriter = 'query_writer';
 
@@ -54,6 +57,7 @@ enum AiFeatureEnum: string
             TableFilterAgent::class => self::TableFilter,
             TableInsightsAgent::class => self::TableInsights,
             TableIndexAdvisorAgent::class => self::TableIndexes,
+            TableDesignAgent::class => self::TableDesign,
             QueryWriterAgent::class => self::QueryWriter,
             QueryReviewerAgent::class => self::QueryReviewer,
             AnonymousAgent::class => self::ConversationTitle,

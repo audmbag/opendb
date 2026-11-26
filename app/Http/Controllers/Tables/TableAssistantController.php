@@ -9,12 +9,14 @@ use App\Http\Requests\SqlEditor\QueryReviewRequest;
 use App\Http\Requests\Tables\QueryWriterRequest;
 use App\Http\Requests\Tables\TableAssistantRequest;
 use App\Http\Requests\Tables\TableChatRequest;
+use App\Http\Requests\Tables\TableDesignAssistantRequest;
 use App\Models\Project;
 use App\Models\Provider;
 use App\Repository\ProviderRepository;
 use App\Services\QueryConsole\QueryConsoleManager;
 use App\Services\SqlEditor\SqlEditorManager;
 use App\Services\TableBrowser\TableBrowserManager;
+use App\Services\TableDesigner\TableDesignerManager;
 use Closure;
 use Illuminate\Http\JsonResponse;
 use Laravel\Ai\Enums\Lab;
@@ -99,6 +101,17 @@ class TableAssistantController extends TableController
 
         return $this->answer($request->selectedProvider(), $request->selectedModel(), fn (Lab|string $provider, string $model): array => $console->write(
             $driver, $request->validated('prompt'), (string) $request->validated('script'), $tables, $provider, $model,
+        ));
+    }
+
+    /**
+     * The new table the user describes in the designer, proposed by the agent to fill its form. Nothing runs, and only
+     * the tables the agent may read are named to it.
+     */
+    public function design(Project $project, TableDesignAssistantRequest $request, TableDesignerManager $designer): JsonResponse
+    {
+        return $this->answer($request->selectedProvider(), $request->selectedModel(), fn (Lab|string $provider, string $model): array => $designer->suggest(
+            $this->agentDriver($project), $request->validated('prompt'), $request->form(), $provider, $model,
         ));
     }
 
