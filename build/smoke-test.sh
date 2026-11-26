@@ -3,7 +3,8 @@
 #
 #   build/smoke-test.sh build/dist/release/opendb-linux-x86_64.tar.xz
 #
-# install.sh l'installe, puis la console répond, l'interface web s'ouvre et un appel HTTPS aboutit.
+# install.sh l'installe, puis la console répond, l'interface web s'ouvre, un appel HTTPS aboutit et opendb uninstall
+# le retire.
 set -euo pipefail
 
 archive=$(cd "$(dirname "$1")" && pwd)/$(basename "$1")
@@ -67,3 +68,25 @@ TMPDIR="$home/.opendb/tmp" "$home/.local/share/opendb/current/opendb-core" php-c
     echo curl_getinfo($request, CURLINFO_HTTP_CODE), " ", curl_error($request), PHP_EOL;
     exit(curl_errno($request) === 0 && curl_getinfo($request, CURLINFO_HTTP_CODE) > 0 ? 0 : 1);
 '
+
+check "uninstall refusé (serveur lancé)"
+if "$opendb" uninstall --yes > /dev/null 2>&1; then
+    echo "uninstall a retiré une version qui tournait"
+    exit 1
+fi
+echo ok
+kill "$server"
+wait "$server" 2> /dev/null || true
+server=
+
+check "uninstall (données gardées)"
+"$opendb" uninstall --yes > /dev/null
+[ ! -e "$opendb" ] && [ ! -e "$home/.local/share/opendb" ] || { echo "le programme est resté"; exit 1; }
+[ -f "$home/.opendb/database.sqlite" ] && [ -f "$home/.opendb/config/.env" ] || { echo "les données ont été retirées"; exit 1; }
+echo ok
+
+check "uninstall --purge"
+OPENDB_ARCHIVE="$archive" sh "$root/build/install.sh" > /dev/null
+"$opendb" uninstall --purge --yes > /dev/null
+[ ! -e "$opendb" ] && [ ! -e "$home/.opendb" ] || { echo "il reste des fichiers"; exit 1; }
+echo ok
