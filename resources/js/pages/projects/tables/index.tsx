@@ -348,7 +348,9 @@ export default function TablesIndex({
                 .join(', ');
             const confirmed = await AlertDialog.call({
                 title: t('tables.discard.title'),
-                description: tChoice('tables.discard.description', count, { tables: names }),
+                description: tChoice('tables.discard.description', count, {
+                    tables: names,
+                }),
                 icon: Trash2Icon,
                 variant: 'destructive',
                 confirmText: t('tables.discard.confirm'),
@@ -426,7 +428,11 @@ export default function TablesIndex({
                     }>('post', TableDesignController.truncate.url(args));
 
                     toast.success(t('tables.truncate.done', { table: name }), {
-                        description: tChoice('tables.truncate.deleted_rows', deleted, { count: formatInteger(deleted) }),
+                        description: tChoice(
+                            'tables.truncate.deleted_rows',
+                            deleted,
+                            { count: formatInteger(deleted) },
+                        ),
                     });
                     touchRows(name);
                 } catch (exception) {
@@ -537,13 +543,18 @@ export default function TablesIndex({
                         onAction={runAction}
                         onCreateTable={
                             canCreateTable
-                                ? () => setDialog({ type: 'designer', table: null })
+                                ? () =>
+                                      setDialog({
+                                          type: 'designer',
+                                          table: null,
+                                      })
                                 : undefined
                         }
                         onOpenConsole={() => openConsole()}
                         onImport={
                             canSomewhere('import')
-                                ? () => setDialog({ type: 'import', table: null })
+                                ? () =>
+                                      setDialog({ type: 'import', table: null })
                                 : undefined
                         }
                         onExport={
@@ -651,11 +662,20 @@ export default function TablesIndex({
                                                 <div className="flex flex-1 items-center justify-center rounded-lg rounded-t-none border bg-background p-6">
                                                     <EmptyState
                                                         icon={Table2Icon}
-                                                        title={t('tables.missing.title')}
-                                                        description={t('tables.missing.description', { table: tab.table })}
+                                                        title={t(
+                                                            'tables.missing.title',
+                                                        )}
+                                                        description={t(
+                                                            'tables.missing.description',
+                                                            {
+                                                                table: tab.table,
+                                                            },
+                                                        )}
                                                         actions={[
                                                             {
-                                                                label: t('tables.missing.close_tab'),
+                                                                label: t(
+                                                                    'tables.missing.close_tab',
+                                                                ),
                                                                 variant:
                                                                     'outline',
                                                                 onClick: () =>
@@ -685,14 +705,25 @@ export default function TablesIndex({
                                 }
                                 description={
                                     tables.length
-                                        ? tChoice('tables.empty.choose_description', tables.length, { count: formatInteger(tables.length) })
+                                        ? tChoice(
+                                              'tables.empty.choose_description',
+                                              tables.length,
+                                              {
+                                                  count: formatInteger(
+                                                      tables.length,
+                                                  ),
+                                              },
+                                          )
                                         : t('tables.empty.none_description')
                                 }
                                 actions={[
                                     ...(tables.length
                                         ? [
                                               {
-                                                  label: t('tables.empty.open', { table: tables[0].name }),
+                                                  label: t(
+                                                      'tables.empty.open',
+                                                      { table: tables[0].name },
+                                                  ),
                                                   variant: 'outline' as const,
                                                   onClick: () =>
                                                       openTable(tables[0].name),
@@ -762,7 +793,10 @@ export default function TablesIndex({
 
                         if (dialog.mode === 'rename') {
                             toast.success(
-                                t('tables.renamed', { from: dialog.table, to: name }),
+                                t('tables.renamed', {
+                                    from: dialog.table,
+                                    to: name,
+                                }),
                             );
                             window.history.replaceState(
                                 window.history.state,

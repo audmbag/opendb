@@ -223,14 +223,62 @@ export default function Workspace({
     // The actions on the whole table the privileges of the user allow, like in the context menu of the list.
     const tableActions = (
         [
-            { action: 'design', label: 'tables.workspace.edit_structure', icon: PencilRulerIcon, group: 'structure', allowed: canOnProject('alter', table) },
-            { action: 'rename', label: 'tables.workspace.rename', icon: TextCursorInputIcon, group: 'structure', allowed: canOnProject('alter', table) },
-            { action: 'duplicate', label: 'tables.workspace.duplicate', icon: CopyPlusIcon, group: 'structure', allowed: canOnProject('create') },
-            { action: 'import', label: 'tables.workspace.import_csv', icon: FileUpIcon, group: 'files', allowed: canOnProject('import', table) && canInsert },
-            { action: 'export', label: 'tables.workspace.export_sql', icon: DownloadIcon, group: 'files', allowed: canExport },
-            { action: 'truncate', label: 'tables.truncate.confirm', icon: EraserIcon, group: 'danger', allowed: canOnProject('drop', table) },
-            { action: 'drop', label: 'tables.drop.confirm', icon: Trash2Icon, group: 'danger', allowed: canOnProject('drop', table) },
-        ] satisfies { action: TableAction; label: string; icon: LucideIcon; group: string; allowed: boolean }[]
+            {
+                action: 'design',
+                label: 'tables.workspace.edit_structure',
+                icon: PencilRulerIcon,
+                group: 'structure',
+                allowed: canOnProject('alter', table),
+            },
+            {
+                action: 'rename',
+                label: 'tables.workspace.rename',
+                icon: TextCursorInputIcon,
+                group: 'structure',
+                allowed: canOnProject('alter', table),
+            },
+            {
+                action: 'duplicate',
+                label: 'tables.workspace.duplicate',
+                icon: CopyPlusIcon,
+                group: 'structure',
+                allowed: canOnProject('create'),
+            },
+            {
+                action: 'import',
+                label: 'tables.workspace.import_csv',
+                icon: FileUpIcon,
+                group: 'files',
+                allowed: canOnProject('import', table) && canInsert,
+            },
+            {
+                action: 'export',
+                label: 'tables.workspace.export_sql',
+                icon: DownloadIcon,
+                group: 'files',
+                allowed: canExport,
+            },
+            {
+                action: 'truncate',
+                label: 'tables.truncate.confirm',
+                icon: EraserIcon,
+                group: 'danger',
+                allowed: canOnProject('drop', table),
+            },
+            {
+                action: 'drop',
+                label: 'tables.drop.confirm',
+                icon: Trash2Icon,
+                group: 'danger',
+                allowed: canOnProject('drop', table),
+            },
+        ] satisfies {
+            action: TableAction;
+            label: string;
+            icon: LucideIcon;
+            group: string;
+            allowed: boolean;
+        }[]
     ).filter((item) => item.allowed);
     const { widths, resize } = useColumnWidths(project.id, table, columns);
     const disabledReason = summary.agentAccessEnabled
@@ -428,7 +476,9 @@ export default function Workspace({
             navigator.clipboard
                 .writeText(JSON.stringify(row.values, null, 2))
                 .then(() =>
-                    toast.success(t('tables.workspace.row_copied'), { duration: 1500 }),
+                    toast.success(t('tables.workspace.row_copied'), {
+                        duration: 1500,
+                    }),
                 );
         },
         setValue: setCellValue,
@@ -453,17 +503,13 @@ export default function Workspace({
         },
         openRow: (row) => {
             if (row.state === 'inserted' || !row.original) {
-                toast.info(
-                    t('tables.workspace.row_not_saved'),
-                );
+                toast.info(t('tables.workspace.row_not_saved'));
 
                 return;
             }
 
             if (!hasPrimaryKey) {
-                toast.info(
-                    t('tables.workspace.row_without_key'),
-                );
+                toast.info(t('tables.workspace.row_without_key'));
 
                 return;
             }
@@ -473,7 +519,9 @@ export default function Workspace({
                 location: { table, key: keyOf(row.original, primaryKey) },
             });
         },
-        duplicateRow: canInsert ? (row) => addRow(copiedValues(row)) : undefined,
+        duplicateRow: canInsert
+            ? (row) => addRow(copiedValues(row))
+            : undefined,
         toggleDelete: (row) => {
             if (row.state === 'inserted' && row.insertId) {
                 changes.removeInsert(row.insertId);
@@ -488,8 +536,15 @@ export default function Workspace({
         askChat: (row) =>
             askChat(
                 row.original && hasPrimaryKey
-                    ? t('tables.workspace.ask_row_with_key', { table, key: describeKey(keyOf(row.original, primaryKey)), values: JSON.stringify(row.values, null, 2) })
-                    : t('tables.workspace.ask_row', { table, values: JSON.stringify(row.values, null, 2) }),
+                    ? t('tables.workspace.ask_row_with_key', {
+                          table,
+                          key: describeKey(keyOf(row.original, primaryKey)),
+                          values: JSON.stringify(row.values, null, 2),
+                      })
+                    : t('tables.workspace.ask_row', {
+                          table,
+                          values: JSON.stringify(row.values, null, 2),
+                      }),
             ),
         followReference,
     };
@@ -520,12 +575,9 @@ export default function Workspace({
                 changes.addInsert(copiedValues(row));
             }
 
-            toast.success(
-                tChoice('tables.workspace.rows_added', rows.length),
-                {
-                    description: t('tables.workspace.rows_added_description'),
-                },
-            );
+            toast.success(tChoice('tables.workspace.rows_added', rows.length), {
+                description: t('tables.workspace.rows_added_description'),
+            });
         },
         onRevert: (rows: GridRow[]) => {
             for (const row of rows) {
@@ -548,8 +600,15 @@ export default function Workspace({
         onAskChat: (rows: GridRow[]) =>
             askChat(
                 (rows.length > CHAT_ROWS_LIMIT
-                    ? t('tables.workspace.ask_rows_limited', { table, count: rows.length, limit: CHAT_ROWS_LIMIT })
-                    : t('tables.workspace.ask_rows', { table, count: rows.length })) +
+                    ? t('tables.workspace.ask_rows_limited', {
+                          table,
+                          count: rows.length,
+                          limit: CHAT_ROWS_LIMIT,
+                      })
+                    : t('tables.workspace.ask_rows', {
+                          table,
+                          count: rows.length,
+                      })) +
                     `\n\n${JSON.stringify(
                         rows.slice(0, CHAT_ROWS_LIMIT).map((row) => row.values),
                         null,
@@ -616,7 +675,13 @@ export default function Workspace({
                         </h1>
                         <span className="shrink-0 text-sm text-muted-foreground tabular-nums">
                             {count
-                                ? tChoice(count.estimated ? 'tables.workspace.about_rows' : 'tables.counts.rows', count.total, { count: formatInteger(count.total) })
+                                ? tChoice(
+                                      count.estimated
+                                          ? 'tables.workspace.about_rows'
+                                          : 'tables.counts.rows',
+                                      count.total,
+                                      { count: formatInteger(count.total) },
+                                  )
                                 : ''}
                         </span>
                     </div>
@@ -627,7 +692,9 @@ export default function Workspace({
                         className="self-end"
                     >
                         <TabsList variant="line" className="h-9">
-                            <TabsTrigger value="data">{t('tables.workspace.tabs.data')}</TabsTrigger>
+                            <TabsTrigger value="data">
+                                {t('tables.workspace.tabs.data')}
+                            </TabsTrigger>
                             <TabsTrigger value="structure">
                                 {t('tables.workspace.tabs.structure')}
                             </TabsTrigger>
@@ -706,21 +773,35 @@ export default function Workspace({
                                     <Button
                                         variant="ghost"
                                         size="icon-sm"
-                                        aria-label={t('tables.workspace.actions')}
+                                        aria-label={t(
+                                            'tables.workspace.actions',
+                                        )}
                                         tooltip={t('tables.workspace.actions')}
                                     >
                                         <EllipsisIcon />
                                     </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-56">
+                                <DropdownMenuContent
+                                    align="end"
+                                    className="w-56"
+                                >
                                     {tableActions.map((item, index) => (
                                         <Fragment key={item.action}>
-                                            {index > 0 && item.group !== tableActions[index - 1].group && (
-                                                <DropdownMenuSeparator />
-                                            )}
+                                            {index > 0 &&
+                                                item.group !==
+                                                    tableActions[index - 1]
+                                                        .group && (
+                                                    <DropdownMenuSeparator />
+                                                )}
                                             <DropdownMenuItem
-                                                variant={item.group === 'danger' ? 'destructive' : undefined}
-                                                onSelect={() => onAction(item.action, table)}
+                                                variant={
+                                                    item.group === 'danger'
+                                                        ? 'destructive'
+                                                        : undefined
+                                                }
+                                                onSelect={() =>
+                                                    onAction(item.action, table)
+                                                }
                                             >
                                                 <item.icon />
                                                 {t(item.label)}
@@ -784,7 +865,9 @@ export default function Workspace({
                                     onClick={() =>
                                         setRefreshKey(refreshKey + 1)
                                     }
-                                    aria-label={t('tables.workspace.reload_rows')}
+                                    aria-label={t(
+                                        'tables.workspace.reload_rows',
+                                    )}
                                     tooltip={t('tables.workspace.reload_rows')}
                                 >
                                     <RefreshCwIcon
@@ -807,12 +890,19 @@ export default function Workspace({
                                             className="w-64"
                                         >
                                             <DropdownMenuItem asChild>
-                                                <a href={exportUrl('csv')} download>
+                                                <a
+                                                    href={exportUrl('csv')}
+                                                    download
+                                                >
                                                     CSV
                                                     <span className="ml-auto text-xs text-muted-foreground">
                                                         {activeFilters
-                                                            ? t('tables.workspace.filtered_rows')
-                                                            : t('tables.workspace.whole_table')}
+                                                            ? t(
+                                                                  'tables.workspace.filtered_rows',
+                                                              )
+                                                            : t(
+                                                                  'tables.workspace.whole_table',
+                                                              )}
                                                     </span>
                                                 </a>
                                             </DropdownMenuItem>
@@ -824,8 +914,12 @@ export default function Workspace({
                                                     JSON
                                                     <span className="ml-auto text-xs text-muted-foreground">
                                                         {activeFilters
-                                                            ? t('tables.workspace.filtered_rows')
-                                                            : t('tables.workspace.whole_table')}
+                                                            ? t(
+                                                                  'tables.workspace.filtered_rows',
+                                                              )
+                                                            : t(
+                                                                  'tables.workspace.whole_table',
+                                                              )}
                                                     </span>
                                                 </a>
                                             </DropdownMenuItem>
@@ -838,7 +932,9 @@ export default function Workspace({
                                             size="sm"
                                             onClick={() => addRow()}
                                             disabled={!structure}
-                                            tooltip={t('tables.workspace.add_row_tooltip')}
+                                            tooltip={t(
+                                                'tables.workspace.add_row_tooltip',
+                                            )}
                                         >
                                             <PlusIcon />
                                             {t('tables.workspace.add_row')}
@@ -848,7 +944,9 @@ export default function Workspace({
                                                 <Button
                                                     size="icon-sm"
                                                     disabled={!structure}
-                                                    aria-label={t('tables.workspace.other_ways')}
+                                                    aria-label={t(
+                                                        'tables.workspace.other_ways',
+                                                    )}
                                                 >
                                                     <ChevronDownIcon />
                                                 </Button>
@@ -862,22 +960,32 @@ export default function Workspace({
                                                 >
                                                     <Table2Icon />
                                                     <span className="flex flex-col">
-                                                        {t('tables.workspace.in_grid')}
+                                                        {t(
+                                                            'tables.workspace.in_grid',
+                                                        )}
                                                         <span className="text-xs text-muted-foreground">
-                                                            {t('tables.workspace.in_grid_description')}
+                                                            {t(
+                                                                'tables.workspace.in_grid_description',
+                                                            )}
                                                         </span>
                                                     </span>
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem
                                                     onSelect={() =>
-                                                        setPanel({ type: 'insert' })
+                                                        setPanel({
+                                                            type: 'insert',
+                                                        })
                                                     }
                                                 >
                                                     <FormInputIcon />
                                                     <span className="flex flex-col">
-                                                        {t('tables.workspace.with_form')}
+                                                        {t(
+                                                            'tables.workspace.with_form',
+                                                        )}
                                                         <span className="text-xs text-muted-foreground">
-                                                            {t('tables.workspace.with_form_description')}
+                                                            {t(
+                                                                'tables.workspace.with_form_description',
+                                                            )}
                                                         </span>
                                                     </span>
                                                 </DropdownMenuItem>
@@ -917,7 +1025,9 @@ export default function Workspace({
                                     description={rowsState.error}
                                     actions={[
                                         {
-                                            label: t('tables.workspace.clear_filters'),
+                                            label: t(
+                                                'tables.workspace.clear_filters',
+                                            ),
                                             variant: 'outline',
                                             onClick: () =>
                                                 changeView({
@@ -959,11 +1069,17 @@ export default function Workspace({
                                     activeFilters ? (
                                         <EmptyState
                                             icon={SearchXIcon}
-                                            title={t('tables.workspace.no_match')}
-                                            description={t('tables.workspace.no_match_description')}
+                                            title={t(
+                                                'tables.workspace.no_match',
+                                            )}
+                                            description={t(
+                                                'tables.workspace.no_match_description',
+                                            )}
                                             actions={[
                                                 {
-                                                    label: t('tables.workspace.clear_filters'),
+                                                    label: t(
+                                                        'tables.workspace.clear_filters',
+                                                    ),
                                                     variant: 'outline',
                                                     onClick: () =>
                                                         changeFilters(
@@ -977,22 +1093,34 @@ export default function Workspace({
                                         <EmptyState
                                             icon={Table2Icon}
                                             title={t('tables.workspace.empty')}
-                                            description={t('tables.workspace.empty_description')}
-                                            actions={canInsert ? [
-                                                {
-                                                    label: t('tables.workspace.add_row'),
-                                                    icon: PlusIcon,
-                                                    onClick: () => addRow(),
-                                                },
-                                                {
-                                                    label: t('tables.workspace.with_form'),
-                                                    variant: 'outline',
-                                                    onClick: () =>
-                                                        setPanel({
-                                                            type: 'insert',
-                                                        }),
-                                                },
-                                            ] : []}
+                                            description={t(
+                                                'tables.workspace.empty_description',
+                                            )}
+                                            actions={
+                                                canInsert
+                                                    ? [
+                                                          {
+                                                              label: t(
+                                                                  'tables.workspace.add_row',
+                                                              ),
+                                                              icon: PlusIcon,
+                                                              onClick: () =>
+                                                                  addRow(),
+                                                          },
+                                                          {
+                                                              label: t(
+                                                                  'tables.workspace.with_form',
+                                                              ),
+                                                              variant:
+                                                                  'outline',
+                                                              onClick: () =>
+                                                                  setPanel({
+                                                                      type: 'insert',
+                                                                  }),
+                                                          },
+                                                      ]
+                                                    : []
+                                            }
                                         />
                                     )
                                 }
@@ -1042,11 +1170,16 @@ export default function Workspace({
                             projectId={project.id}
                             structure={structure}
                             onOpenTable={(next) => onOpenTable(next)}
-                            onEditStructure={canOnProject('alter', table) ? () => onAction('design', table) : undefined}
+                            onEditStructure={
+                                canOnProject('alter', table)
+                                    ? () => onAction('design', table)
+                                    : undefined
+                            }
                             driver={project.driver_config?.driver_id ?? ''}
                             onColumnMoved={
                                 canOnProject('alter', table) &&
-                                project.driver_config?.driver_id !== DefaultDrivers.POSTGRESQL
+                                project.driver_config?.driver_id !==
+                                    DefaultDrivers.POSTGRESQL
                                     ? () => {
                                           setRefreshKey(refreshKey + 1);
                                           onSchemaChanged();

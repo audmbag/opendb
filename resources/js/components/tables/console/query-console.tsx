@@ -700,12 +700,15 @@ export default function QueryConsole({
                                     variant="outline"
                                     size="sm"
                                     disabled={processing}
-                                    tooltip={
-                                        t(TRANSACTION_MODES[runSettings.mode]
-                                            .description)
-                                    }
+                                    tooltip={t(
+                                        TRANSACTION_MODES[runSettings.mode]
+                                            .description,
+                                    )}
                                 >
-                                    {t(TRANSACTION_MODES[runSettings.mode].label)}
+                                    {t(
+                                        TRANSACTION_MODES[runSettings.mode]
+                                            .label,
+                                    )}
                                     <ChevronDownIcon />
                                 </Button>
                             </DropdownMenuTrigger>
@@ -733,10 +736,10 @@ export default function QueryConsole({
                                         >
                                             {t(TRANSACTION_MODES[mode].label)}
                                             <span className="text-xs text-muted-foreground">
-                                                {
-                                                    t(TRANSACTION_MODES[mode]
-                                                        .description)
-                                                }
+                                                {t(
+                                                    TRANSACTION_MODES[mode]
+                                                        .description,
+                                                )}
                                             </span>
                                         </DropdownMenuRadioItem>
                                     ))}
@@ -842,10 +845,13 @@ export default function QueryConsole({
                     </Button>
                 )}
                 <span className="hidden text-xs text-muted-foreground sm:inline">
-                    <Kbd>Ctrl</Kbd> + <Kbd>{t('shortcuts.keys.enter')}</Kbd>, {t('tables.console.run_hint')}
+                    <Kbd>Ctrl</Kbd> + <Kbd>{t('shortcuts.keys.enter')}</Kbd>,{' '}
+                    {t('tables.console.run_hint')}
                     <span className="hidden xl:inline">
                         {' · '}
-                        <Kbd>Ctrl</Kbd> + <Kbd>{t('tables.console.keys.shift')}</Kbd> + <Kbd>{t('shortcuts.keys.enter')}</Kbd>,{' '}
+                        <Kbd>Ctrl</Kbd> +{' '}
+                        <Kbd>{t('tables.console.keys.shift')}</Kbd> +{' '}
+                        <Kbd>{t('shortcuts.keys.enter')}</Kbd>,{' '}
                         {t('tables.console.run_statement_hint')}
                     </span>
                 </span>
@@ -927,7 +933,9 @@ export default function QueryConsole({
                                 {review?.sql && (
                                     <Button size="sm" onClick={applyReview}>
                                         {review.range
-                                            ? t('tables.console.replace_statement')
+                                            ? t(
+                                                  'tables.console.replace_statement',
+                                              )
                                             : t('tables.console.add_to_script')}
                                     </Button>
                                 )}
@@ -1006,8 +1014,17 @@ export default function QueryConsole({
                                             >
                                                 {index + 1}.{' '}
                                                 {item.columns
-                                                    ? tChoice('tables.counts.rows', item.rows.length, { count: `${item.rows.length}${item.truncated ? '+' : ''}` })
-                                                    : tChoice('tables.console.affected', item.affected ?? 0)}
+                                                    ? tChoice(
+                                                          'tables.counts.rows',
+                                                          item.rows.length,
+                                                          {
+                                                              count: `${item.rows.length}${item.truncated ? '+' : ''}`,
+                                                          },
+                                                      )
+                                                    : tChoice(
+                                                          'tables.console.affected',
+                                                          item.affected ?? 0,
+                                                      )}
                                             </TabsTrigger>
                                         ))}
                                         {run.error && (
@@ -1016,7 +1033,8 @@ export default function QueryConsole({
                                                 disabled
                                                 className="text-xs text-destructive disabled:opacity-100"
                                             >
-                                                {run.error.index}. {t('tables.console.error')}
+                                                {run.error.index}.{' '}
+                                                {t('tables.console.error')}
                                             </TabsTrigger>
                                         )}
                                     </TabsList>
@@ -1026,7 +1044,10 @@ export default function QueryConsole({
                             {run.error && (
                                 <Alert
                                     variant="destructive"
-                                    title={t('tables.console.statement_refused', { index: run.error.index })}
+                                    title={t(
+                                        'tables.console.statement_refused',
+                                        { index: run.error.index },
+                                    )}
                                     message={run.error.message}
                                     className="m-3 w-auto"
                                 >
@@ -1059,10 +1080,17 @@ export default function QueryConsole({
                             {run.transaction === 'rolled_back' && (
                                 <p className="mx-3 mt-2 rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
                                     {editor?.readOnly
-                                        ? t('tables.console.rolled_back_read_only')
+                                        ? t(
+                                              'tables.console.rolled_back_read_only',
+                                          )
                                         : run.error
-                                          ? t('tables.console.rolled_back_error', { index: run.error.index })
-                                          : t('tables.console.rolled_back_dry_run')}
+                                          ? t(
+                                                'tables.console.rolled_back_error',
+                                                { index: run.error.index },
+                                            )
+                                          : t(
+                                                'tables.console.rolled_back_dry_run',
+                                            )}
                                 </p>
                             )}
                             {run.transaction === 'committed' && (

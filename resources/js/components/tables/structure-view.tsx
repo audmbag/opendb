@@ -42,7 +42,6 @@ type Props = {
     onColumnMoved?: () => void;
 };
 
-
 function Section({
     title,
     count,
@@ -183,7 +182,7 @@ function StructureColumnRow({
                         })}
                         disabled={disabled}
                         className={cn(
-                            'flex touch-none rounded-sm p-0.5 text-muted-foreground/60 outline-none transition-[color,transform] duration-150 hover:scale-110 hover:text-foreground focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50',
+                            'flex touch-none rounded-sm p-0.5 text-muted-foreground/60 transition-[color,transform] duration-150 outline-none hover:scale-110 hover:text-foreground focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50',
                             dragging
                                 ? 'scale-110 cursor-grabbing text-foreground'
                                 : 'cursor-grab disabled:cursor-default',
@@ -227,7 +226,9 @@ export default function StructureView({
               structure.columns.map((column) => column.name),
               pending.column,
               pending.after,
-          ).map((name) => structure.columns.find((column) => column.name === name)!)
+          ).map((name) =>
+              structure.columns.find((column) => column.name === name)!,
+          )
         : structure.columns;
     const names = columns.map((column) => column.name);
 
@@ -246,13 +247,20 @@ export default function StructureView({
         <div className="flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto p-4">
             {onEditStructure && (
                 <div className="-mb-4 flex justify-end">
-                    <Button variant="outline" size="sm" onClick={onEditStructure}>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={onEditStructure}
+                    >
                         <PencilRulerIcon />
                         {t('tables.workspace.edit_structure')}
                     </Button>
                 </div>
             )}
-            <Section title={t('ai.record.columns')} count={structure.columns.length}>
+            <Section
+                title={t('ai.record.columns')}
+                count={structure.columns.length}
+            >
                 <div className="overflow-x-auto overflow-y-hidden rounded-lg border">
                     <SortableList
                         items={names}
@@ -263,9 +271,15 @@ export default function StructureView({
                             <thead className="bg-muted/60 text-muted-foreground">
                                 <tr>
                                     {canMove && <th className="w-0 p-0" />}
-                                    <th className="px-3 py-2 font-medium">{t('tables.designer.columns.name')}</th>
-                                    <th className="px-3 py-2 font-medium">{t('tables.designer.columns.type')}</th>
-                                    <th className="px-3 py-2 font-medium">NULL</th>
+                                    <th className="px-3 py-2 font-medium">
+                                        {t('tables.designer.columns.name')}
+                                    </th>
+                                    <th className="px-3 py-2 font-medium">
+                                        {t('tables.designer.columns.type')}
+                                    </th>
+                                    <th className="px-3 py-2 font-medium">
+                                        NULL
+                                    </th>
                                     <th className="px-3 py-2 font-medium">
                                         {t('tables.structure.default')}
                                     </th>
@@ -281,15 +295,21 @@ export default function StructureView({
                                         name={column.name}
                                         movable={canMove}
                                         disabled={pending !== null}
-                                        pending={pending?.column === column.name}
-                                        settled={columnMove.settled === column.name}
+                                        pending={
+                                            pending?.column === column.name
+                                        }
+                                        settled={
+                                            columnMove.settled === column.name
+                                        }
                                     >
                                         <td className="px-3 py-2 font-medium">
                                             <span className="inline-flex items-center gap-1.5">
                                                 {column.primary && (
                                                     <KeyRoundIcon
                                                         className="size-3.5 text-warning"
-                                                        aria-label={t('tables.designer.columns.primary_key')}
+                                                        aria-label={t(
+                                                            'tables.designer.columns.primary_key',
+                                                        )}
                                                     />
                                                 )}
                                                 {column.name}
@@ -299,7 +319,9 @@ export default function StructureView({
                                             {column.db_type}
                                         </td>
                                         <td className="px-3 py-2 text-muted-foreground">
-                                            {column.nullable ? t('common.yes') : t('common.no')}
+                                            {column.nullable
+                                                ? t('common.yes')
+                                                : t('common.no')}
                                         </td>
                                         <td
                                             className="max-w-48 truncate px-3 py-2 font-mono text-xs text-muted-foreground"
@@ -311,17 +333,23 @@ export default function StructureView({
                                             <span className="flex flex-wrap items-center gap-1.5">
                                                 {column.auto_increment && (
                                                     <Badge variant="outline">
-                                                        {t('tables.structure.auto_increment')}
+                                                        {t(
+                                                            'tables.structure.auto_increment',
+                                                        )}
                                                     </Badge>
                                                 )}
                                                 {column.unique && (
                                                     <Badge variant="outline">
-                                                        {t('tables.records.unique')}
+                                                        {t(
+                                                            'tables.records.unique',
+                                                        )}
                                                     </Badge>
                                                 )}
                                                 {column.generated && (
                                                     <Badge variant="outline">
-                                                        {t('tables.structure.generated')}
+                                                        {t(
+                                                            'tables.structure.generated',
+                                                        )}
                                                     </Badge>
                                                 )}
                                                 {column.references && (
@@ -334,11 +362,14 @@ export default function StructureView({
                                                                         .references
                                                                         .table
                                                                 }
-                                                                onOpen={onOpenTable}
+                                                                onOpen={
+                                                                    onOpenTable
+                                                                }
                                                             />
                                                             .
                                                             {
-                                                                column.references
+                                                                column
+                                                                    .references
                                                                     .column
                                                             }
                                                         </span>
@@ -373,7 +404,9 @@ export default function StructureView({
                 <ul className="flex flex-col divide-y rounded-lg border text-sm">
                     {structure.primaryKey.length > 0 && (
                         <li className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2">
-                            <span className="font-medium">{t('tables.designer.columns.primary_key')}</span>
+                            <span className="font-medium">
+                                {t('tables.designer.columns.primary_key')}
+                            </span>
                             <span className="font-mono text-xs text-muted-foreground">
                                 ({structure.primaryKey.join(', ')})
                             </span>
@@ -389,7 +422,9 @@ export default function StructureView({
                                 ({index.columns.join(', ')})
                             </span>
                             {index.unique && (
-                                <Badge variant="outline">{t('tables.records.unique')}</Badge>
+                                <Badge variant="outline">
+                                    {t('tables.records.unique')}
+                                </Badge>
                             )}
                         </li>
                     ))}
