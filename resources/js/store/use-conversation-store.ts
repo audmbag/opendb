@@ -21,18 +21,40 @@ interface ConversationStore {
 }
 
 const useConversationStore = createSelectors(
-    create<ConversationStore>()(devtools((set) => ({
-            conversations: [],
-            pendingMessage: null,
-            titlesGivenUp: [],
-            fill: (conversations) => set({ conversations: conversations }),
-            add: (conversation: Conversation) => set(state => ({ conversations: [conversation, ...state.conversations] })),
-            remove: (conversation: Conversation) => set(state => ({ conversations: state.conversations.filter((c) => c.id !== conversation.id) })),
-            rename: (id: string, title: string) => set(state => ({ conversations: state.conversations.map((c) => c.id === id ? { ...c, title } : c) })),
-            giveUpTitle: (id: string) => set(state => ({ titlesGivenUp: [...state.titlesGivenUp, id] })),
-            setPendingMessage: (message: PromptInputMessage | null) => set({ pendingMessage: message }),
-            clearPendingMessage: () => set({ pendingMessage: null }),
-        }), { name: 'useConversationStore' }),
-    ));
+    create<ConversationStore>()(
+        devtools(
+            (set) => ({
+                conversations: [],
+                pendingMessage: null,
+                titlesGivenUp: [],
+                fill: (conversations) => set({ conversations: conversations }),
+                add: (conversation: Conversation) =>
+                    set((state) => ({
+                        conversations: [conversation, ...state.conversations],
+                    })),
+                remove: (conversation: Conversation) =>
+                    set((state) => ({
+                        conversations: state.conversations.filter(
+                            (c) => c.id !== conversation.id,
+                        ),
+                    })),
+                rename: (id: string, title: string) =>
+                    set((state) => ({
+                        conversations: state.conversations.map((c) =>
+                            c.id === id ? { ...c, title } : c,
+                        ),
+                    })),
+                giveUpTitle: (id: string) =>
+                    set((state) => ({
+                        titlesGivenUp: [...state.titlesGivenUp, id],
+                    })),
+                setPendingMessage: (message: PromptInputMessage | null) =>
+                    set({ pendingMessage: message }),
+                clearPendingMessage: () => set({ pendingMessage: null }),
+            }),
+            { name: 'useConversationStore' },
+        ),
+    ),
+);
 
 export { useConversationStore };
