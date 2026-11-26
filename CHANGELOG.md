@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.0-beta.8](https://github.com/audmbag/opendb/compare/v0.1.0-beta.7...v0.1.0-beta.8) (2026-11-26)
+
+
+### Features
+
+* **install:** remove opendb with opendb uninstall ([aaf275e](https://github.com/audmbag/opendb/commit/aaf275eaad8d87d3ae1aebd9c9c8f13a23d29959))
+
 ## [0.1.0-beta.7](https://github.com/audmbag/opendb/compare/v0.1.0-beta.6...v0.1.0-beta.7) (2026-11-26)
 
 
