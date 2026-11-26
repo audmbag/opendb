@@ -3,6 +3,7 @@ rem Lanceur d'opendb pour Windows, à la racine du paquet : runtime\ (FrankenPHP
 rem
 rem   opendb serve [--port 8000]       l'interface web, sur 127.0.0.1
 rem   opendb self-update [--rollback]  la dernière version, ou retour à la précédente
+rem   opendb uninstall [--purge]       retire le programme, et avec --purge les données de %USERPROFILE%\.opendb
 rem   opendb ^<commande^> ...           les commandes de la console (chat, settings, mcp:serve...)
 setlocal
 
@@ -20,6 +21,7 @@ rem half a second on the next commands. The web server keeps its compiled script
 
 if /i "%~1"=="serve" goto serve
 if /i "%~1"=="self-update" goto selfupdate
+if /i "%~1"=="uninstall" goto uninstall
 
 if not defined APP_URL set "APP_URL=http://127.0.0.1:8000"
 "%OPENDB_RUNTIME%\frankenphp.exe" php-cli "%OPENDB_ROOT%app\artisan" %*
@@ -40,3 +42,18 @@ rem Le script est lu en UTF-8 explicitement : Windows PowerShell le décoderait 
 if /i "%~2"=="--rollback" set "OPENDB_ROLLBACK=1" & powershell -NoProfile -ExecutionPolicy Bypass -Command "iex ([IO.File]::ReadAllText('%OPENDB_ROOT%install.ps1', [Text.Encoding]::UTF8))" & exit /b
 if not defined OPENDB_RELEASES_URL set "OPENDB_RELEASES_URL=https://github.com/audmbag/opendb/releases"
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$r = Invoke-WebRequest -UseBasicParsing '%OPENDB_RELEASES_URL%/latest/download/install.ps1'; iex ([Text.Encoding]::UTF8.GetString($r.RawContentStream.ToArray()))" & exit /b
+
+:uninstall
+rem install.ps1 garde chaque version dans <dossier>\versions\<version> : le dossier se déduit de celui du paquet, même
+rem installé ailleurs qu'à l'endroit par défaut.
+for %%I in ("%OPENDB_ROOT%..") do if /i not "%%~nxI"=="versions" (echo opendb : cette copie n'a pas ete installee par install.ps1, supprimez son dossier : %OPENDB_ROOT% 1>&2 & exit /b 1)
+for %%I in ("%OPENDB_ROOT%..\..") do set "OPENDB_INSTALL_DIR=%%~fI"
+set "OPENDB_UNINSTALL=1"
+:uninstall_options
+shift
+if "%~1"=="" goto uninstall_run
+if /i "%~1"=="--yes" (set "OPENDB_YES=1") else if /i "%~1"=="-y" (set "OPENDB_YES=1") else if /i "%~1"=="--purge" (set "OPENDB_PURGE=1") else (echo opendb : option inconnue : %~1 ^(opendb uninstall [--purge] [--yes]^). 1>&2 & exit /b 1)
+goto uninstall_options
+:uninstall_run
+rem Sur une seule ligne, comme la mise à jour : ce fichier disparaît avec sa version pendant que cmd l'exécute.
+powershell -NoProfile -ExecutionPolicy Bypass -Command "iex ([IO.File]::ReadAllText('%OPENDB_ROOT%install.ps1', [Text.Encoding]::UTF8))" & exit /b

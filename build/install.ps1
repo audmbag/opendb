@@ -7,7 +7,8 @@
 #
 # Variables: OPENDB_VERSION (a given version rather than the latest), OPENDB_RELEASES_URL (where to download from),
 # OPENDB_INSTALL_DIR (%LOCALAPPDATA%\opendb), OPENDB_ARCHIVE (a zip already downloaded, to try a version),
-# OPENDB_ROLLBACK=1 (go back to the previous version).
+# OPENDB_ROLLBACK=1 (go back to the previous version), OPENDB_UNINSTALL=1 (remove opendb, which "opendb uninstall"
+# asks for), with OPENDB_PURGE=1 (its data in %USERPROFILE%\.opendb too) and OPENDB_YES=1 (without asking first).
 #
 # The file holds ASCII only, which Windows PowerShell decodes alike however it reads it: the accents of the messages
 # are written \u00e9 and restored when they are shown.
@@ -179,6 +180,72 @@
         } finally {
             Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
         }
+    }
+
+    # Removes what Install-Opendb put in place, and nothing else: OPENDB_INSTALL_DIR may name a folder holding other
+    # files. The data of the user stay, unless asked otherwise: they hold the key decrypting the saved passwords.
+    function Uninstall-Opendb([bool] $Purge, [bool] $Confirmed) {
+        $dataDir = Join-Path $env:USERPROFILE '.opendb'
+        $now = Get-JunctionTarget $current
+        if (-not $now -and -not (Test-Path -LiteralPath $versionsDir)) { Fail "opendb n'est pas install\u00e9 dans {0}." $installDir }
+
+        # Windows keeps the files of a running program: half of the folder would be removed, the rest would stay.
+        $running = @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Path.StartsWith("$versionsDir\", [StringComparison]::OrdinalIgnoreCase) })
+        if ($running.Count -gt 0) {
+            Fail "opendb tourne encore (processus {0}) : arr\u00eatez \u00ab opendb serve \u00bb et les clients MCP qui le lancent, puis recommencez." (($running | ForEach-Object { $_.Id }) -join ', ')
+        }
+
+        $version = if ($now -and (Test-Path -LiteralPath (Join-Path $now 'VERSION'))) { (Get-Content -LiteralPath (Join-Path $now 'VERSION') -First 1).Trim() } else { '' }
+        Say "opendb {0} va \u00eatre d\u00e9sinstall\u00e9 :" $version
+        Say "  - le programme, dans {0}" $installDir
+        Say "  - la commande opendb, retir\u00e9e de votre PATH ({0})" $binDir
+        if ($Purge) {
+            Say "  - vos donn\u00e9es, dans {0} : connexions, conversations, r\u00e9glages et cl\u00e9 de chiffrement" $dataDir
+        } else {
+            Say "Vos donn\u00e9es restent dans {0} (opendb uninstall --purge les retire aussi)." $dataDir
+        }
+
+        if (-not $Confirmed) {
+            $answer = "$(Read-Host 'Continuer ? [o/N]')".Trim()
+            if (@('o', 'oui', 'y', 'yes') -notcontains $answer) {
+                Say "Rien n'a \u00e9t\u00e9 retir\u00e9."
+                return
+            }
+        }
+
+        # The junctions first: Remove-Item would follow them into the versions.
+        foreach ($junction in @($current, $previous)) {
+            if (Test-Path -LiteralPath $junction) { cmd /c rmdir "$junction" | Out-Null }
+        }
+        foreach ($folder in @($versionsDir, $binDir)) {
+            if (Test-Path -LiteralPath $folder) { Remove-Item -LiteralPath $folder -Recurse -Force }
+        }
+        if ((Test-Path -LiteralPath $installDir) -and -not (Get-ChildItem -LiteralPath $installDir -Force | Select-Object -First 1)) {
+            Remove-Item -LiteralPath $installDir -Force
+        }
+
+        $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+        $entries = @(($userPath -split ';') | Where-Object { $_ })
+        $kept = @($entries | Where-Object { $_.TrimEnd('\') -ne $binDir.TrimEnd('\') })
+        if ($kept.Count -ne $entries.Count) { [Environment]::SetEnvironmentVariable('Path', $kept -join ';', 'User') }
+
+        if ($Purge) {
+            if (Test-Path -LiteralPath $dataDir) { Remove-Item -LiteralPath $dataDir -Recurse -Force }
+        } else {
+            # The caches of the framework are made again: only the data stay.
+            foreach ($cache in @('cache', 'php')) {
+                $path = Join-Path $dataDir $cache
+                if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Recurse -Force }
+            }
+        }
+
+        Say "opendb est d\u00e9sinstall\u00e9."
+        Say "Si un client MCP (Claude Code, Cursor...) lance opendb, retirez-le aussi de sa configuration."
+    }
+
+    if (($args -contains '-Uninstall') -or $env:OPENDB_UNINSTALL -eq '1') {
+        Uninstall-Opendb -Purge (($args -contains '-Purge') -or $env:OPENDB_PURGE -eq '1') -Confirmed (($args -contains '-Yes') -or $env:OPENDB_YES -eq '1')
+        return
     }
 
     Install-Opendb -Rollback (($args -contains '-Rollback') -or $env:OPENDB_ROLLBACK -eq '1')

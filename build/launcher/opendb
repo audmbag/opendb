@@ -3,6 +3,7 @@
 #
 #   opendb serve [--port 8000]       l'interface web, sur 127.0.0.1
 #   opendb self-update [--rollback]  la dernière version, ou retour à la précédente
+#   opendb uninstall [--purge]       retire le programme, et avec --purge les données de ~/.opendb
 #   opendb <commande> …              les commandes de la console (chat, settings, mcp:serve…)
 set -eu
 
@@ -26,6 +27,94 @@ core="$directory/opendb-core"
 home="$HOME/.opendb"
 export OPENDB_BINARY="$invoked"
 
+# build/install.sh garde chaque version dans <dossier>/versions/<version>, et <dossier>/current mène à celle en cours.
+install_dir=$(dirname "$(dirname "$directory")")
+installed_by_script() {
+    [ "$(basename "$(dirname "$directory")")" = "versions" ]
+}
+
+# Avant tout le reste, qui créerait des fichiers dans ~/.opendb juste avant de les retirer.
+if [ "${1:-}" = "uninstall" ]; then
+    shift
+    confirmed=false
+    purge=false
+    for option in "$@"; do
+        case $option in
+            --yes | -y) confirmed=true ;;
+            --purge) purge=true ;;
+            *) echo "opendb : option inconnue : $option (opendb uninstall [--purge] [--yes])." >&2; exit 1 ;;
+        esac
+    done
+
+    if ! installed_by_script; then
+        echo "opendb : cette copie n'a pas été installée par install.sh, elle ne peut pas se désinstaller seule : supprimez son dossier, $directory." >&2
+        exit 1
+    fi
+
+    # Un serveur ou un client MCP lancé depuis cette installation continuerait d'écrire dans ~/.opendb.
+    running=$(pgrep -f "$install_dir/versions/[^ ]*/opendb-core" 2> /dev/null | paste -sd ' ' - || true)
+    if [ -n "$running" ]; then
+        echo "opendb tourne encore (processus $running) : arrêtez « opendb serve » et les clients MCP qui le lancent, puis recommencez." >&2
+        exit 1
+    fi
+
+    # Les commandes qu'install.sh a posées, et seulement elles : celle qui a été lancée, et celle du dossier par défaut.
+    links=""
+    for link in "$invoked" "${OPENDB_BIN_DIR:-$HOME/.local/bin}/opendb"; do
+        [ -L "$link" ] || continue
+        target_dir=$(cd -- "$(dirname -- "$link")" && cd -- "$(dirname -- "$(readlink -- "$link")")" 2> /dev/null && pwd -P || true)
+        if [ "$target_dir" = "$directory" ]; then
+            case " $links " in
+                *" $link "*) ;;
+                *) links="$links $link" ;;
+            esac
+        fi
+    done
+
+    echo "opendb $(cat "$directory/VERSION") va être désinstallé :"
+    echo "  - le programme, dans $install_dir"
+    for link in $links; do
+        echo "  - la commande $link"
+    done
+    if [ "$purge" = true ]; then
+        echo "  - vos données, dans $home : connexions, conversations, réglages et clé de chiffrement"
+    else
+        echo "Vos données restent dans $home (opendb uninstall --purge les retire aussi)."
+    fi
+
+    if [ "$confirmed" != true ]; then
+        if ! (exec < /dev/tty) 2> /dev/null; then
+            echo "opendb : aucun terminal pour confirmer : relancez avec --yes." >&2
+            exit 1
+        fi
+        printf 'Continuer ? [o/N] '
+        read -r answer < /dev/tty || answer=""
+        case $answer in
+            o | O | oui | Oui | OUI | y | Y | yes | Yes | YES) ;;
+            *) echo "Rien n'a été retiré."; exit 0 ;;
+        esac
+    fi
+
+    # Ce qu'install.sh a créé, et non tout le dossier : OPENDB_INSTALL_DIR a pu en désigner un qui contient autre chose.
+    for link in $links; do
+        rm -f "$link"
+    done
+    rm -f "$install_dir/current" "$install_dir/previous"
+    rm -rf "$install_dir/versions"
+    rmdir "$install_dir" 2> /dev/null || true
+
+    if [ "$purge" = true ]; then
+        rm -rf "$home"
+    else
+        # L'application décompressée par le binaire et les caches se refont : seules les données restent.
+        rm -rf "$home"/tmp/frankenphp_* "$home/cache" "$home/php"
+    fi
+
+    echo "opendb est désinstallé."
+    echo "Si un client MCP (Claude Code, Cursor…) lance opendb, retirez-le aussi de sa configuration."
+    exit 0
+fi
+
 # La console compile chaque fichier une seule fois : le cache sur disque d'OPcache sert d'une commande à l'autre.
 if [ ! -f "$home/php/opendb.ini" ]; then
     mkdir -p "$home/php" "$home/cache/opcache"
@@ -41,9 +130,7 @@ mkdir -p "$TMPDIR"
 chmod 700 "$home" "$TMPDIR"
 
 if [ "${1:-}" = "self-update" ]; then
-    # build/install.sh garde chaque version dans <dossier>/versions/<version>, et <dossier>/current mène à celle en cours.
-    install_dir=$(dirname "$(dirname "$directory")")
-    if [ "$(basename "$(dirname "$directory")")" != "versions" ]; then
+    if ! installed_by_script; then
         echo "opendb : cette copie n'a pas été installée par install.sh, elle ne peut pas se mettre à jour seule." >&2
         exit 1
     fi

@@ -276,6 +276,22 @@ jobs:
           & "$runtime\frankenphp.exe" php-cli $script
           if ($LASTEXITCODE -ne 0) { throw 'L appel HTTPS a echoue.' }
 
+      - name: Uninstall
+        shell: powershell
+        run: |
+          $opendb = "$env:LOCALAPPDATA\opendb\bin\opendb.cmd"
+          # Le serveur de l'étape précédente tourne encore : Windows garderait une partie de ses fichiers.
+          & $opendb uninstall --yes
+          if ($LASTEXITCODE -eq 0) { throw 'uninstall a retire une version qui tournait.' }
+          if (-not (Test-Path "$env:LOCALAPPDATA\opendb\current\opendb.cmd")) { throw 'uninstall a retire des fichiers malgre le serveur.' }
+          Get-Process frankenphp -ErrorAction SilentlyContinue | Stop-Process -Force
+          Start-Sleep 2
+          & $opendb uninstall --yes
+          if ($LASTEXITCODE -ne 0) { throw "uninstall a echoue ($LASTEXITCODE)." }
+          if (Test-Path "$env:LOCALAPPDATA\opendb") { throw 'Le programme est reste.' }
+          if (-not (Test-Path "$env:USERPROFILE\.opendb\config\.env")) { throw 'Les donnees ont ete retirees.' }
+          if (([Environment]::GetEnvironmentVariable('Path', 'User') -split ';') -contains "$env:LOCALAPPDATA\opendb\bin") { throw 'Le PATH garde opendb.' }
+
   # Tout ou rien : la version n'est publiée que si chaque job a réussi. Seul macOS peut manquer, sauté sur un dépôt privé.
   publish:
     needs: [tests, app, linux, macos, windows, windows-smoke-test]
