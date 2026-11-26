@@ -231,6 +231,21 @@ it('gives the chat back without an error when Ctrl+C interrupts the answer', fun
         ->assertSuccessful();
 });
 
+it('titles a conversation with its message when the chat is left before any answer, so the web chat never waits for it', function () {
+    $user = User::factory()->create();
+    $project = chatProject($user);
+    SQLDatabaseAgent::fake([fn () => throw new AnswerInterrupted]);
+    AnonymousAgent::fake(['Titre']);
+
+    openChat($user, $project)
+        ->expectsQuestion('Message', 'Combien de   clients ?')
+        ->expectsQuestion('Message', '/quit')
+        ->assertSuccessful();
+
+    expect($user->conversations()->sole()->title)->toBe('Combien de clients ?');
+    AnonymousAgent::assertNeverPrompted();
+});
+
 it('asks again the approval a conversation was left waiting for', function () {
     $user = User::factory()->create();
     $project = chatProject($user);
@@ -267,10 +282,13 @@ it('sends again a message whose answer never came', function () {
         ->expectsOutputToContain('Le fournisseur d\'IA reçoit trop de requêtes pour le moment.')
         ->expectsQuestion('Message', '/retry')
         ->expectsOutputToContain('Bonjour !')
+        ->expectsOutputToContain('Conversation : Titre')
         ->expectsQuestion('Message', '/quit')
         ->assertSuccessful();
 
-    expect($user->conversations()->sole()->messages()->oldest()->orderBy('id')->pluck('content')->all())->toBe(['Salut', 'Bonjour !']);
+    expect($user->conversations()->sole())
+        ->title->toBe('Titre')
+        ->and($user->conversations()->sole()->messages()->oldest()->orderBy('id')->pluck('content')->all())->toBe(['Salut', 'Bonjour !']);
 });
 
 it('tells how to come back to the conversation when the chat is left', function () {

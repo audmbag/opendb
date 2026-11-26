@@ -89,6 +89,8 @@ class Chat extends Command
         $session = new ChatSession($user, $project, $settings, interactive: $message === null);
 
         $session->conversation = $conversation;
+        // A conversation left without a title, by an older version, gets one with its next answer.
+        $session->awaitsTitle = $conversation !== null && blank($conversation->title);
 
         $this->shareTerminal();
         $this->laravel->instance(ChatSession::class, $session);

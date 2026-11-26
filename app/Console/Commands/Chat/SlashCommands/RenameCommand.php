@@ -46,6 +46,9 @@ class RenameCommand extends SlashCommand
 
         $this->conversationRepository->update($session->conversation, ['title' => $title]);
 
+        // The title the user chose is not replaced by the one the model writes after the next answer.
+        $session->awaitsTitle = false;
+
         $this->terminal->success(__('conversations.title_updated'));
     }
 }

@@ -6,10 +6,8 @@ use App\Ai\Data\AiModel;
 use App\Models\Provider;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Config;
-use Illuminate\Support\Str;
 use Laravel\Ai\Ai;
 use Laravel\Ai\Enums\Lab;
-use Throwable;
 
 use function Laravel\Ai\agent;
 
@@ -75,22 +73,18 @@ readonly class ProviderManagerService
         });
     }
 
+    /**
+     * The answer of the model as it wrote it: the caller cleans it up and falls back on the message when it fails.
+     */
     public function generateConversationTitle(string $prompt, string $model): string
     {
-        try {
-            $instructions = 'Generate a concise 3-5 word title for a conversation that starts with the given message. Use the same language as the message. Respond with only the title, no quotes or punctuation.';
+        $instructions = 'Generate a concise 3-5 word title for a conversation that starts with the given message. Use the same language as the message. Respond with only the title, no quotes or punctuation.';
 
-            $response = agent(instructions: $instructions)->prompt(<<<PROMPT
-                The message :
-                ___
-                {$prompt}
-                ___
-            PROMPT, provider: $this->name, model: $model);
-
-            return Str::limit($response->text);
-
-        } catch (Throwable) {
-            return Str::limit($prompt, 30, preserveWords: true);
-        }
+        return agent(instructions: $instructions)->prompt(<<<PROMPT
+            The message :
+            ___
+            {$prompt}
+            ___
+        PROMPT, provider: $this->name, model: $model)->text;
     }
 }
