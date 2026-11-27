@@ -14,7 +14,7 @@
     "devDependencies": {
         "@eslint/js": "^10.0.1",
         "@laravel/vite-plugin-wayfinder": "^0.1.11",
-        "@stylistic/eslint-plugin": "^5.10.0",
+        "@stylistic/eslint-plugin": "^6.0.1",
         "@types/node": "^26.6.6",
         "@types/papaparse": "^5.5.2",
         "babel-plugin-react-compiler": "^1.0.0",
